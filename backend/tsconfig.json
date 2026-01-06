@@ -36,8 +36,8 @@
 
     // Other Outputs
     "sourceMap": true,
+    "esModuleInterop": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
     "noUncheckedSideEffectImports": true,
     "skipLibCheck": true
   }
