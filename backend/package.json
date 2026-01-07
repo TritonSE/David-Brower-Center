@@ -17,6 +17,7 @@
     "prepare": "cd .. && husky"
   },
   "dependencies": {
+    "@prisma/client": "^7.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
@@ -31,6 +32,7 @@
     "eslint": "^9.39.2",
     "husky": "^9.1.7",
     "prettier": "^3.7.4",
+    "prisma": "^7.2.0",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3"
