@@ -13,7 +13,7 @@ Add the `.env.frontend` and `.end.backend` from the project google drive to thei
 
 ## Backend
 
-1. `backend`
+1. `cd backend`
 2. Run `npm install` to install all dependencies
 3. `npm run start` to start the backend
 
