@@ -18,6 +18,10 @@ app.use(express.json());
 
 app.use(log);
 
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
+
 app.use(errorHandler);
 app.listen(PORT, () => {
   console.info(`> Listening on port ${PORT}`);
