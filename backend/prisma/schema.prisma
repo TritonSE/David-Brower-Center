@@ -5,10 +5,35 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model Organization {
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  mission String? @db.Text
+
+  // Location
+  city      String?
+  state     String?
+  country   String? @default("United States")
+  latitude  Float?
+  longitude Float?
+
+  // Budget
+  min_budget Int?
+  max_budget Int?
+
+  // Tags
+  tags String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
 }
