@@ -10,7 +10,7 @@ alwaysApply: true
 - Prefer **readable, well-documented code** over cleverness. Add comments for non-obvious logic.
 - **No TODOs, placeholders, or stubs** in committed code; fully implement features.
 - Use **TypeScript** strictly; avoid `any`. Handle errors explicitly (log and rethrow or return).
-- **Backend**: Use Express middleware, Prisma for DB. Keep `backend/.env` loaded from `.env` (copy from `.env.backend` when using env files).
+- **Backend**: Express middleware, Prisma for DB. Env from `backend/.env` (use `.env.backend.example` as template).
 - **Frontend**: Next.js App Router, React 19. Use `NEXT_PUBLIC_*` only for client-safe env vars.
 
 ## Commits
