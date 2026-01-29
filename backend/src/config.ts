@@ -1,8 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import dotenv from "dotenv";
 
 import { InternalError } from "./errors/internal";
 
-dotenv.config();
+const cwd = process.cwd();
+const envPath = path.join(cwd, ".env");
+const envBackendPath = path.join(cwd, ".env.backend");
+const loadPath = fs.existsSync(envPath)
+  ? envPath
+  : fs.existsSync(envBackendPath)
+    ? envBackendPath
+    : envPath;
+dotenv.config({ path: loadPath });
 
 function throwIfUndefined(envVar: string | undefined, error: InternalError): string {
   if (!envVar) throw error;
