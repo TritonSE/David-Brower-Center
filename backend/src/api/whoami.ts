@@ -3,11 +3,7 @@ import { Router } from "express";
 
 const router = Router();
 
-
-const supabaseAuth = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!,
-);
+const supabaseAuth = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL!,
@@ -17,14 +13,13 @@ const supabaseAdmin = createClient(
 type PublicUserRow = {
   id: string | number;
   supabase_user_id: string;
+  name: string;
   email: string;
   role: string;
 };
 
-
-router.get("/whoami", async (req, res, next) => {
+router.get("/whoami", async (req, res) => {
   try {
-
     const authHeader = req.headers.authorization;
 
     if (typeof authHeader !== "string") {
@@ -45,10 +40,9 @@ router.get("/whoami", async (req, res, next) => {
 
     const supabaseUserId = data.user.id;
 
-
     const { data: userRow, error: dbError } = await supabaseAdmin
       .from("users")
-      .select("supabase_user_id, name, email ,role") 
+      .select("supabase_user_id, name, email ,role")
       .eq("supabase_user_id", supabaseUserId)
       .single<PublicUserRow>();
 
@@ -60,7 +54,7 @@ router.get("/whoami", async (req, res, next) => {
       id: userRow.supabase_user_id,
       name: userRow.name,
       role: userRow.role,
-      email: userRow.email
+      email: userRow.email,
     });
   } catch (err: unknown) {
     console.error(err);
@@ -69,8 +63,3 @@ router.get("/whoami", async (req, res, next) => {
 });
 
 export default router;
-
-
-
-
-
