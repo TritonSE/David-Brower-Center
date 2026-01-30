@@ -1,9 +1,9 @@
 import cors from "cors";
 import express from "express";
-
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
+import apiRouter from "./api/whoami";
 
 const app = express();
 
@@ -21,6 +21,9 @@ app.use(log);
 app.get("/", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
+
+// Mount API routes
+app.use("/api", apiRouter);
 
 app.use(errorHandler);
 app.listen(PORT, () => {
