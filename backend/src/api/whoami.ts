@@ -1,6 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
 import { Router } from "express";
-
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const router = Router();
 
@@ -13,13 +12,23 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   throw new Error("Missing required Supabase environment variables");
 }
 
-// Explicitly type the Supabase clients
-const supabaseAuth: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-const supabaseAdmin: SupabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+// Let TypeScript infer the types - don't explicitly type these
+const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 type PublicUserRow = {
   supabase_user_id: string;
   role: string;
+};
+
+type AuthResult = {
+  data: { user: { id: string } } | null;
+  error: Error | null;
+};
+
+type DbResult = {
+  data: PublicUserRow | null;
+  error: Error | null;
 };
 
 router.get("/whoami", async (req, res, next) => {
@@ -36,9 +45,8 @@ router.get("/whoami", async (req, res, next) => {
       return res.status(401).json({ error: "Missing or invalid Authorization header" });
     }
 
-    // Type the auth result explicitly
-    const authResult: { data: { user: { id: string } } | null; error: Error | null } =
-      await supabaseAuth.auth.getUser(token);
+    // Type the result, not the client
+    const authResult = (await supabaseAuth.auth.getUser(token)) as AuthResult;
 
     if (authResult.error || !authResult.data?.user) {
       return res.status(401).json({ error: "Invalid or expired token" });
@@ -46,13 +54,12 @@ router.get("/whoami", async (req, res, next) => {
 
     const supabaseUserId = authResult.data.user.id;
 
-    // Type the database result explicitly
-    const dbResult: { data: PublicUserRow | null; error: Error | null } =
-      await supabaseAdmin
-        .from("users")
-        .select("supabase_user_id, role")
-        .eq("supabase_user_id", supabaseUserId)
-        .single();
+    // Type the result, not the client
+    const dbResult = (await supabaseAdmin
+      .from("users")
+      .select("supabase_user_id, role")
+      .eq("supabase_user_id", supabaseUserId)
+      .single()) as DbResult;
 
     if (dbResult.error || !dbResult.data) {
       return res.status(404).json({ error: "User does not exist" });
