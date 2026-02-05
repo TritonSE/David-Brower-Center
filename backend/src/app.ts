@@ -1,9 +1,10 @@
 import cors from "cors";
 import express from "express";
+
+import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
-import apiRouter from "./api/whoami";
 
 const app = express();
 

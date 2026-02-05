@@ -18,7 +18,7 @@ type PublicUserRow = {
   role: string;
 };
 
-router.get("/whoami", async (req, res) => {
+router.get("/whoami", async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -42,7 +42,7 @@ router.get("/whoami", async (req, res) => {
 
     const { data: userRow, error: dbError } = await supabaseAdmin
       .from("users")
-      .select("supabase_user_id, name, email ,role")
+      .select("supabase_user_id, name, email, role")
       .eq("supabase_user_id", supabaseUserId)
       .single<PublicUserRow>();
 
@@ -57,8 +57,7 @@ router.get("/whoami", async (req, res) => {
       email: userRow.email,
     });
   } catch (err: unknown) {
-    console.error(err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    next(err);
   }
 });
 
