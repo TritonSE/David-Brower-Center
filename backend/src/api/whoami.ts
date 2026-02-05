@@ -3,18 +3,20 @@ import { Router } from "express";
 
 const router = Router();
 
-const supabaseAuth = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+// Ensure environment variables are strings
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+  throw new Error("Missing required Supabase environment variables");
+}
+
+const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 type PublicUserRow = {
-  id: string | number;
   supabase_user_id: string;
-  name: string;
-  email: string;
   role: string;
 };
 
@@ -32,29 +34,30 @@ router.get("/whoami", async (req, res, next) => {
       return res.status(401).json({ error: "Missing or invalid Authorization header" });
     }
 
-    const { data, error } = await supabaseAuth.auth.getUser(token);
+    const authResult = await supabaseAuth.auth.getUser(token);
 
-    if (error || !data?.user) {
+    if (authResult.error || !authResult.data?.user) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
-    const supabaseUserId = data.user.id;
+    const supabaseUserId = authResult.data.user.id;
 
-    const { data: userRow, error: dbError } = await supabaseAdmin
+    const dbResult = await supabaseAdmin
       .from("users")
-      .select("supabase_user_id, name, email, role")
+      .select("supabase_user_id, role")
       .eq("supabase_user_id", supabaseUserId)
-      .single<PublicUserRow>();
+      .single();
 
-    if (dbError || !userRow) {
+    if (dbResult.error || !dbResult.data) {
       return res.status(404).json({ error: "User does not exist" });
     }
 
+    const userRow = dbResult.data as PublicUserRow;
+
     return res.json({
       id: userRow.supabase_user_id,
-      name: userRow.name,
       role: userRow.role,
-      email: userRow.email,
+      supabase_user_id: userRow.supabase_user_id,
     });
   } catch (err: unknown) {
     next(err);
