@@ -1,21 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 
+import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../config";
+
 const router = Router();
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-  throw new Error("Missing required Supabase environment variables");
-}
-
-// ✅ Perfectly matches your library’s return type, no generic mismatch
-type SupabaseClientLike = ReturnType<typeof createClient>;
-
-const supabaseAuth: SupabaseClientLike = createClient(supabaseUrl, supabaseAnonKey);
-const supabaseAdmin: SupabaseClientLike = createClient(supabaseUrl, supabaseServiceRoleKey);
+// Use the environment variables from config (already validated)
+const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 type PublicUserRow = {
   supabase_user_id: string;
