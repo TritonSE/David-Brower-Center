@@ -1,17 +1,27 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 
 import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../config";
 
 const router = Router();
 
-// Use the environment variables from config (already validated)
-const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY) as SupabaseClient;
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) as SupabaseClient;
+// Remove type assertions - let TypeScript infer the types
+const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 type PublicUserRow = {
   supabase_user_id: string;
   role: string;
+};
+
+type AuthUserResult = {
+  data: { user: { id: string } } | null;
+  error: Error | null;
+};
+
+type DbResult = {
+  data: PublicUserRow | null;
+  error: Error | null;
 };
 
 router.get("/whoami", async (req: Request, res: Response, next: NextFunction) => {
@@ -27,19 +37,24 @@ router.get("/whoami", async (req: Request, res: Response, next: NextFunction) =>
       return res.status(401).json({ error: "Missing or invalid Authorization header" });
     }
 
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser(token);
+    // Type the result explicitly, not the client
+    const authResult = (await supabaseAuth.auth.getUser(token)) as AuthUserResult;
+    const { data: authData, error: authError } = authResult;
 
-    if (authError || !authData.user) {
+    if (authError || !authData?.user) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
     const supabaseUserId = authData.user.id;
 
-    const { data: userRow, error: dbError } = await supabaseAdmin
+    // Type the result explicitly, not the client
+    const dbResult = (await supabaseAdmin
       .from("users")
       .select("supabase_user_id, role")
       .eq("supabase_user_id", supabaseUserId)
-      .single<PublicUserRow>();
+      .single()) as DbResult;
+
+    const { data: userRow, error: dbError } = dbResult;
 
     if (dbError || !userRow) {
       return res.status(404).json({ error: "User does not exist" });
