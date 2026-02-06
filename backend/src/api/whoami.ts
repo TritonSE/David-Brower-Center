@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 
 import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../config";
@@ -6,8 +6,8 @@ import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../c
 const router = Router();
 
 // Use the environment variables from config (already validated)
-const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY) as SupabaseClient;
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) as SupabaseClient;
 
 type PublicUserRow = {
   supabase_user_id: string;
