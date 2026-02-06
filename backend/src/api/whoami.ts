@@ -1,13 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 
 import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../config";
 
 const router = Router();
 
-// Remove type assertions - let TypeScript infer the types
-const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAuthUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseAdminUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const supabaseAuth = supabaseAuthUnknown as SupabaseClient;
+const supabaseAdmin = supabaseAdminUnknown as SupabaseClient;
 
 type PublicUserRow = {
   supabase_user_id: string;
