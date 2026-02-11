@@ -52,8 +52,10 @@
   min-height: 80vh;
   overflow: hidden;
   border: 1px solid #e0e0e0;
-  width: 1480;
-  min-height: 300px;
+  width: 100%; /* was 1480, fix to allow responsiveness */
+  max-width: 1480px;
+  margin: 0 auto; /* center the card */
+  /* /min-height: 300px; two min-height props so I remove for now*/
 }
 
 /* Sidebar */
@@ -127,6 +129,7 @@
   flex: 1;
   padding: 48px 64px;
   padding-left: 120px; /* bring text slightly closer inside the card */
+  padding-bottom: 120px;
 }
 
 /* Profile header */
@@ -204,6 +207,21 @@
   outline: none;
 }
 
+.input {
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 12px;
+  border: 1px solid #dedede;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #222;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #3b9c9c;
+}
+
 .edit-icon-base {
   width: 20px;
   height: 20px;
@@ -237,24 +255,28 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 543px;
-  max-width: 543px;
+  width: 100%; /*was 543px; */
+  max-width: 720px; /*543px;*/
   min-height: 396px;
 }
 
 .form-grid > div {
   display: flex;
-  align-items: baseline;
+  align-items: center; /* was  baseline;  */
+  gap: 32px;
 }
 
 label {
-  width: 240px;
+  width: 220px; /* was 240px; */
+  flex-shrink: 0;
   font-size: 13px;
   color: #888;
 }
 
 .info-value {
-  width: 260px;
+  flex: 1; /* fix spanning */
+  width: auto; /* was 260px, change to match input width*/
+  min-width: 0;
   text-align: left;
   font-size: 13px;
   color: #888;
@@ -464,6 +486,164 @@ label {
 }
 
 button {
-  all: unset;
+  /*all: unset;*/
   cursor: pointer;
+}
+
+.save-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+
+  padding: 16px 30px;
+  border-radius: 30px;
+
+  background: #3b9c9c;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+
+  border: none;
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-warning {
+  position: absolute;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  background: #d7efee;
+  border: 1px solid #a9d9d6;
+  padding: 12px 16px;
+  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 101;
+}
+
+.close-warning-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Sign out card */
+.modal-card {
+  width: 560px;
+  max-width: 90%;
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.modal-description {
+  font-size: 14px;
+  color: #777;
+  line-height: 1.6;
+  margin-bottom: 40px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.modal-cancel {
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: #f2f2f2;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.modal-confirm {
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: #3b9c9c;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Change Password Page */
+.back-link {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 24px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.change-password-form {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.save-changes-btn {
+  margin-top: 24px;
+  align-self: flex-start;
+
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: none;
+
+  background: #3b9c9c;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.save-changes-btn:hover {
+  background: #2d7a7a;
+}
+
+.pw-error {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #d9534f;
+}
+
+.pw-saved {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #aaa;
 }
