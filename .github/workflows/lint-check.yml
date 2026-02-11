@@ -15,6 +15,7 @@ jobs:
       - working-directory: backend
         run: |
           npm ci
+          npx prisma generate
           npm run lint-check
   frontend:
     name: Frontend lint and style check
