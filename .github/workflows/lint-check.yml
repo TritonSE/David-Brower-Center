@@ -14,8 +14,8 @@ jobs:
       - uses: actions/setup-node@v3
       - working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DATABASE_URL: ${{ secrets.LINT_DB_URL }}
+          DIRECT_URL: ${{ secrets.LINT_DB_URL }}
         run: |
           npm ci
           npx prisma generate
