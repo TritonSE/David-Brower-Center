@@ -13,8 +13,12 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
       - working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.LINT_DB_URL }}
+          DIRECT_URL: ${{ secrets.LINT_DB_URL }}
         run: |
           npm ci
+          npx prisma generate
           npm run lint-check
   frontend:
     name: Frontend lint and style check
