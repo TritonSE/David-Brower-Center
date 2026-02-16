@@ -7,7 +7,7 @@
   "keywords": [],
   "main": "index.js",
   "scripts": {
-    "start": "nodemon src/app.ts",
+    "start": "nodemon --exec \"npx ts-node\" src/app.ts",
     "build": "npm ci && tsc && tsc-alias",
     "test": "echo \"Error: no test specified\" && exit 1",
     "check-git-hooks": "cd .. && node .secret-scan/secret-scan.js -- --check-git-hooks",
@@ -17,13 +17,16 @@
     "prepare": "cd .. && husky"
   },
   "dependencies": {
-    "@prisma/client": "^7.3.0",
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.2.0",
     "@supabase/supabase-js": "^2.93.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "http-errors": "^2.0.1",
     "mongoose": "^8.21.0",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "pg": "^8.17.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
