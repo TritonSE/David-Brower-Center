@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import createError from "http-errors";
 
+import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import { prisma } from "./lib/prisma";
 import errorHandler from "./middleware/errorHandler";
@@ -24,6 +25,8 @@ app.get("/", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
+// Mount API routes
+app.use("/api", apiRouter);
 app.get("/organizations", async (req, res, next) => {
   try {
     const organizations = await prisma.organization.findMany();

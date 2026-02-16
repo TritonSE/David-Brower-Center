@@ -22,7 +22,7 @@ export default antfu({
 
   // Enables type aware rules
   typescript: {
-    tsconfigPath: "tsconfig.json",
+    tsconfigPath: "./tsconfig.json",
     overrides: {
       // Avoid bugs
       "ts/no-shadow": ["error", { ignoreTypeValueShadow: true }],
