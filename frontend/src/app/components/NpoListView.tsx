@@ -5,9 +5,6 @@ export type Row = {
   id: string;
   name: string;
   focus: string;
-  size: string;
-  budget: string;
-  location: string;
   year: string;
 };
 
