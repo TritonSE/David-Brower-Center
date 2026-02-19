@@ -1,137 +1,165 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
 
+import { getOrganizationById, getOrganizations } from "@/api/organization";
+
 const tagIconEnvironmental =
   "https://www.figma.com/api/mcp/asset/ca9189f4-b7cc-4829-aba5-ca0a5f187c63";
 const tagIconPeople = "https://www.figma.com/api/mcp/asset/12dc4428-fdae-413c-b197-aa5c28ed3003";
 const tagIconMoney = "https://www.figma.com/api/mcp/asset/617eab0e-129e-4a76-9b50-9075ae8e634b";
 const tagIconLocation = "https://www.figma.com/api/mcp/asset/fd5607d5-7878-4e73-9008-8e6223c9c745";
+const POPUP_FADE_DURATION_MS = 200;
 
-const rows: Row[] = [
-  {
-    id: "org-1",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Mid Sized",
-    budget: "100k",
-    location: "Berkeley, CA",
-    year: "2026",
-  },
-  {
-    id: "org-2",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-3",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-4",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-5",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-6",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-7",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-8",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-9",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-  {
-    id: "org-10",
-    name: "Organization Name",
-    focus: "Environmental",
-    size: "Size",
-    budget: "XXX",
-    location: "Location",
-    year: "2026",
-  },
-];
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export default function HomePage() {
-  const [activeRow, setActiveRow] = useState<Row | null>(null);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [isListLoading, setIsListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<Awaited<
+    ReturnType<typeof getOrganizationById>
+  > | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const detailRequestIdRef = useRef(0);
 
-  // Clear the card content after fade-out to avoid abrupt disappear.
+  const selectedRow = useMemo(
+    () => rows.find((row) => row.id === selectedOrgId) ?? null,
+    [rows, selectedOrgId],
+  );
+
+  const fetchOrganizations = useCallback(async () => {
+    listAbortRef.current?.abort();
+    const abortController = new AbortController();
+    listAbortRef.current = abortController;
+
+    setIsListLoading(true);
+    setListError(null);
+
+    try {
+      const organizations = await getOrganizations(abortController.signal);
+      setRows(organizations);
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setRows([]);
+      setListError(getErrorMessage(error, "Unable to load organizations."));
+    } finally {
+      if (listAbortRef.current === abortController) {
+        setIsListLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    if (!isCardVisible && activeRow) {
-      const timer = setTimeout(() => setActiveRow(null), 200);
+    void fetchOrganizations();
+    return () => listAbortRef.current?.abort();
+  }, [fetchOrganizations]);
+
+  const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
+    detailAbortRef.current?.abort();
+    const abortController = new AbortController();
+    detailAbortRef.current = abortController;
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+
+    setIsDetailLoading(true);
+    setDetailError(null);
+    setActiveOrgDetail(null);
+
+    try {
+      const detail = await getOrganizationById(organizationId, abortController.signal);
+      if (detailRequestIdRef.current !== requestId) return;
+      setActiveOrgDetail(detail);
+    } catch (error) {
+      if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
+      setDetailError(getErrorMessage(error, "Unable to load organization details."));
+    } finally {
+      if (detailRequestIdRef.current === requestId) {
+        setIsDetailLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => detailAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!isCardVisible && selectedOrgId) {
+      const timer = setTimeout(() => {
+        setSelectedOrgId(null);
+        setActiveOrgDetail(null);
+        setDetailError(null);
+        setIsDetailLoading(false);
+      }, POPUP_FADE_DURATION_MS);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isCardVisible, activeRow]);
+  }, [isCardVisible, selectedOrgId]);
+
+  const handleSelect = useCallback(
+    (row: Row) => {
+      if (selectedOrgId === row.id && isCardVisible) {
+        detailAbortRef.current?.abort();
+        setIsCardVisible(false);
+        return;
+      }
+
+      setSelectedOrgId(row.id);
+      setIsCardVisible(true);
+      void fetchOrganizationDetail(row.id);
+    },
+    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+  );
+
+  const handleRetryList = useCallback(() => {
+    void fetchOrganizations();
+  }, [fetchOrganizations]);
+
+  const handleRetryDetail = useCallback(() => {
+    if (!selectedOrgId) return;
+    void fetchOrganizationDetail(selectedOrgId);
+  }, [fetchOrganizationDetail, selectedOrgId]);
 
   const selectedCardProps = useMemo(() => {
-    if (!activeRow) return null;
-
+    if (!activeOrgDetail) return null;
     return {
-      name: activeRow.name,
+      name: activeOrgDetail.name,
       tags: [
-        { iconSrc: tagIconEnvironmental, label: activeRow.focus },
-        { iconSrc: tagIconPeople, label: activeRow.size },
-        { iconSrc: tagIconMoney, label: activeRow.budget },
-        { iconSrc: tagIconLocation, label: activeRow.location },
+        {
+          iconSrc: tagIconEnvironmental,
+          iconAlt: activeOrgDetail.focus,
+          label: activeOrgDetail.focus,
+        },
+        { iconSrc: tagIconPeople, iconAlt: activeOrgDetail.size, label: activeOrgDetail.size },
+        { iconSrc: tagIconMoney, iconAlt: activeOrgDetail.budget, label: activeOrgDetail.budget },
+        {
+          iconSrc: tagIconLocation,
+          iconAlt: activeOrgDetail.location,
+          label: activeOrgDetail.location,
+        },
       ],
-    } as const;
-  }, [activeRow]);
+      description: activeOrgDetail.description,
+      mission: activeOrgDetail.mission,
+    };
+  }, [activeOrgDetail]);
 
   return (
     <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
@@ -161,32 +189,69 @@ export default function HomePage() {
       </header>
 
       <div className="grid gap-6">
-        <NpoListView
-          rows={rows}
-          selectedId={activeRow?.id ?? null}
-          onSelect={(row) => {
-            if (activeRow?.id === row.id && isCardVisible) {
-              setIsCardVisible(false);
-              return;
-            }
-            setActiveRow(row);
-            setIsCardVisible(true);
-          }}
-        />
+        {isListLoading ? (
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
+            Loading organizations...
+          </div>
+        ) : listError ? (
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 shadow-sm">
+            <p className="text-sm text-[#484848]">{listError}</p>
+            <button
+              className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+              type="button"
+              onClick={handleRetryList}
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <NpoListView rows={rows} selectedId={selectedOrgId} onSelect={handleSelect} />
+        )}
       </div>
 
       {/* Overlay card that fades in/out and sits above the page */}
       <div
         className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
-          isCardVisible && selectedCardProps ? "opacity-100" : "opacity-0"
+          isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
         }`}
       >
-        {selectedCardProps ? (
+        {selectedOrgId ? (
           <div
             className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
             style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
           >
-            <NpoProfileCard {...selectedCardProps} />
+            {selectedCardProps ? (
+              <NpoProfileCard {...selectedCardProps} />
+            ) : (
+              <section className="w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                  {selectedRow?.name ?? "Organization"}
+                </h1>
+
+                {isDetailLoading ? (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    Loading organization details...
+                  </p>
+                ) : detailError ? (
+                  <div className="mt-3 space-y-3">
+                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                      {detailError}
+                    </p>
+                    <button
+                      className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+                      type="button"
+                      onClick={handleRetryDetail}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    No organization details available.
+                  </p>
+                )}
+              </section>
+            )}
           </div>
         ) : null}
       </div>

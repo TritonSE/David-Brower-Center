@@ -9,10 +9,22 @@ import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 
 const app = express();
+const allowedOrigins = new Set([FRONTEND_ORIGIN]);
+
+if (process.env.NODE_ENV !== "production") {
+  allowedOrigins.add("http://localhost:3000");
+  allowedOrigins.add("http://localhost:3001");
+}
 
 app.use(
   cors({
-    origin: FRONTEND_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
   }),
 );
@@ -33,6 +45,25 @@ app.get("/organizations", async (req, res, next) => {
     res.status(200).json({ organizations });
   } catch {
     next(createError(500, "Failed to fetch organizations"));
+  }
+});
+
+app.get("/organizations/:id", async (req, res, next) => {
+  try {
+    const organization = await prisma.organization.findUnique({
+      where: {
+        id: req.params.id,
+      },
+    });
+
+    if (!organization) {
+      next(createError(404, `Organization ${req.params.id} not found`));
+      return;
+    }
+
+    res.status(200).json({ organization });
+  } catch {
+    next(createError(500, `Failed to fetch organization ${req.params.id}`));
   }
 });
 
