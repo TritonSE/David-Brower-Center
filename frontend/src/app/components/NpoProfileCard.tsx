@@ -1,8 +1,12 @@
+import Image from "next/image";
+
+import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
+
+import type { ReactElement } from "react";
+
 type Tag = {
-  iconSrc: string;
-  iconAlt: string;
+  icon: ReactElement;
   label: string;
-  iconClassName?: string;
 };
 
 type NpoProfileCardProps = {
@@ -20,30 +24,22 @@ type NpoProfileCardProps = {
   nextLabel: string;
 };
 
-const imgPrimary = "https://www.figma.com/api/mcp/asset/d6d6e1bd-a1df-4ba1-b3cb-c8f40aa0df46";
-const imgSecondary = "https://www.figma.com/api/mcp/asset/2321c6d3-3a5d-4f97-b975-46e05b51d8f8";
-const imgMorePreview = "https://www.figma.com/api/mcp/asset/fe060518-a76d-4f76-964e-30901647e9a7";
-const imgEnvironmental = "https://www.figma.com/api/mcp/asset/cec0c0a0-7539-4e3f-95b9-a90b5a4803e7";
-const imgPeople = "https://www.figma.com/api/mcp/asset/df189257-05b8-43ab-86b9-bfb40045ad6a";
-const imgMoney = "https://www.figma.com/api/mcp/asset/df78feda-0560-4654-9591-1d9a7b72b517";
-const imgLocation = "https://www.figma.com/api/mcp/asset/f80fd60b-8354-42f7-9239-d2a4cb6babc5";
+const imgPrimary = "/images/dbc-primary.svg";
+const imgSecondary = "/images/dbc-secondary.svg";
+const imgMorePreview = "/images/dbc-more-preview.svg";
 
 const defaultContent: NpoProfileCardProps = {
   name: "David Brower Center",
   tags: [
     {
-      iconSrc: imgEnvironmental,
-      iconAlt: "Environmental",
+      icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
       label: "Environmental",
-      iconClassName: "h-[18px] w-[18px]",
     },
-    { iconSrc: imgPeople, iconAlt: "Mid Sized", label: "Mid Sized", iconClassName: "h-4 w-4" },
-    { iconSrc: imgMoney, iconAlt: "100k", label: "100k", iconClassName: "h-[14px] w-[14px]" },
+    { icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />, label: "Mid Sized" },
+    { icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />, label: "100k" },
     {
-      iconSrc: imgLocation,
-      iconAlt: "Berkeley, CA",
+      icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
       label: "Berkeley, CA",
-      iconClassName: "h-[14px] w-[14px]",
     },
   ],
   description:
@@ -81,7 +77,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         {content.tags.map((tag, index) => (
           <div key={tag.label} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
-              <img alt={tag.iconAlt} src={tag.iconSrc} className={tag.iconClassName ?? "h-4 w-4"} />
+              {tag.icon}
               <span className="font-['Rubik',Arial,sans-serif] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
                 {tag.label}
               </span>
@@ -95,26 +91,35 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[10px] flex w-full flex-col gap-[10px] sm:h-[240px] sm:flex-row">
         <div className="h-[220px] w-full overflow-hidden rounded-[12px] sm:h-[240px] sm:w-[369px]">
-          <img
+          <Image
             alt="David Brower Center building"
             src={content.images.primary}
+            width={738}
+            height={480}
+            sizes="(min-width: 640px) 369px, 100vw"
             className="h-full w-full object-cover"
           />
         </div>
 
         <div className="flex w-full flex-row gap-[10px] sm:w-[159px] sm:flex-col">
           <div className="h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[144px] sm:w-[159px]">
-            <img
+            <Image
               alt="David Brower Center interior"
               src={content.images.secondary}
+              width={318}
+              height={288}
+              sizes="(min-width: 640px) 159px, 50vw"
               className="h-full w-full object-cover"
             />
           </div>
 
           <div className="relative h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[86px] sm:w-[159px]">
-            <img
+            <Image
               alt="Additional gallery images"
               src={content.images.morePreview}
+              width={318}
+              height={172}
+              sizes="(min-width: 640px) 159px, 50vw"
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">

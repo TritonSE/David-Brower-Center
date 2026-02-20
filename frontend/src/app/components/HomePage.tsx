@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
@@ -9,11 +10,6 @@ import type { Row } from "./NpoListView";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
 
-const tagIconEnvironmental =
-  "https://www.figma.com/api/mcp/asset/ca9189f4-b7cc-4829-aba5-ca0a5f187c63";
-const tagIconPeople = "https://www.figma.com/api/mcp/asset/12dc4428-fdae-413c-b197-aa5c28ed3003";
-const tagIconMoney = "https://www.figma.com/api/mcp/asset/617eab0e-129e-4a76-9b50-9075ae8e634b";
-const tagIconLocation = "https://www.figma.com/api/mcp/asset/fd5607d5-7878-4e73-9008-8e6223c9c745";
 const POPUP_FADE_DURATION_MS = 200;
 
 function isAbortError(error: unknown): boolean {
@@ -144,15 +140,19 @@ export default function HomePage() {
       name: activeOrgDetail.name,
       tags: [
         {
-          iconSrc: tagIconEnvironmental,
-          iconAlt: activeOrgDetail.focus,
+          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
           label: activeOrgDetail.focus,
         },
-        { iconSrc: tagIconPeople, iconAlt: activeOrgDetail.size, label: activeOrgDetail.size },
-        { iconSrc: tagIconMoney, iconAlt: activeOrgDetail.budget, label: activeOrgDetail.budget },
         {
-          iconSrc: tagIconLocation,
-          iconAlt: activeOrgDetail.location,
+          icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
+          label: activeOrgDetail.size,
+        },
+        {
+          icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.budget,
+        },
+        {
+          icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
           label: activeOrgDetail.location,
         },
       ],
