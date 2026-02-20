@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import "../AdminProfile.css";
+import "./AdminProfile.css";
 
 export default function AdminProfile() {
   type View = "profile" | "changePassword";
