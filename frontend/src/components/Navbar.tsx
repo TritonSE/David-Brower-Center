@@ -5,6 +5,12 @@ import { useMemo, useState } from "react";
 
 export type NavbarView = "graph" | "list" | "admin";
 
+const viewRoutes: Record<NavbarView, string> = {
+  graph: "/",
+  list: "/",
+  admin: "/profile",
+};
+
 type NavbarProps = {
   isAdmin?: boolean;
   defaultView?: NavbarView;
@@ -41,36 +47,21 @@ export default function Navbar({
         {views.map((view) => {
           const isActive = activeView === view;
 
-          if (view === "admin") {
-            return (
-              <Link
-                key={view}
-                href="/profile"
-                onClick={() => handleSelect(view)}
-                className={`min-w-[72px] rounded-full px-6 py-2 text-center text-base font-medium transition-colors ${
-                  isActive
-                    ? "bg-teal-600 text-white"
-                    : "text-slate-500 hover:bg-slate-300 hover:text-slate-700"
-                }`}
-              >
-                Admin
-              </Link>
-            );
-          }
+          const href = viewRoutes[view];
 
           return (
-            <button
+            <Link
               key={view}
-              type="button"
+              href={href}
               onClick={() => handleSelect(view)}
-              className={`min-w-[72px] rounded-full px-6 py-2 text-base font-medium transition-colors ${
+              className={`min-w-[72px] rounded-full px-6 py-2 text-center text-base font-medium transition-colors ${
                 isActive
                   ? "bg-teal-600 text-white"
                   : "text-slate-500 hover:bg-slate-300 hover:text-slate-700"
               }`}
             >
               {view.charAt(0).toUpperCase() + view.slice(1)}
-            </button>
+            </Link>
           );
         })}
       </div>

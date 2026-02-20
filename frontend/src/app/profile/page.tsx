@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import "./AdminProfile.css";
 
@@ -9,7 +9,6 @@ export default function AdminProfile() {
 
   const [view, setView] = useState<View>("profile");
 
-  const [activeToggle, setActiveToggle] = useState("Admin");
   const [activeSidebarItem, setActiveSidebarItem] = useState("Account");
   const role = "Founder";
   const [userData, setUserData] = useState({
@@ -31,10 +30,6 @@ export default function AdminProfile() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [pwError, setPwError] = useState("");
   const [pwSavedAt, setPwSavedAt] = useState<string | null>(null);
-
-  // drop downs states
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   function handleUserInfoChange(key: keyof typeof draftUserInfo, value: string) {
     setDraftUserInfo((prev) => ({ ...prev, [key]: value }));
@@ -69,176 +64,8 @@ export default function AdminProfile() {
     setView("profile");
   }
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    }
-
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsDropdownOpen(false);
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-    };
-  }, []);
-
-  function guardNavigation() {
-    if (isEditing) {
-      setShowSaveWarning(true);
-      return false;
-    }
-    return true;
-  }
-
   return (
     <div className="page">
-      {/* Top toggle bar */}
-      <div className="top-bar">
-        <div className="toggle">
-          <span
-            className={activeToggle === "Graph" ? "active" : ""}
-            onClick={() => {
-              if (isEditing) {
-                setShowSaveWarning(true);
-                return;
-              }
-              setActiveToggle("Graph");
-            }}
-          >
-            Graph
-          </span>
-          <span
-            className={activeToggle === "List" ? "active" : ""}
-            onClick={() => {
-              if (isEditing) {
-                setShowSaveWarning(true);
-                return;
-              }
-              setActiveToggle("List");
-            }}
-          >
-            List
-          </span>
-          <span
-            className={activeToggle === "Admin" ? "active" : ""}
-            onClick={() => {
-              if (isEditing) {
-                setShowSaveWarning(true);
-                return;
-              }
-              setActiveToggle("Admin");
-            }}
-          >
-            Admin
-          </span>
-        </div>
-
-        {/* Mini sidebar (static, no dropdown action) */}
-        <div
-          className={`mini-sidebar-wrapper ${isDropdownOpen ? "dropdown-open" : ""}`}
-          ref={dropdownRef}
-        >
-          <button
-            type="button"
-            className={`mini-sidebar ${isDropdownOpen ? "mini-sidebar-open" : ""}`}
-            onClick={() => setIsDropdownOpen((v) => !v)}
-          >
-            <Image
-              src="/small-Maria.png"
-              alt="user"
-              width={32}
-              height={32}
-              className="mini-sidebar-avatar"
-            />
-            <span className="user-name">Jane Doe</span>
-            <span className={`dropdown-caret ${isDropdownOpen ? "dropdown-caret-up" : ""}`}>▼</span>
-          </button>
-
-          {isDropdownOpen && (
-            <div className="dropdown-panel">
-              <div className="dropdown-header">
-                <Image
-                  src="/AdminProfilePngs/small-Maria.png"
-                  alt="user"
-                  width={32}
-                  height={32}
-                  className="dropdown-header-avatar"
-                />
-                <span className="dropdown-header-name">Jane Doe</span>
-              </div>
-
-              <hr className="dropdown-divider" />
-
-              <button
-                type="button"
-                className="dropdown-item"
-                onClick={() => {
-                  if (!guardNavigation()) return;
-                  setView("profile");
-                  setActiveSidebarItem("Account");
-                  setIsDropdownOpen(false);
-                }}
-              >
-                <Image
-                  src="/AdminProfilePngs/gg_profile.png"
-                  className="dropdown-item-icon"
-                  alt=""
-                  width={20}
-                  height={20}
-                />
-                View Account
-              </button>
-
-              <button
-                type="button"
-                className="dropdown-item"
-                onClick={() => {
-                  if (!guardNavigation()) return;
-                  setView("profile");
-                  setActiveSidebarItem("Manage NPO");
-                  setIsDropdownOpen(false);
-                }}
-              >
-                <Image
-                  src="/material-symbols_manage-accounts-rounded.png"
-                  className="dropdown-item-icon"
-                  alt=""
-                  width={20}
-                  height={20}
-                />
-                Manage NPO
-              </button>
-
-              <button
-                type="button"
-                className="dropdown-item"
-                onClick={() => {
-                  if (!guardNavigation()) return;
-                  setIsDropdownOpen(false);
-                  setShowSignOutModal(true);
-                }}
-              >
-                <Image
-                  src="/material-symbols_logout-rounded.png"
-                  className="dropdown-item-icon"
-                  alt=""
-                  width={20}
-                  height={20}
-                />
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Main card */}
       <div className="card">
         {/* Sidebar */}
