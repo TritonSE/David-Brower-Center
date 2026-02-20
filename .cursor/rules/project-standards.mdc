@@ -1,0 +1,21 @@
+---
+description: Project standards, conventional commits, and commit-after-change
+alwaysApply: true
+---
+
+# David Brower Center – Project Standards
+
+## Best practices
+
+- Prefer **readable, well-documented code** over cleverness. Add comments for non-obvious logic.
+- **No TODOs, placeholders, or stubs** in committed code; fully implement features.
+- Use **TypeScript** strictly; avoid `any`. Handle errors explicitly (log and rethrow or return).
+- **Backend**: Express middleware, Prisma for DB. Env from `backend/.env` (use `.env.backend.example` as template).
+- **Frontend**: Next.js App Router, React 19. Use `NEXT_PUBLIC_*` only for client-safe env vars.
+
+## Commits
+
+- Use **Conventional Commits**: `type(scope?): description`.
+  - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, etc.
+  - Example: `feat(api): add GET /orgs endpoint`
+- **Commit after every code change.** When you finish a logical edit (fix, feature, refactor), stage and commit immediately with a conventional message. Do not leave uncommitted code at end of session.
