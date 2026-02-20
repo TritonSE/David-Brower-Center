@@ -78,7 +78,7 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
 
           <Link href="/profile" className="profile-btn-item" onClick={() => setIsOpen(false)}>
             <Image
-              src="/material-symbols_manage-accounts-rounded.png"
+              src="/AdminProfilePngs/material-symbols_manage-accounts-rounded.png"
               className="profile-btn-item-icon"
               alt=""
               width={20}
@@ -96,7 +96,7 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
             }}
           >
             <Image
-              src="/material-symbols_logout-rounded.png"
+              src="/AdminProfilePngs/material-symbols_logout-rounded.png"
               className="profile-btn-item-icon"
               alt=""
               width={20}

@@ -75,7 +75,7 @@ export default function AdminProfile() {
             onClick={() => setActiveSidebarItem("Account")}
           >
             <Image
-              src="/uil_setting.png"
+              src="/AdminProfilePngs/uil_setting.png"
               alt="settings icon"
               className="sidebar-icon"
               width={20}
@@ -94,7 +94,7 @@ export default function AdminProfile() {
             }}
           >
             <Image
-              src="/material-symbols_manage-accounts-rounded.png"
+              src="/AdminProfilePngs/material-symbols_manage-accounts-rounded.png"
               alt="manage icon"
               className="sidebar-icon"
               width={25}
@@ -114,7 +114,7 @@ export default function AdminProfile() {
             }}
           >
             <Image
-              src="/material-symbols_logout-rounded.png"
+              src="/AdminProfilePngs/material-symbols_logout-rounded.png"
               alt="logout icon"
               className="sidebar-icon"
               width={25}
@@ -131,7 +131,7 @@ export default function AdminProfile() {
               <div className="profile-header">
                 <div className="profile-image-wrapper">
                   <Image
-                    src="/big-maria.png"
+                    src="/AdminProfilePngs/big-maria.png"
                     alt="profile"
                     width={120}
                     height={120}
