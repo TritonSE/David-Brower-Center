@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 export type NavbarView = "graph" | "list" | "admin";
@@ -39,6 +40,23 @@ export default function Navbar({
       <div className="inline-flex h-12 items-center rounded-full border border-slate-300 bg-slate-200 p-1">
         {views.map((view) => {
           const isActive = activeView === view;
+
+          if (view === "admin") {
+            return (
+              <Link
+                key={view}
+                href="/profile"
+                onClick={() => handleSelect(view)}
+                className={`min-w-[72px] rounded-full px-6 py-2 text-center text-base font-medium transition-colors ${
+                  isActive
+                    ? "bg-teal-600 text-white"
+                    : "text-slate-500 hover:bg-slate-300 hover:text-slate-700"
+                }`}
+              >
+                Admin
+              </Link>
+            );
+          }
 
           return (
             <button
