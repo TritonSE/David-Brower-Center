@@ -1,39 +1,67 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["public"]
 }
 
+// ===========================================
+// YOUR APPLICATION MODELS (public schema)
+// ===========================================
+
 model Organization {
-  id      String  @id @default(uuid()) @db.Uuid
-  name    String
-  mission String? @db.Text
-
-  // Location
-  city      String?
-  state     String?
-  country   String? @default("United States")
-  latitude  Float?
-  longitude Float?
-
-  // Budget
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  mission    String?  @db.Text
+  city       String?
+  state      String?
+  country    String?  @default("United States")
+  latitude   Float?
+  longitude  Float?
   min_budget Int?
   max_budget Int?
-
-  // Tags
-  tags String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  tags       OrganizationTag[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("organizations")
+  @@schema("public")
+}
+
+model Tag {
+  id            String           @id @default(uuid()) @db.Uuid
+  name          String
+  description   String?
+  organizations OrganizationTag[]
+
+  @@map("tags")
+  @@schema("public")
+}
+
+model OrganizationTag {
+  organizationId String @db.Uuid
+  tagId          String @db.Uuid
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tag            Tag          @relation(fields: [tagId], references: [id])
+
+  @@id([organizationId, tagId])
+  @@map("organization_tags")
+  @@schema("public")
+}
+
+/// Your application's users table
+model User {
+  supabase_user_id String   @id @db.Uuid
+  email            String   @unique
+  name             String?
+  role             String   @default("admin")
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  // References Supabase auth.users.id at the application layer (not Prisma-managed FK).
+
+  @@map("users")
+  @@schema("public")
 }

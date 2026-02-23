@@ -1,19 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import dotenv from "dotenv";
 
 import { InternalError } from "./errors/internal";
 
-const cwd = process.cwd();
-const envPath = path.join(cwd, ".env");
-const envBackendPath = path.join(cwd, ".env.backend");
-const loadPath = fs.existsSync(envPath)
-  ? envPath
-  : fs.existsSync(envBackendPath)
-    ? envBackendPath
-    : envPath;
-dotenv.config({ path: loadPath });
+dotenv.config();
 
 function throwIfUndefined(envVar: string | undefined, error: InternalError): string {
   if (!envVar) throw error;
@@ -26,7 +15,6 @@ const FRONTEND_ORIGIN = throwIfUndefined(
   process.env.FRONTEND_ORIGIN,
   InternalError.NO_FRONTEND_ORIGIN,
 );
-
 const SUPABASE_URL = throwIfUndefined(process.env.SUPABASE_URL, InternalError.NO_SUPABASE_URL);
 const SUPABASE_ANON_KEY = throwIfUndefined(
   process.env.SUPABASE_ANON_KEY,
