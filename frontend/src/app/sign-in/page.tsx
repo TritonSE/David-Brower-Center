@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
-import styles from "../Sign_In.module.css";
+import styles from "./Sign_In.module.css";
 
 function GoogleIcon() {
   return (
