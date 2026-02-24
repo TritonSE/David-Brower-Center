@@ -130,7 +130,7 @@ export default function HomePage() {
         { iconSrc: tagIconMoney, label: activeRow.budget },
         { iconSrc: tagIconLocation, label: activeRow.location },
       ],
-    } as const;
+    };
   }, [activeRow]);
 
   return (

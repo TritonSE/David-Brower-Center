@@ -1,9 +1,10 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 import Navbar from "./Navbar";
 import ProfileButton from "./ProfileButton";
 import SignInButton from "./SignInButton";
-import { usePathname } from "next/navigation";
 
 import type { ReactNode } from "react";
 

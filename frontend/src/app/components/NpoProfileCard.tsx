@@ -1,6 +1,6 @@
 type Tag = {
   iconSrc: string;
-  iconAlt: string;
+  iconAlt?: string;
   label: string;
   iconClassName?: string;
 };
@@ -81,7 +81,11 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         {content.tags.map((tag, index) => (
           <div key={tag.label} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
-              <img alt={tag.iconAlt} src={tag.iconSrc} className={tag.iconClassName ?? "h-4 w-4"} />
+              <img
+                alt={tag.iconAlt ?? `${tag.label} icon`}
+                src={tag.iconSrc}
+                className={tag.iconClassName ?? "h-4 w-4"}
+              />
               <span className="font-['Rubik',Arial,sans-serif] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
                 {tag.label}
               </span>
