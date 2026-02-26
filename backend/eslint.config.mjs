@@ -37,6 +37,17 @@ export default antfu({
     },
   },
 
+  overrides: [
+    {
+      files: ["src/lib/prisma.ts", "src/app.ts", "prisma/seed.ts"],
+      rules: {
+        "ts/no-unsafe-assignment": "off",
+        "ts/no-unsafe-call": "off",
+        "ts/no-unsafe-member-access": "off",
+        "ts/no-unsafe-return": "off",
+      },
+    },
+  ],
   rules: {
     // Avoid bugs
     "unused-imports/no-unused-imports": [

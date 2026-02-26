@@ -11,7 +11,7 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
-    "types": [],
+    "types": ["node"],
 
     // Style Options
     // "noImplicitReturns": true,
@@ -40,5 +40,6 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "skipLibCheck": true
-  }
+  },
+  "include": ["src/**/*", "prisma/**/*"]
 }
