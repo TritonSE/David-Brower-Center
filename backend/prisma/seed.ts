@@ -1,3 +1,5 @@
+/* eslint-disable ts/no-unsafe-call, ts/no-unsafe-member-access */
+
 import fs from "node:fs";
 import path from "node:path";
 
