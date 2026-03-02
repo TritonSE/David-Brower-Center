@@ -163,31 +163,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-[30px] border border-[#d9d9d9] bg-white p-2 shadow-sm">
-            <button
-              className="rounded-[40px] bg-[#3b9a9a] px-6 py-2 text-sm font-semibold text-white"
-              type="button"
-            >
-              Graph
-            </button>
-            <button
-              className="rounded-[40px] px-6 py-2 text-sm font-semibold text-[#6c6c6c] hover:text-[#3b9a9a]"
-              type="button"
-            >
-              List
-            </button>
-          </div>
-        </div>
-        <button
-          className="rounded-[40px] border border-[#b4b4b4] bg-white px-6 py-2 text-sm font-semibold text-[#3b9a9a] shadow-sm"
-          type="button"
-        >
-          Sign In
-        </button>
-      </header>
-
       <div className="grid gap-6">
         {isListLoading ? (
           <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">

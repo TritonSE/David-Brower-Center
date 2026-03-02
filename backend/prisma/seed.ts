@@ -23,6 +23,29 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
+const tags = [
+  {
+    name: "Climate Action",
+    description: "Environmental and climate focused work",
+  },
+  {
+    name: "Housing Justice",
+    description: "Housing access and affordability",
+  },
+  {
+    name: "Youth Advocacy",
+    description: "Youth led or youth focused initiatives",
+  },
+  {
+    name: "Food Security",
+    description: "Access to food and nutrition programs",
+  },
+  {
+    name: "Policy Research",
+    description: "Data driven policy work",
+  },
+];
+
 const dummyOrganizations = [
   {
     name: "Bay Area Environmental Council",
@@ -35,7 +58,6 @@ const dummyOrganizations = [
     longitude: -122.2712,
     min_budget: 500_000,
     max_budget: 2_000_000,
-    tags: ["environment", "conservation", "education"],
   },
   {
     name: "Central Valley Food Bank",
@@ -47,7 +69,6 @@ const dummyOrganizations = [
     longitude: -119.7871,
     min_budget: 1_000_000,
     max_budget: 5_000_000,
-    tags: ["food security", "community", "nonprofit"],
   },
   {
     name: "Pacific Coast Marine Institute",
@@ -59,7 +80,6 @@ const dummyOrganizations = [
     longitude: -117.1611,
     min_budget: 250_000,
     max_budget: 1_500_000,
-    tags: ["marine", "research", "education", "sustainability"],
   },
   {
     name: "East Bay Arts Collective",
@@ -71,7 +91,6 @@ const dummyOrganizations = [
     longitude: -122.273,
     min_budget: 100_000,
     max_budget: 750_000,
-    tags: ["arts", "culture", "community"],
   },
   {
     name: "Sierra Nevada Land Trust",
@@ -84,11 +103,18 @@ const dummyOrganizations = [
     longitude: -120.1836,
     min_budget: 300_000,
     max_budget: 1_200_000,
-    tags: ["land conservation", "environment", "watershed"],
   },
 ];
 
 async function main(): Promise<void> {
+  // Seed tags first
+  await prisma.tag.createMany({
+    data: tags,
+    skipDuplicates: true, // Don't error if tags already exist
+  });
+  console.info(`Seeded ${tags.length} tags.`);
+
+  // Seed organizations
   const existing = await prisma.organization.findMany({ take: 1 });
   if (existing.length > 0) {
     console.info("Organizations table already has data; skipping seed.");
