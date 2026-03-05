@@ -15,12 +15,20 @@ export default function FilteringMenu() {
       <div className="p-6 overflow-y-auto h-full">
         <SelectionBox
           title="Focus Area"
-          options={["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]}
+          options={[
+            "Environmental",
+            "Food",
+            "Agriculture",
+            "Government",
+            "Social",
+            "Education",
+            "Technology",
+          ]}
         />
 
         <CheckboxGroup
-          title="Location"
-          options={["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]}
+          title="Distance from me"
+          options={["2 miles", "10 miles", "50 miles", "100 miles"]}
         />
 
         <SliderFilter title="Size" />

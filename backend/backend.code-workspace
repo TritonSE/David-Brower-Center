@@ -1,10 +1,10 @@
 {
-	"folders": [
-		{
-			"path": "."
-		},
-		{
-			"path": "../frontend"
-		}
-	]
+  "folders": [
+    {
+      "path": ".",
+    },
+    {
+      "path": "../frontend",
+    },
+  ],
 }

@@ -17,7 +17,7 @@ const rubik = Rubik({
 export default function SliderFilter({ title }: SliderProps) {
   return (
     <div
-      className="mb-6 border-t border-black pt-4"
+      className="mb-6 border-t border-[#D9D9D9] pt-4"
       style={
         {
           "--font-rubik": rubik.style.fontFamily,
@@ -33,7 +33,7 @@ export default function SliderFilter({ title }: SliderProps) {
           {title}
         </h3>
         <button
-          className="text-black cursor-pointer flex items-center justify-center"
+          className="font-bold text-[#3B9A9A] cursor-pointer flex items-center justify-center font-bold text-[#3B9A9A]"
           style={{ fontFamily: "var(--font-rubik)" }}
         >
           Clear
