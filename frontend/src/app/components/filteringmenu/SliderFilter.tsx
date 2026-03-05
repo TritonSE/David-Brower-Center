@@ -1,4 +1,5 @@
 import { DM_Sans, Rubik } from "next/font/google";
+import { useState } from "react"; // Added useState
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -15,6 +16,9 @@ const rubik = Rubik({
 });
 
 export default function SliderFilter({ title }: SliderProps) {
+  // 1. Create state for the slider value, defaulting to 50 (middle)
+  const [value, setValue] = useState(50);
+
   return (
     <div
       className="mb-6 border-t border-[#D9D9D9] pt-4"
@@ -33,18 +37,22 @@ export default function SliderFilter({ title }: SliderProps) {
           {title}
         </h3>
         <button
-          className="font-bold text-[#3B9A9A] cursor-pointer flex items-center justify-center font-bold text-[#3B9A9A]"
+          // 2. Add onClick to reset value to 50
+          onClick={() => setValue(50)}
+          className="font-bold text-[#3B9A9A] cursor-pointer flex items-center justify-center"
           style={{ fontFamily: "var(--font-rubik)" }}
         >
           Clear
         </button>
       </div>
-      {/* <input
-        type="range"
-        className="w-full h-[4px] bg-gray-200 rounded appearance-none cursor-pointer accent-teal-600 items-center justify-center"
-      /> */}
+
       <input
         type="range"
+        min="0"
+        max="100"
+        // 3. Connect value and onChange to the state
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
         className="w-full h-[4px] bg-gray-200 rounded-lg appearance-none cursor-pointer
         [&::-webkit-slider-thumb]:appearance-none
         [&::-webkit-slider-thumb]:w-[20px] 
@@ -59,7 +67,10 @@ export default function SliderFilter({ title }: SliderProps) {
         [&::-moz-range-thumb]:border-none
         [&::-moz-range-thumb]:rounded-full"
       />
-      <div className="text-black cursor-pointer flex " style={{ fontFamily: "var(--font-rubik)" }}>
+      <div
+        className="text-black cursor-pointer flex mt-1"
+        style={{ fontFamily: "var(--font-rubik)" }}
+      >
         Low
       </div>
     </div>

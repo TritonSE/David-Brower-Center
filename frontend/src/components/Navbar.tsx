@@ -7,7 +7,7 @@ export type NavbarView = "graph" | "list" | "admin";
 
 const viewRoutes: Record<NavbarView, string> = {
   graph: "/",
-  list: "/",
+  list: "/list",
   admin: "/profile",
 };
 

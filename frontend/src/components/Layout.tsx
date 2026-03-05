@@ -1,3 +1,7 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 import Navbar from "./Navbar";
 import ProfileButton from "./ProfileButton";
 import SignInButton from "./SignInButton";
@@ -11,16 +15,21 @@ type LayoutProps = {
 };
 
 export default function Layout({ children, isAdmin = false, isSignedIn = false }: LayoutProps) {
+  const pathname = usePathname();
+  const showHeader = pathname !== "/sign-in";
+
   return (
     <div className="min-h-screen bg-slate-100 p-5">
-      <header className="flex items-center justify-between gap-4">
-        <Navbar isAdmin={isAdmin} />
-        {isSignedIn ? (
-          <ProfileButton name="Jane Doe" avatarSrc="/small-Maria.png" />
-        ) : (
-          <SignInButton />
-        )}
-      </header>
+      {showHeader && (
+        <header className="flex items-center justify-between gap-4">
+          <Navbar isAdmin={isAdmin} />
+          {isSignedIn ? (
+            <ProfileButton name="Jane Doe" avatarSrc="/small-Maria.png" />
+          ) : (
+            <SignInButton />
+          )}
+        </header>
+      )}
       <main className="pt-4">{children}</main>
     </div>
   );
