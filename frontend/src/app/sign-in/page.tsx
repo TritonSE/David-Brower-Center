@@ -2,6 +2,8 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { signIn, signOut, signUp } from "../../services/auth";
+
 import styles from "./Sign_In.module.css";
 
 function GoogleIcon() {
@@ -89,7 +91,7 @@ function PasswordValidIcon() {
   );
 }
 
-type AuthMode = "signin" | "signup" | "signup-success";
+type AuthMode = "signin" | "signup" | "signup-success" | "signin-success";
 
 export default function SignIn() {
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -103,15 +105,37 @@ export default function SignIn() {
   const emailError = signUpTouched && !signUpEmail.trim();
   const passwordError = signUpTouched && signUpPassword.length < 8;
 
-  function handleSignUpSubmit(e: React.FormEvent) {
+  async function handleSignUpSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSignUpTouched(true);
     if (!signUpEmail.trim() || signUpPassword.length < 8) return;
-    // TODO: call sign-up API; on success show confirmation
-    setSignUpEmail("");
-    setSignUpPassword("");
-    setSignUpTouched(false);
-    setMode("signup-success");
+    try {
+      await signUp({ email: signUpEmail, password: signUpPassword });
+      setSignUpEmail("");
+      setSignUpPassword("");
+      setSignUpTouched(false);
+      setMode("signup-success");
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleSignInSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!signInEmail.trim() || !signInPassword.trim()) return;
+    try {
+      await signIn({ email: signInEmail, password: signInPassword });
+      setSignInEmail("");
+      setSignInPassword("");
+      setMode("signin-success");
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleLogout() {
+    await signOut();
+    setMode("signin");
   }
 
   if (mode === "signup-success") {
@@ -137,6 +161,24 @@ export default function SignIn() {
     );
   }
 
+  if (mode === "signin-success") {
+    return (
+      <div className={styles.confirmationView}>
+        <div className={styles.confirmationCard}>
+          <h1 className={styles.confirmationHeading}>Welcome back to DBC Database!</h1>
+          <button
+            type="button"
+            className={styles.authBtnPrimary}
+            onClick={() => {
+              void handleLogout();
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={styles.authPage}>
       <div className={styles.authCard}>
@@ -145,7 +187,12 @@ export default function SignIn() {
             <h1 className={styles.authHeading}>Sign in</h1>
             <p className={styles.authSubheading}>Welcome back to DBC Database!</p>
 
-            <form className={styles.authForm} onSubmit={(e) => e.preventDefault()}>
+            <form
+              className={styles.authForm}
+              onSubmit={(e) => {
+                void handleSignInSubmit(e);
+              }}
+            >
               <div className={styles.authFieldGroup}>
                 <label htmlFor="email" className={styles.authLabel}>
                   Email
@@ -228,7 +275,12 @@ export default function SignIn() {
             <h1 className={styles.authHeading}>Create account</h1>
             <p className={styles.authSubheading}>Welcome to DBC Database!</p>
 
-            <form className={styles.authForm} onSubmit={handleSignUpSubmit}>
+            <form
+              className={styles.authForm}
+              onSubmit={(e) => {
+                void handleSignUpSubmit(e);
+              }}
+            >
               <div className={styles.authFieldGroup}>
                 <label htmlFor="signup-email" className={styles.authLabel}>
                   Email
