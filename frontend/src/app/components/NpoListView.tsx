@@ -1,12 +1,11 @@
 import React from "react";
 
+import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+
 export type Row = {
   id: string;
   name: string;
   focus: string;
-  size: string;
-  budget: string;
-  location: string;
   year: string;
 };
 
@@ -16,44 +15,12 @@ type NpoListViewProps = {
   onSelect?: (row: Row) => void;
 };
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 text-[#6c6c6c]" aria-hidden>
-      <path
-        d="M10.5 3a7.5 7.5 0 1 0 4.66 13.38l4.23 4.23a1 1 0 1 0 1.41-1.41l-4.23-4.23A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#6c6c6c]" aria-hidden>
-      <path
-        d="M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 .8 1.6L14 14.5V20a1 1 0 0 1-1.45.9l-2-1A1 1 0 0 1 10 19v-4.5L3.2 5.6A1 1 0 0 1 3 5Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-function SortArrowIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-3 w-3 text-black" aria-hidden>
-      <path d="M10 14 5 8h10l-5 6Z" fill="currentColor" />
-    </svg>
-  );
-}
-
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   return (
     <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
         <div className="relative flex w-full max-w-[400px] items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px]">
-          <div className="pointer-events-none absolute left-5">
-            <SearchIcon />
-          </div>
+          <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
           <input
             className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
             placeholder="Search"
@@ -65,14 +32,14 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
           type="button"
           aria-label="Open filters"
         >
-          <FilterIcon />
+          <FilterIcon className="h-5 w-5 text-[#6c6c6c]" />
         </button>
       </div>
 
       <div className="overflow-hidden rounded-[20px] border border-[#d9d9d9]">
         <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] bg-white px-4 py-3 text-sm font-semibold text-black">
           <div className="flex items-center gap-2">
-            <SortArrowIcon />
+            <SortArrowIcon className="h-3 w-3 text-[#1f1f1f]" />
             <span>Name</span>
           </div>
           <span>Focus</span>
