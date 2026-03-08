@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 
@@ -16,6 +16,14 @@ type NpoListViewProps = {
 };
 
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
+  const [search, setSearch] = useState("");
+
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (query.length === 0) return rows;
+    return rows.filter((row) => row.name.toLowerCase().startsWith(query));
+  }, [rows, search]);
+
   return (
     <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
@@ -25,6 +33,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
             className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
             placeholder="Search"
             type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
         <button
@@ -47,7 +57,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
         </div>
 
         <div className="divide-y divide-[#d9d9d9]">
-          {rows.map((row, index) => {
+          {filteredRows.map((row, index) => {
             const isActive = selectedId === row.id;
             const isEven = index % 2 === 1;
 
