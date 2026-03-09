@@ -14,9 +14,9 @@ type ManageRow = {
   status: ManageStatus;
 };
 
-const IMG_EYE = "https://www.figma.com/api/mcp/asset/b13b8f57-279d-4ff8-8310-84435288c58e";
-const IMG_ADD = "https://www.figma.com/api/mcp/asset/5e96376e-87d2-466f-b609-b1553e6e8ce2";
-const IMG_EDIT = "https://www.figma.com/api/mcp/asset/10f1a5b6-ac32-48d6-9d63-fa5fd4eff61b";
+const IMG_EYE = "/icons/manage/eye.svg";
+const IMG_ADD = "/icons/manage/add-square.svg";
+const IMG_EDIT = "/icons/manage/edit.svg";
 
 const MOCK_ROWS: ManageRow[] = [
   { id: "npo-1", name: "NPO Organization", updatedAt: "Jan 12, 2026 3:55pm", status: "published" },
@@ -237,24 +237,24 @@ export default function ManagePage() {
 
                       <div className="flex flex-1 items-center justify-end gap-8">
                         <button type="button" aria-label={`View ${row.name}`}>
-                          <span className="flex h-[20px] w-[20px] items-center justify-center">
+                          <span className="flex h-[22px] w-[22px] items-center justify-center">
                             <Image
                               src={IMG_EYE}
                               alt=""
-                              width={16}
-                              height={12}
-                              className="block h-[12px] w-[16px] object-contain"
+                              width={22}
+                              height={22}
+                              className="block h-[18px] w-[22px] object-contain"
                             />
                           </span>
                         </button>
                         <button type="button" aria-label={`Edit ${row.name}`}>
-                          <span className="flex h-[20px] w-[20px] items-center justify-center">
+                          <span className="flex h-[22px] w-[22px] items-center justify-center">
                             <Image
                               src={IMG_EDIT}
                               alt=""
-                              width={15}
-                              height={15}
-                              className="block h-[15px] w-[15px] object-contain"
+                              width={20}
+                              height={20}
+                              className="block h-[20px] w-[20px] object-contain"
                             />
                           </span>
                         </button>
