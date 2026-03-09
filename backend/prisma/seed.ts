@@ -16,7 +16,7 @@ const loadPath = fs.existsSync(envPath)
     : envPath;
 dotenv.config({ path: loadPath });
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.Direct_URL || process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set. Set it in .env or .env.backend.");
 }
