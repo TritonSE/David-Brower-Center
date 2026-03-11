@@ -14,6 +14,7 @@ app.use(
   cors({
     origin: FRONTEND_ORIGIN,
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
+    credentials: true,
   }),
 );
 
@@ -40,12 +41,3 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.info(`> Listening on port ${PORT}`);
 });
-// mongoose
-//   .connect(MONGO_URI)
-//   .then(() => {
-//     console.info("Mongoose connected!");
-//     app.listen(PORT, () => {
-//       console.info(`> Listening on port ${PORT}`);
-//     });
-//   })
-//   .catch(console.error);
