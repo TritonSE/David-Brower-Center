@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import createError from "http-errors";
 
+import tagsRouter from "./api/tags";
 import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import { prisma } from "./lib/prisma";
@@ -40,6 +41,7 @@ app.get("/", (req, res) => {
 
 // Mount API routes
 app.use("/api", apiRouter);
+app.use("/tags", tagsRouter);
 app.get("/organizations", async (req, res, next) => {
   try {
     const organizations = await prisma.organization.findMany();
