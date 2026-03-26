@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
-import PageNavBar from "./PageNavBar";
 
 import type { Row } from "./NpoListView";
 

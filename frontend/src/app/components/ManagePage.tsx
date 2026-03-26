@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
-import PageNavBar from "./PageNavBar";
 
 type ManageStatus = "published" | "draft";
 
@@ -57,9 +56,7 @@ export default function ManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
-      <PageNavBar activeTab="manage" />
-
+    <div>
       <section className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]">
         <div className="flex flex-col gap-[36px]">
           <div className="flex items-center justify-between gap-[24px] pr-[13px]">
@@ -162,7 +159,7 @@ export default function ManagePage() {
                     )}
                   >
                     <div className="flex items-center">
-                      <div className="flex flex-1 items-center gap-[10px]">
+                      <div className="flex w-1/3 shrink-0 items-center gap-[10px]">
                         <label className="flex h-5 w-5 cursor-pointer items-center justify-center">
                           <input
                             type="checkbox"
