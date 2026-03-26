@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 
+import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import PageNavBar from "./PageNavBar";
 
 type ManageStatus = "published" | "draft";
@@ -27,61 +28,6 @@ const MOCK_ROWS: ManageRow[] = [
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-[18px] w-[18px] text-[#6c6c6c]"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-[18px] w-[18px] text-[#6c6c6c]"
-      aria-hidden="true"
-    >
-      <path
-        d="M3 7h18M3 12h18M3 17h18"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="7" r="2.2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="15" cy="12" r="2.2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="11" cy="17" r="2.2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function SortArrowIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-[14px] w-[13px] text-black"
-      aria-hidden="true"
-    >
-      <path d="M12 4v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path
-        d="m7 13 5 5 5-5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 export default function ManagePage() {
@@ -121,7 +67,7 @@ export default function ManagePage() {
               <label className="relative block w-[240px] md:w-[363px]">
                 <span className="sr-only">Search NPO</span>
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-                  <SearchIcon />
+                  <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
                 </span>
                 <input
                   type="search"
@@ -136,7 +82,7 @@ export default function ManagePage() {
                 aria-label="Open filters"
                 className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
               >
-                <FilterIcon />
+                <FilterIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
               </button>
             </div>
 
@@ -189,7 +135,7 @@ export default function ManagePage() {
               <div className="flex items-center">
                 <div className="flex flex-1 items-center gap-1">
                   <span className="inline-flex items-center justify-center">
-                    <SortArrowIcon />
+                    <SortArrowIcon className="h-[14px] w-[13px] text-black" />
                   </span>
                   <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] text-black">
                     NPO
