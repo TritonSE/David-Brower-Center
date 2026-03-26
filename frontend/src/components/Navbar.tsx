@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-export type NavbarView = "graph" | "list" | "admin";
+export type NavbarView = "graph" | "list" | "manage" | "admin";
 
 const viewRoutes: Record<NavbarView, string> = {
   graph: "/",
   list: "/list",
+  manage: "/manage",
   admin: "/profile",
 };
 
@@ -34,7 +35,7 @@ export default function Navbar({
 
   const [activeView, setActiveView] = useState<NavbarView>(resolvedDefaultView);
 
-  const views: NavbarView[] = isAdmin ? ["graph", "list", "admin"] : ["graph", "list"];
+  const views: NavbarView[] = isAdmin ? ["graph", "list", "manage", "admin"] : ["graph", "list"];
 
   const handleSelect = (view: NavbarView) => {
     setActiveView(view);
