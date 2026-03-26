@@ -21,7 +21,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (query.length === 0) return rows;
-    return rows.filter((row) => row.name.toLowerCase().startsWith(query));
+    return rows.filter((row) => row.name.toLowerCase().includes(query));
   }, [rows, search]);
 
   return (
