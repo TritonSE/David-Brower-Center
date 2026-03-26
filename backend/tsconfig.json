@@ -41,5 +41,5 @@
     "noUncheckedSideEffectImports": true,
     "skipLibCheck": true
   },
-  "include": ["src", "prisma.config.ts", "prisma/seed.ts"]
+  "include": ["src"]
 }
