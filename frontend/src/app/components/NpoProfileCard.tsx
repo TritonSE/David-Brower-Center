@@ -75,7 +75,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[8px] flex flex-wrap items-center gap-x-[6px] gap-y-1">
         {content.tags.map((tag, index) => (
-          <div key={tag.label} className="flex items-center gap-[6px]">
+          <div key={`${index}-${tag.label}`} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
               {tag.icon}
               <span className="font-['Rubik',Arial,sans-serif] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">

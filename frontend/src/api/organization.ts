@@ -42,7 +42,6 @@ function parseErrorMessage(route: string, status: number, payload: unknown): str
       return `[${route}] Request failed with status ${status}: ${maybeMessage}`;
     }
   }
-
   return `[${route}] Request failed with status ${status}`;
 }
 

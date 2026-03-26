@@ -10,7 +10,6 @@ import PageNavBar from "./PageNavBar";
 import type { Row } from "./NpoListView";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
-
 const POPUP_FADE_DURATION_MS = 200;
 
 function isAbortError(error: unknown): boolean {
@@ -164,8 +163,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
-      <PageNavBar activeTab="list" />
-
       <div className="grid gap-6">
         {isListLoading ? (
           <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
