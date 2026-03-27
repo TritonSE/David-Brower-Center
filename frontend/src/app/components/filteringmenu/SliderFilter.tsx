@@ -1,5 +1,7 @@
+"use client";
+
 import { DM_Sans, Rubik } from "next/font/google";
-import { useState } from "react"; // Added useState
+import { useState } from "react";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -16,7 +18,6 @@ const rubik = Rubik({
 });
 
 export default function SliderFilter({ title }: SliderProps) {
-  // 1. Create state for the slider value, defaulting to 50 (middle)
   const [value, setValue] = useState(50);
 
   return (
@@ -37,7 +38,6 @@ export default function SliderFilter({ title }: SliderProps) {
           {title}
         </h3>
         <button
-          // 2. Add onClick to reset value to 50
           onClick={() => setValue(50)}
           className="font-bold text-[#3B9A9A] cursor-pointer flex items-center justify-center"
           style={{ fontFamily: "var(--font-rubik)" }}
@@ -50,7 +50,6 @@ export default function SliderFilter({ title }: SliderProps) {
         type="range"
         min="0"
         max="100"
-        // 3. Connect value and onChange to the state
         value={value}
         onChange={(e) => setValue(Number(e.target.value))}
         className="w-full h-[4px] bg-gray-200 rounded-lg appearance-none cursor-pointer

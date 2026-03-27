@@ -1,3 +1,5 @@
+"use client";
+
 import CheckboxGroup from "./Checkbox";
 import SelectionBox from "./SelectionBox";
 import SliderFilter from "./SliderFilter";
