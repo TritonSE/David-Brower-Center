@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import SortMenuPopup from "./SortMenuPopup";
@@ -19,6 +17,14 @@ type NpoListViewProps = {
 };
 
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
+  const [search, setSearch] = useState("");
+
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (query.length === 0) return rows;
+    return rows.filter((row) => row.name.toLowerCase().includes(query));
+  }, [rows, search]);
+
   const [showSortMenu, setShowSortMenu] = useState(false);
 
   return (
@@ -30,6 +36,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
             className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
             placeholder="Search"
             type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
         <button
@@ -65,8 +73,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
           <span>Year</span>
         </div>
 
-        <div className="divide-y divide-[#d9d9d9] overflow-hidden rounded-b-[20px]">
-          {rows.map((row, index) => {
+        <div className="divide-y divide-[#d9d9d9]">
+          {filteredRows.map((row, index) => {
             const isActive = selectedId === row.id;
             const isEven = index % 2 === 1;
 

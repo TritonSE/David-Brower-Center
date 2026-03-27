@@ -10,7 +10,6 @@ function throwIfUndefined(envVar: string | undefined, error: InternalError): str
 }
 
 const PORT = throwIfUndefined(process.env.APP_PORT, InternalError.NO_APP_PORT);
-// const MONGO_URI = throwIfUndefined(process.env.MONGO_URI, InternalError.NO_MONGO_URI);
 const FRONTEND_ORIGIN = throwIfUndefined(
   process.env.FRONTEND_ORIGIN,
   InternalError.NO_FRONTEND_ORIGIN,
