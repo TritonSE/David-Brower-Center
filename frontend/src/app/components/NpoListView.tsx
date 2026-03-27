@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+import SortMenuPopup from "./SortMenuPopup";
 
 export type Row = {
   id: string;
@@ -24,6 +25,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
     return rows.filter((row) => row.name.toLowerCase().includes(query));
   }, [rows, search]);
 
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
   return (
     <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
@@ -46,11 +49,25 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-[20px] border border-[#d9d9d9]">
-        <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] bg-white px-4 py-3 text-sm font-semibold text-black">
-          <div className="flex items-center gap-2">
-            <SortArrowIcon className="h-3 w-3 text-[#1f1f1f]" />
-            <span>Name</span>
+      <div className="rounded-[20px] border border-[#d9d9d9] bg-white">
+        <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
+          <div className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-2 focus:outline-none"
+            >
+              <SortArrowIcon
+                className={`h-3 w-3 ${showSortMenu ? "text-[#3b9a9a]" : "text-[#1f1f1f]"}`}
+              />
+              <span>Name</span>
+            </button>
+
+            {showSortMenu && (
+              <div className="absolute left-0 top-6 z-20 font-normal">
+                <SortMenuPopup />
+              </div>
+            )}
           </div>
           <span>Focus</span>
           <span>Year</span>
