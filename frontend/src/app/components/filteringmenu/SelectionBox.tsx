@@ -1,3 +1,5 @@
+"use client";
+
 import { DM_Sans, Rubik } from "next/font/google";
 import { useState } from "react";
 
@@ -10,15 +12,11 @@ type SelectionBoxProps = {
 };
 
 export default function SelectionBox({ title, options }: SelectionBoxProps) {
-  // 1. Change state to an array to allow multiple selections
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
   const toggleOption = (option: string) => {
-    setSelectedOptions(
-      (prev) =>
-        prev.includes(option)
-          ? prev.filter((item) => item !== option) // Remove if clicked again
-          : [...prev, option], // Add if not already selected
+    setSelectedOptions((prev) =>
+      prev.includes(option) ? prev.filter((item) => item !== option) : [...prev, option],
     );
   };
 
@@ -40,7 +38,7 @@ export default function SelectionBox({ title, options }: SelectionBoxProps) {
           {title}
         </h3>
         <button
-          onClick={() => setSelectedOptions([])} // 2. Clear all selections at once
+          onClick={() => setSelectedOptions([])}
           className="cursor-pointer flex items-center justify-center font-bold text-[#3B9A9A]"
           style={{ fontFamily: "var(--font-rubik)" }}
         >
@@ -49,7 +47,6 @@ export default function SelectionBox({ title, options }: SelectionBoxProps) {
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
-          // 3. Check if this specific option is in the selected array
           const isSelected = selectedOptions.includes(option);
 
           return (

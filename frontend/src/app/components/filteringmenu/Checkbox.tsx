@@ -1,3 +1,5 @@
+"use client";
+
 import { DM_Sans, Rubik } from "next/font/google";
 import { useState } from "react";
 
