@@ -15,6 +15,8 @@ export default antfu({
     "**/next.config.js",
     "**/vite.config.ts",
     "**/vite-env.d.ts",
+    "prisma.config.ts",
+    "prisma/seed.ts",
   ],
 
   // Disables stylistic rules to avoid conflicts with Prettier
@@ -22,6 +24,11 @@ export default antfu({
 
   // Enables type aware rules
   typescript: {
+    parserOptions: {
+      projectService: {
+        allowDefaultProject: ["prisma.config.ts", "prisma/seed.ts"],
+      },
+    },
     tsconfigPath: "./tsconfig.json",
     parserOptions: {
       projectService: {
