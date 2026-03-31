@@ -46,7 +46,6 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
         onClick={() => setIsOpen((v) => !v)}
       >
         <Image src={avatarSrc} alt="user" width={32} height={32} className="profile-btn-avatar" />
-        <span className="profile-btn-name">{name}</span>
         <span className={`profile-btn-caret ${isOpen ? "profile-btn-caret-up" : ""}`}>▼</span>
       </button>
 

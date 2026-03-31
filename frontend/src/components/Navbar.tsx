@@ -13,29 +13,29 @@ const viewRoutes: Record<NavbarView, string> = {
 };
 
 type NavbarProps = {
-  isAdmin?: boolean;
+  isSignedIn?: boolean;
   defaultView?: NavbarView;
   onViewChange?: (view: NavbarView) => void;
   className?: string;
 };
 
 export default function Navbar({
-  isAdmin = false,
+  isSignedIn = false,
   defaultView = "graph",
   onViewChange,
   className,
 }: NavbarProps) {
   const resolvedDefaultView = useMemo<NavbarView>(() => {
-    if (defaultView === "admin" && !isAdmin) {
+    if ((defaultView === "manage" || defaultView === "admin") && !isSignedIn) {
       return "graph";
     }
 
     return defaultView;
-  }, [defaultView, isAdmin]);
+  }, [defaultView, isSignedIn]);
 
   const [activeView, setActiveView] = useState<NavbarView>(resolvedDefaultView);
 
-  const views: NavbarView[] = isAdmin ? ["graph", "list", "manage", "admin"] : ["graph", "list"];
+  const views: NavbarView[] = isSignedIn ? ["graph", "list", "manage", "admin"] : ["graph", "list"];
 
   const handleSelect = (view: NavbarView) => {
     setActiveView(view);
