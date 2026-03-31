@@ -24,6 +24,11 @@ export default antfu(
     // Enables type aware rules
     typescript: {
       tsconfigPath: "./tsconfig.json",
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ["./*.js", "prisma.config.ts", "prisma/seed.ts"],
+        },
+      },
       overrides: {
         // Avoid bugs
         "ts/no-shadow": ["error", { ignoreTypeValueShadow: true }],

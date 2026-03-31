@@ -5,8 +5,7 @@
     "jsx": "react-jsx",
     "moduleDetection": "force",
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    "rootDir": "./src",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
@@ -29,6 +28,7 @@
     "declaration": true,
     "declarationMap": true,
 
+    "outDir": "./dist",
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
@@ -41,5 +41,5 @@
     "noUncheckedSideEffectImports": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "prisma/**/*", "prisma.config.ts"]
+  "include": ["src"]
 }
