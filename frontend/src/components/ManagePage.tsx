@@ -3,17 +3,27 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+import {
+  FilterIcon,
+  LeafIcon,
+  LocationIcon,
+  MoneyIcon,
+  PeopleIcon,
+  SearchIcon,
+  SortArrowIcon,
+} from "./icons/AppIcons";
+import NpoProfileCard from "./NpoProfileCard";
 
-import type { OrganizationListItem } from "@/api/organization";
+import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 
-import { getOrganizations } from "@/api/organization";
+import { getOrganizationById, getOrganizations } from "@/api/organization";
 
 type ManageStatus = "published" | "draft";
 
 const IMG_EYE = "/icons/manage/eye.svg";
 const IMG_ADD = "/icons/manage/add-square.svg";
 const IMG_EDIT = "/icons/manage/edit.svg";
+const POPUP_FADE_DURATION_MS = 200;
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -52,7 +62,15 @@ export default function ManagePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+
   const abortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const detailRequestIdRef = useRef(0);
 
   const fetchOrganizations = useCallback(async () => {
     abortRef.current?.abort();
@@ -84,6 +102,103 @@ export default function ManagePage() {
   const handleRetry = useCallback(() => {
     void fetchOrganizations();
   }, [fetchOrganizations]);
+
+  const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
+    detailAbortRef.current?.abort();
+    const abortController = new AbortController();
+    detailAbortRef.current = abortController;
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+
+    setIsDetailLoading(true);
+    setDetailError(null);
+    setActiveOrgDetail(null);
+
+    try {
+      const detail = await getOrganizationById(organizationId, abortController.signal);
+      if (detailRequestIdRef.current !== requestId) return;
+      setActiveOrgDetail(detail);
+    } catch (error) {
+      if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
+      setDetailError(getErrorMessage(error, "Unable to load organization details."));
+    } finally {
+      if (detailRequestIdRef.current === requestId) {
+        setIsDetailLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => detailAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!isCardVisible && selectedOrgId) {
+      const timer = setTimeout(() => {
+        setSelectedOrgId(null);
+        setActiveOrgDetail(null);
+        setDetailError(null);
+        setIsDetailLoading(false);
+      }, POPUP_FADE_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isCardVisible, selectedOrgId]);
+
+  const handleViewOrg = useCallback(
+    (orgId: string) => {
+      if (selectedOrgId === orgId && isCardVisible) {
+        detailAbortRef.current?.abort();
+        setIsCardVisible(false);
+        return;
+      }
+
+      setSelectedOrgId(orgId);
+      setIsCardVisible(true);
+      void fetchOrganizationDetail(orgId);
+    },
+    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+  );
+
+  const handleRetryDetail = useCallback(() => {
+    if (!selectedOrgId) return;
+    void fetchOrganizationDetail(selectedOrgId);
+  }, [fetchOrganizationDetail, selectedOrgId]);
+
+  const handleCloseCard = useCallback(() => {
+    detailAbortRef.current?.abort();
+    setIsCardVisible(false);
+  }, []);
+
+  const selectedRow = useMemo(
+    () => organizations.find((org) => org.id === selectedOrgId) ?? null,
+    [organizations, selectedOrgId],
+  );
+
+  const selectedCardProps = useMemo(() => {
+    if (!activeOrgDetail) return null;
+    return {
+      name: activeOrgDetail.name,
+      tags: [
+        {
+          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.focus,
+        },
+        {
+          icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
+          label: activeOrgDetail.size,
+        },
+        {
+          icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.budget,
+        },
+        {
+          icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.location,
+        },
+      ],
+      description: activeOrgDetail.description,
+      mission: activeOrgDetail.mission,
+    };
+  }, [activeOrgDetail]);
 
   const publishedRows = useMemo(() => organizations, [organizations]);
   const draftRows: OrganizationListItem[] = [];
@@ -259,7 +374,11 @@ export default function ManagePage() {
                         </span>
 
                         <div className="flex flex-1 items-center justify-end gap-8">
-                          <button type="button" aria-label={`View ${row.name}`}>
+                          <button
+                            type="button"
+                            aria-label={`View ${row.name}`}
+                            onClick={() => handleViewOrg(row.id)}
+                          >
                             <span className="flex h-[22px] w-[22px] items-center justify-center">
                               <Image
                                 src={IMG_EYE}
@@ -291,6 +410,73 @@ export default function ManagePage() {
           </div>
         </div>
       </section>
+
+      <div
+        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
+          isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {selectedOrgId ? (
+          <div
+            className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
+            style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
+          >
+            {selectedCardProps ? (
+              <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
+            ) : (
+              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={handleCloseCard}
+                  className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                  {selectedRow?.name ?? "Organization"}
+                </h1>
+
+                {isDetailLoading ? (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    Loading organization details...
+                  </p>
+                ) : detailError ? (
+                  <div className="mt-3 space-y-3">
+                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                      {detailError}
+                    </p>
+                    <button
+                      className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+                      type="button"
+                      onClick={handleRetryDetail}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    No organization details available.
+                  </p>
+                )}
+              </section>
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
