@@ -58,6 +58,9 @@ model User {
   supabase_user_id String   @id @db.Uuid
   email            String   @unique
   name             String?
+  first_name       String?
+  last_name        String?
+  phone            String?
   role             String   @default("admin")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   // References Supabase auth.users.id at the application layer (not Prisma-managed FK).
