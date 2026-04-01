@@ -132,6 +132,7 @@ export type OrganizationListItem = {
   name: string;
   focus: string;
   year: string;
+  updatedAt: string;
 };
 
 export type OrganizationDetail = {
@@ -156,6 +157,7 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     name: getRequiredString(value.name, "/organizations", "name"),
     focus: toFallbackString(value.focus),
     year: toFallbackString(value.year),
+    updatedAt: toFallbackString(value.updatedAt),
   };
 }
 

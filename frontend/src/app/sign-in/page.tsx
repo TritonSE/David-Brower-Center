@@ -1,8 +1,9 @@
 "use client";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { signIn, signOut, signUp } from "../../services/auth";
+import { signIn, signUp } from "../../services/auth";
 
 import styles from "./Sign_In.module.css";
 
@@ -91,9 +92,10 @@ function PasswordValidIcon() {
   );
 }
 
-type AuthMode = "signin" | "signup" | "signup-success" | "signin-success";
+type AuthMode = "signin" | "signup" | "signup-success";
 
 export default function SignIn() {
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [signInEmail, setSignInEmail] = useState("");
@@ -125,17 +127,10 @@ export default function SignIn() {
     if (!signInEmail.trim() || !signInPassword.trim()) return;
     try {
       await signIn({ email: signInEmail, password: signInPassword });
-      setSignInEmail("");
-      setSignInPassword("");
-      setMode("signin-success");
+      router.push("/");
     } catch (error) {
       console.error(error);
     }
-  }
-
-  async function handleLogout() {
-    await signOut();
-    setMode("signin");
   }
 
   if (mode === "signup-success") {
@@ -161,24 +156,6 @@ export default function SignIn() {
     );
   }
 
-  if (mode === "signin-success") {
-    return (
-      <div className={styles.confirmationView}>
-        <div className={styles.confirmationCard}>
-          <h1 className={styles.confirmationHeading}>Welcome back to DBC Database!</h1>
-          <button
-            type="button"
-            className={styles.authBtnPrimary}
-            onClick={() => {
-              void handleLogout();
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    );
-  }
   return (
     <div className={styles.authPage}>
       <div className={styles.authCard}>
