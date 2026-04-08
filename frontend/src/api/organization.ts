@@ -1,131 +1,26 @@
-const MISSING_BACKEND_URL_ERROR =
-  "Missing NEXT_PUBLIC_BACKEND_URL. Set it in frontend/.env to call the backend APIs.";
+import { get, handleAPIError } from "./request";
+
+import type { APIResult } from "./request";
+
 const NOT_PROVIDED = "Not provided";
-const REQUEST_TIMEOUT_MS = 10_000;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+type OrganizationRecord = {
+  id: string;
+  name: string;
+  mission?: string | null;
+  city?: string | null;
+  state?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-function getBackendUrl(): string {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (!backendUrl) {
-    throw new Error(MISSING_BACKEND_URL_ERROR);
-  }
-  return backendUrl;
-}
+type OrganizationsResponse = {
+  organizations: OrganizationRecord[];
+};
 
-function toUrl(route: string): string {
-  return new URL(route, getBackendUrl()).toString();
-}
-
-function toOptionalString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toFallbackString(value: unknown): string {
-  return toOptionalString(value) ?? NOT_PROVIDED;
-}
-
-function parseErrorMessage(route: string, status: number, payload: unknown): string {
-  if (isRecord(payload)) {
-    const maybeMessage =
-      typeof payload.message === "string"
-        ? payload.message
-        : typeof payload.error === "string"
-          ? payload.error
-          : null;
-
-    if (maybeMessage && maybeMessage.trim().length > 0) {
-      return `[${route}] Request failed with status ${status}: ${maybeMessage}`;
-    }
-  }
-  return `[${route}] Request failed with status ${status}`;
-}
-
-async function requestJson(route: string, signal?: AbortSignal): Promise<unknown> {
-  const timeoutController = new AbortController();
-  const requestController = new AbortController();
-
-  const forwardCallerAbort = () => requestController.abort(signal?.reason);
-  const forwardTimeoutAbort = () => requestController.abort(timeoutController.signal.reason);
-
-  if (signal) {
-    if (signal.aborted) {
-      requestController.abort(signal.reason);
-    } else {
-      signal.addEventListener("abort", forwardCallerAbort, { once: true });
-    }
-  }
-
-  timeoutController.signal.addEventListener("abort", forwardTimeoutAbort, { once: true });
-
-  const timeoutId = setTimeout(() => {
-    timeoutController.abort(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
-  }, REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(toUrl(route), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      signal: requestController.signal,
-    });
-
-    const payload: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(parseErrorMessage(route, response.status, payload));
-    }
-    return payload;
-  } catch (error: unknown) {
-    if (timeoutController.signal.aborted && !(signal?.aborted ?? false)) {
-      throw new Error(`[${route}] Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    timeoutController.signal.removeEventListener("abort", forwardTimeoutAbort);
-    if (signal) {
-      signal.removeEventListener("abort", forwardCallerAbort);
-    }
-  }
-}
-
-function parseOrganizationsPayload(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload;
-
-  if (isRecord(payload)) {
-    const candidates = [payload.organizations, payload.data, payload.items];
-    for (const candidate of candidates) {
-      if (Array.isArray(candidate)) {
-        return candidate;
-      }
-    }
-  }
-
-  throw new Error("[/organizations] Unexpected response shape.");
-}
-
-function parseOrganizationPayload(payload: unknown): unknown {
-  if (isRecord(payload)) {
-    if (isRecord(payload.organization)) return payload.organization;
-    if (isRecord(payload.data)) return payload.data;
-    return payload;
-  }
-
-  throw new Error("[/organizations/:id] Unexpected response shape.");
-}
-
-function getRequiredString(value: unknown, route: string, field: string): string {
-  const stringValue = toOptionalString(value);
-  if (!stringValue) {
-    throw new Error(`[${route}] Missing required field "${field}" in response.`);
-  }
-  return stringValue;
-}
+type OrganizationResponse = {
+  organization: OrganizationRecord;
+};
 
 export type OrganizationListItem = {
   id: string;
@@ -147,49 +42,69 @@ export type OrganizationDetail = {
   mission: string;
 };
 
-function parseOrganizationListItem(value: unknown): OrganizationListItem {
-  if (!isRecord(value)) {
-    throw new Error("[/organizations] Expected each organization item to be an object.");
-  }
+function toFallbackString(value: string | null | undefined): string {
+  if (!value) return NOT_PROVIDED;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : NOT_PROVIDED;
+}
 
+function toYear(value: string | undefined): string {
+  if (!value) return NOT_PROVIDED;
+  const year = new Date(value).getUTCFullYear();
+  return Number.isNaN(year) ? NOT_PROVIDED : year.toString();
+}
+
+function toLocation(record: OrganizationRecord): string {
+  const city = toFallbackString(record.city);
+  const state = toFallbackString(record.state);
+  if (city === NOT_PROVIDED && state === NOT_PROVIDED) {
+    return NOT_PROVIDED;
+  }
+  if (city === NOT_PROVIDED) return state;
+  if (state === NOT_PROVIDED) return city;
+  return `${city}, ${state}`;
+}
+
+function toOrganizationListItem(record: OrganizationRecord): OrganizationListItem {
   return {
-    id: getRequiredString(value.id, "/organizations", "id"),
-    name: getRequiredString(value.name, "/organizations", "name"),
-    focus: toFallbackString(value.focus),
-    year: toFallbackString(value.year),
-    updatedAt: toFallbackString(value.updatedAt),
+    id: record.id,
+    name: record.name,
+    focus: NOT_PROVIDED,
+    year: toYear(record.createdAt),
+    updatedAt: toFallbackString(record.updatedAt),
   };
 }
 
-function parseOrganizationDetail(value: unknown): OrganizationDetail {
-  if (!isRecord(value)) {
-    throw new Error("[/organizations/:id] Expected organization detail to be an object.");
-  }
-
+function toOrganizationDetail(record: OrganizationRecord): OrganizationDetail {
   return {
-    id: getRequiredString(value.id, "/organizations/:id", "id"),
-    name: getRequiredString(value.name, "/organizations/:id", "name"),
-    focus: toFallbackString(value.focus),
-    year: toFallbackString(value.year),
-    size: toFallbackString(value.size),
-    budget: toFallbackString(value.budget),
-    location: toFallbackString(value.location),
-    description: toFallbackString(value.description),
-    mission: toFallbackString(value.mission),
+    id: record.id,
+    name: record.name,
+    focus: NOT_PROVIDED,
+    year: toYear(record.createdAt),
+    size: NOT_PROVIDED,
+    budget: NOT_PROVIDED,
+    location: toLocation(record),
+    description: NOT_PROVIDED,
+    mission: toFallbackString(record.mission),
   };
 }
 
-export async function getOrganizations(signal?: AbortSignal): Promise<OrganizationListItem[]> {
-  const payload = await requestJson("/organizations", signal);
-  const organizations = parseOrganizationsPayload(payload);
-  return organizations.map(parseOrganizationListItem);
+export async function getOrganizations(): Promise<APIResult<OrganizationListItem[]>> {
+  try {
+    const response = await get("/organizations");
+    const json = (await response.json()) as OrganizationsResponse;
+    return { success: true, data: json.organizations.map(toOrganizationListItem) };
+  } catch (error) {
+    return handleAPIError(error);
+  }
 }
 
-export async function getOrganizationById(
-  id: string,
-  signal?: AbortSignal,
-): Promise<OrganizationDetail> {
-  const payload = await requestJson(`/organizations/${encodeURIComponent(id)}`, signal);
-  const organization = parseOrganizationPayload(payload);
-  return parseOrganizationDetail(organization);
+export async function getOrganizationById(id: string): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const response = await get(`/organizations/${encodeURIComponent(id)}`);
+    const json = (await response.json()) as OrganizationResponse;
+    return { success: true, data: toOrganizationDetail(json.organization) };
+  } catch (error) {
+    return handleAPIError(error);
+  }
 }
