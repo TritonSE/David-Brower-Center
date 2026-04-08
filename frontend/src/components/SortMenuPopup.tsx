@@ -1,7 +1,7 @@
 "use client";
 
 import { Rubik } from "next/font/google";
-import React, { useState } from "react";
+import React from "react";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -11,15 +11,18 @@ const rubik = Rubik({
 const sortOptions = [
   "NPO Name A-Z",
   "NPO Name Z-A",
-  "Location Closest To Me",
-  "Location Furthest From Me",
-  "Size - Smallest to Largest",
-  "Size - Largest to Smallest",
+  "Year Ascending",
+  "Year Descending",
+  "Focus A-Z",
+  "Focus Z-A",
 ];
 
-export default function SortMenu() {
-  const [selected, setSelected] = useState(sortOptions[0]);
+type SortMenuProps = {
+  selected: string;
+  onSelect: (option: string) => void;
+};
 
+export default function SortMenuPopup({ selected, onSelect }: SortMenuProps) {
   return (
     <div
       className={`bg-white border border-gray-300 shadow-md p-6 flex flex-col box-border ${rubik.variable}`}
@@ -36,7 +39,7 @@ export default function SortMenu() {
         {sortOptions.map((option) => (
           <button
             key={option}
-            onClick={() => setSelected(option)}
+            onClick={() => onSelect(option)}
             className={`flex items-center justify-between w-full text-left text-[15px] transition-colors duration-150 ${
               selected === option ? "text-[#3B9A9A]" : "text-gray-800 hover:text-[#3B9A9A]"
             }`}

@@ -19,12 +19,44 @@ type NpoListViewProps = {
 
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const [search, setSearch] = useState("");
+  const [sortOption, setSortOption] = useState("NPO Name A-Z");
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (query.length === 0) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(query));
-  }, [rows, search]);
+
+    let result = rows;
+
+    if (query.length > 0) {
+      result = result.filter((row) => row.name.toLowerCase().includes(query));
+    }
+
+    const sorted = [...result];
+
+    switch (sortOption) {
+      case "NPO Name A-Z":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "NPO Name Z-A":
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case "Year Ascending":
+        sorted.sort((a, b) => Number(a.year) - Number(b.year));
+        break;
+      case "Year Descending":
+        sorted.sort((a, b) => Number(b.year) - Number(a.year));
+        break;
+      case "Focus A-Z":
+        sorted.sort((a, b) => a.focus.localeCompare(b.focus));
+        break;
+      case "Focus Z-A":
+        sorted.sort((a, b) => b.focus.localeCompare(a.focus));
+        break;
+      default:
+        break;
+    }
+
+    return sorted;
+  }, [rows, search, sortOption]);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -78,7 +110,13 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
             {showSortMenu && (
               <div className="absolute left-0 top-6 z-20 font-normal">
-                <SortMenuPopup />
+                <SortMenuPopup
+                  selected={sortOption}
+                  onSelect={(option) => {
+                    setSortOption(option);
+                    setShowSortMenu(false);
+                  }}
+                />
               </div>
             )}
           </div>
