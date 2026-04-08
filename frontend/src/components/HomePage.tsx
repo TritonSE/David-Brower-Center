@@ -1,41 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
+import type { OrganizationDetail } from "@/api/organization";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
 const POPUP_FADE_DURATION_MS = 200;
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-  return fallback;
-}
 
 export default function HomePage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [isListLoading, setIsListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [activeOrgDetail, setActiveOrgDetail] = useState<Awaited<
-    ReturnType<typeof getOrganizationById>
-  > | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
-  const listAbortRef = useRef<AbortController | null>(null);
-  const detailAbortRef = useRef<AbortController | null>(null);
-  const detailRequestIdRef = useRef(0);
 
   const selectedRow = useMemo(
     () => rows.find((row) => row.id === selectedOrgId) ?? null,
@@ -43,58 +28,40 @@ export default function HomePage() {
   );
 
   const fetchOrganizations = useCallback(async () => {
-    listAbortRef.current?.abort();
-    const abortController = new AbortController();
-    listAbortRef.current = abortController;
-
     setIsListLoading(true);
     setListError(null);
 
-    try {
-      const organizations = await getOrganizations(abortController.signal);
-      setRows(organizations);
-    } catch (error) {
-      if (isAbortError(error)) return;
-      setRows([]);
-      setListError(getErrorMessage(error, "Unable to load organizations."));
-    } finally {
-      if (listAbortRef.current === abortController) {
-        setIsListLoading(false);
-      }
+    const result = await getOrganizations();
+    if (result.success) {
+      setRows(result.data);
+      setIsListLoading(false);
+      return;
     }
+
+    setRows([]);
+    setListError(result.error || "Unable to load organizations.");
+    setIsListLoading(false);
   }, []);
 
   useEffect(() => {
     void fetchOrganizations();
-    return () => listAbortRef.current?.abort();
   }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
-    detailAbortRef.current?.abort();
-    const abortController = new AbortController();
-    detailAbortRef.current = abortController;
-    const requestId = detailRequestIdRef.current + 1;
-    detailRequestIdRef.current = requestId;
-
     setIsDetailLoading(true);
     setDetailError(null);
     setActiveOrgDetail(null);
 
-    try {
-      const detail = await getOrganizationById(organizationId, abortController.signal);
-      if (detailRequestIdRef.current !== requestId) return;
-      setActiveOrgDetail(detail);
-    } catch (error) {
-      if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
-      setDetailError(getErrorMessage(error, "Unable to load organization details."));
-    } finally {
-      if (detailRequestIdRef.current === requestId) {
-        setIsDetailLoading(false);
-      }
+    const result = await getOrganizationById(organizationId);
+    if (result.success) {
+      setActiveOrgDetail(result.data);
+      setIsDetailLoading(false);
+      return;
     }
-  }, []);
 
-  useEffect(() => () => detailAbortRef.current?.abort(), []);
+    setDetailError(result.error || "Unable to load organization details.");
+    setIsDetailLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
@@ -112,7 +79,6 @@ export default function HomePage() {
   const handleSelect = useCallback(
     (row: Row) => {
       if (selectedOrgId === row.id && isCardVisible) {
-        detailAbortRef.current?.abort();
         setIsCardVisible(false);
         return;
       }
@@ -134,7 +100,6 @@ export default function HomePage() {
   }, [fetchOrganizationDetail, selectedOrgId]);
 
   const handleCloseCard = useCallback(() => {
-    detailAbortRef.current?.abort();
     setIsCardVisible(false);
   }, []);
 
