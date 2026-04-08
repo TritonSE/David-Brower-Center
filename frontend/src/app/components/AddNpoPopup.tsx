@@ -34,6 +34,7 @@ export default function AddNpoPopup({
     const [title, setTitle] = useState(initialTitle);
     const [description, setDescription] = useState(initialDescription);
     const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+    const [savedDraft, setSavedDraft] = useState(false);
 
     // Reset values when popup is opened
     useEffect(() => {
@@ -187,11 +188,27 @@ export default function AddNpoPopup({
               <button
                 type="button"
                 className={styles.saveDraft}
-                onClick={() => onSaveDraft?.(values)}
+                onClick={() => { onSaveDraft?.(values);
+                setSavedDraft(true); }}
               >
                 Save Draft
               </button>
 
+              {savedDraft && (
+                <div className={styles.toast}>
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7.49992 14.1673C8.37556 14.1684 9.24278 13.9965 10.0518 13.6614C10.8607 13.3263 11.5955 12.8346 12.2139 12.2147C12.8339 11.5963 13.3255 10.8615 13.6606 10.0525C13.9957 9.24351 14.1677 8.37629 14.1666 7.50066C14.1677 6.62502 13.9957 5.7578 13.6606 4.94882C13.3255 4.13984 12.8339 3.40505 12.2139 2.78666C11.5955 2.16671 10.8607 1.67506 10.0518 1.33996C9.24278 1.00486 8.37556 0.83291 7.49992 0.833989C6.62429 0.83291 5.75707 1.00486 4.94809 1.33996C4.13911 1.67506 3.40431 2.16671 2.78592 2.78666C2.16598 3.40505 1.67433 4.13984 1.33923 4.94882C1.00413 5.7578 0.832177 6.62502 0.833257 7.50066C0.832177 8.37629 1.00413 9.24351 1.33923 10.0525C1.67433 10.8615 2.16598 11.5963 2.78592 12.2147C3.40431 12.8346 4.13911 13.3263 4.94809 13.6614C5.75707 13.9965 6.62429 14.1684 7.49992 14.1673Z" fill="#1A8538" stroke="#1A8538" strokeWidth="1.66667" strokeLinejoin="round"/>
+                    <path d="M4.8335 7.5L6.8335 9.5L10.8335 5.5" stroke="white" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Changes have been saved.
+
+                  <button className={styles.toastClose} onClick={() => setSavedDraft(false)} aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M18 6L6 18M18 18L6 6" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 className={styles.nextButton}

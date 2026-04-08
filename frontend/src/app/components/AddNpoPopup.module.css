@@ -11,9 +11,9 @@
 
 .wrapper {
   width: min(825px, 100%);
-  height: min(665px, 100%);
+  height: min(680px, 100%);
   
-  background:#ffffff;
+  background: #ffffff;
   border-radius: 12px;
 
   padding: 40px;
@@ -261,4 +261,32 @@
 .nextButton:hover {
   filter: brightness(0.97);
 }
+
+.toast {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 48px;
+  width: 268px;
+  border-radius: 5px;
+  border: 1px solid #3B9A9A;
+  padding: 16px;
+  gap: 14px;
+  background: #cdebeb;
+
+  font-size: 12px;
+  font-weight: 400;
+  color: #000000;
+}
+
+.toastClose {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 
