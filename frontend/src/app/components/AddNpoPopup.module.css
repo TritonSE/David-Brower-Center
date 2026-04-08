@@ -1,0 +1,264 @@
+/* Uses globals.css variables if they exist; falls back safely. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.1);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+}
+
+.wrapper {
+  width: min(825px, 100%);
+  height: min(665px, 100%);
+  
+  background:#ffffff;
+  border-radius: 12px;
+
+  padding: 40px;
+  gap: 28px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.addNpoTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d9d9d9;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.title {
+  font-family: "Proxima Nova", var(--font-sans);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: 0;
+  color:#000;
+}
+
+.cancelButton {
+  border: none;
+  background: transparent;
+  color: var(--text, #111827);
+  line-height: 1;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cancelButton:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.contentLayout {
+  height: 480px;
+  width: 100%;
+  padding-bottom: 24px;
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 #f3f3f3;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.caption {
+  font-family: "Rubik";
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 150%;
+  letter-spacing: 2%;
+  display: block;
+  color: #484848;
+  margin-bottom: 8px;
+}
+
+.asterisk {
+  color: red;
+}
+
+.input {
+  width: min(704px, 100%);
+  border-radius: 4px;
+  border: 1px solid var(--border, #d9d9d9);
+  padding: 8px 12px;
+
+  font-family: "Rubik";
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0px;
+  background: var(--surface, #fff);
+  color: var(--text, #909090);
+}
+
+.inputSm {
+  height: 36px;
+}
+
+.inputMd {
+  height: 200px;
+}
+
+.input:focus {
+  border-color: var(--ring, rgba(59, 130, 246, 0.65));
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 160px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.18));
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+  resize: vertical;
+}
+
+.textarea:focus {
+  border-color: var(--ring, rgba(59, 130, 246, 0.65));
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.dropzone {
+  width: min(704px, 100%);
+  border-radius: 5px;
+  border: 0.5px dashed #b4b4b4;
+  padding: 21px;
+  text-align: center;
+}
+
+.dropzoneText {
+  display: grid;
+  gap: 6px;
+}
+
+.dropzoneMain {
+  font-family: 'Rubik';
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 150%;
+  letter-spacing: 2%;
+  color: var(--text, #484848);
+}
+
+.dropzoneSub {
+  font-family: 'Rubik';
+  font-size: 10px;
+  font-weight: 400;
+  font-style: Regular;
+  line-height: 150%;
+  letter-spacing: 2%;
+  color: var(--mutedText, d9d9d9);
+}
+
+.browseButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 650;
+  color: var(--link, #2563eb);
+  text-decoration: underline;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.fileList {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filePill {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text, #111827);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  width: min(825px, 100%);
+  padding-top: 0px;
+  box-sizing: border-box;
+  background: var(--color-white);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+
+  width: 100%;
+  height: 35px;
+  padding: 8px 0px;
+  gap: 24px;
+}
+
+.saveDraft {
+  border: none;
+  margin-right: auto;
+  background: transparent;
+  cursor: pointer;
+
+  font-family: 'Proxima Nova';
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 21px;
+  text-decoration: underline;
+  color: #3B9A9A;
+}
+
+.nextButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+
+  padding: 4px 24px;
+  border-radius: 40px;
+  gap: 10px;
+  background: #3B9A9A;
+  color: white;
+
+  font-weight: 400;
+  line-height: 32px;
+  font-size: 16px;
+}
+
+.nextButton:hover {
+  filter: brightness(0.97);
+}
+
