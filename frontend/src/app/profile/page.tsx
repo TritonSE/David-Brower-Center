@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import "./AdminProfile.css";
 
+// test exit popup for manage npo
+
 export default function AdminProfile() {
   type View = "profile" | "changePassword";
 
@@ -30,6 +32,9 @@ export default function AdminProfile() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [pwError, setPwError] = useState("");
   const [pwSavedAt, setPwSavedAt] = useState<string | null>(null);
+
+  // test exit popup for manage npo
+  const [openExitPopup, setOpenExitPopup] = useState(true);
 
   function handleUserInfoChange(key: keyof typeof draftUserInfo, value: string) {
     setDraftUserInfo((prev) => ({ ...prev, [key]: value }));
