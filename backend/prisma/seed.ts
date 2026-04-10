@@ -4,7 +4,7 @@ import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
 
-import { PrismaClient } from "../src/generated/prisma/index.js";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 
 const cwd = process.cwd();
 const envPath = path.join(cwd, ".env");
