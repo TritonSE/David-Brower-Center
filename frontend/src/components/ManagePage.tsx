@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import AddNpoPopup from "./AddNpoPopup";
 import {
   FilterIcon,
   LeafIcon,
@@ -67,6 +68,9 @@ export default function ManagePage() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
+
+  const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
+  const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -274,6 +278,10 @@ export default function ManagePage() {
             <button
               type="button"
               className="inline-flex items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
+              onClick={() => {
+                setEditingOrg(null);
+                setIsAddNpoOpen(true);
+              }}
             >
               <Image src={IMG_ADD} alt="" width={18} height={18} className="h-[18px] w-[18px]" />
               <span>Add NPO</span>
@@ -389,7 +397,14 @@ export default function ManagePage() {
                               />
                             </span>
                           </button>
-                          <button type="button" aria-label={`Edit ${row.name}`}>
+                          <button
+                            type="button"
+                            aria-label={`Edit ${row.name}`}
+                            onClick={() => {
+                              setEditingOrg(row);
+                              setIsAddNpoOpen(true);
+                            }}
+                          >
                             <span className="flex h-[22px] w-[22px] items-center justify-center">
                               <Image
                                 src={IMG_EDIT}
@@ -477,6 +492,15 @@ export default function ManagePage() {
           </div>
         ) : null}
       </div>
+
+      <AddNpoPopup
+        open={isAddNpoOpen}
+        onClose={() => {
+          setIsAddNpoOpen(false);
+          setEditingOrg(null);
+        }}
+        initialTitle={editingOrg?.name ?? ""}
+      />
     </div>
   );
 }
