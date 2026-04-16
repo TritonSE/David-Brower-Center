@@ -1,8 +1,12 @@
+import Image from "next/image";
+
+import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
+
+import type { ReactElement } from "react";
+
 type Tag = {
-  iconSrc: string;
-  iconAlt?: string;
+  icon: ReactElement;
   label: string;
-  iconClassName?: string;
 };
 
 type NpoProfileCardProps = {
@@ -18,32 +22,25 @@ type NpoProfileCardProps = {
   moreCountLabel: string;
   previousLabel: string;
   nextLabel: string;
+  onClose?: () => void;
 };
 
-const imgPrimary = "https://www.figma.com/api/mcp/asset/d6d6e1bd-a1df-4ba1-b3cb-c8f40aa0df46";
-const imgSecondary = "https://www.figma.com/api/mcp/asset/2321c6d3-3a5d-4f97-b975-46e05b51d8f8";
-const imgMorePreview = "https://www.figma.com/api/mcp/asset/fe060518-a76d-4f76-964e-30901647e9a7";
-const imgEnvironmental = "https://www.figma.com/api/mcp/asset/cec0c0a0-7539-4e3f-95b9-a90b5a4803e7";
-const imgPeople = "https://www.figma.com/api/mcp/asset/df189257-05b8-43ab-86b9-bfb40045ad6a";
-const imgMoney = "https://www.figma.com/api/mcp/asset/df78feda-0560-4654-9591-1d9a7b72b517";
-const imgLocation = "https://www.figma.com/api/mcp/asset/f80fd60b-8354-42f7-9239-d2a4cb6babc5";
+const imgPrimary = "/images/dbc-primary.svg";
+const imgSecondary = "/images/dbc-secondary.svg";
+const imgMorePreview = "/images/dbc-more-preview.svg";
 
 const defaultContent: NpoProfileCardProps = {
   name: "David Brower Center",
   tags: [
     {
-      iconSrc: imgEnvironmental,
-      iconAlt: "Environmental",
+      icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
       label: "Environmental",
-      iconClassName: "h-[18px] w-[18px]",
     },
-    { iconSrc: imgPeople, iconAlt: "Mid Sized", label: "Mid Sized", iconClassName: "h-4 w-4" },
-    { iconSrc: imgMoney, iconAlt: "100k", label: "100k", iconClassName: "h-[14px] w-[14px]" },
+    { icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />, label: "Mid Sized" },
+    { icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />, label: "100k" },
     {
-      iconSrc: imgLocation,
-      iconAlt: "Berkeley, CA",
+      icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
       label: "Berkeley, CA",
-      iconClassName: "h-[14px] w-[14px]",
     },
   ],
   description:
@@ -72,20 +69,40 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
   };
 
   return (
-    <section className="w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+    <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+      {content.onClose && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={content.onClose}
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
+
       <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
         {content.name}
       </h1>
 
       <div className="mt-[8px] flex flex-wrap items-center gap-x-[6px] gap-y-1">
         {content.tags.map((tag, index) => (
-          <div key={tag.label} className="flex items-center gap-[6px]">
+          <div key={`${index}-${tag.label}`} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
-              <img
-                alt={tag.iconAlt ?? `${tag.label} icon`}
-                src={tag.iconSrc}
-                className={tag.iconClassName ?? "h-4 w-4"}
-              />
+              {tag.icon}
               <span className="font-['Rubik',Arial,sans-serif] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
                 {tag.label}
               </span>
@@ -99,26 +116,35 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[10px] flex w-full flex-col gap-[10px] sm:h-[240px] sm:flex-row">
         <div className="h-[220px] w-full overflow-hidden rounded-[12px] sm:h-[240px] sm:w-[369px]">
-          <img
+          <Image
             alt="David Brower Center building"
             src={content.images.primary}
+            width={738}
+            height={480}
+            sizes="(min-width: 640px) 369px, 100vw"
             className="h-full w-full object-cover"
           />
         </div>
 
         <div className="flex w-full flex-row gap-[10px] sm:w-[159px] sm:flex-col">
           <div className="h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[144px] sm:w-[159px]">
-            <img
+            <Image
               alt="David Brower Center interior"
               src={content.images.secondary}
+              width={318}
+              height={288}
+              sizes="(min-width: 640px) 159px, 50vw"
               className="h-full w-full object-cover"
             />
           </div>
 
           <div className="relative h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[86px] sm:w-[159px]">
-            <img
+            <Image
               alt="Additional gallery images"
               src={content.images.morePreview}
+              width={318}
+              height={172}
+              sizes="(min-width: 640px) 159px, 50vw"
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">

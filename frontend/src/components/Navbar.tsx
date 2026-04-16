@@ -3,38 +3,39 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-export type NavbarView = "graph" | "list" | "admin";
+export type NavbarView = "graph" | "list" | "manage" | "admin";
 
 const viewRoutes: Record<NavbarView, string> = {
   graph: "/",
   list: "/list",
+  manage: "/manage",
   admin: "/profile",
 };
 
 type NavbarProps = {
-  isAdmin?: boolean;
+  isSignedIn?: boolean;
   defaultView?: NavbarView;
   onViewChange?: (view: NavbarView) => void;
   className?: string;
 };
 
 export default function Navbar({
-  isAdmin = false,
+  isSignedIn = false,
   defaultView = "graph",
   onViewChange,
   className,
 }: NavbarProps) {
   const resolvedDefaultView = useMemo<NavbarView>(() => {
-    if (defaultView === "admin" && !isAdmin) {
+    if ((defaultView === "manage" || defaultView === "admin") && !isSignedIn) {
       return "graph";
     }
 
     return defaultView;
-  }, [defaultView, isAdmin]);
+  }, [defaultView, isSignedIn]);
 
   const [activeView, setActiveView] = useState<NavbarView>(resolvedDefaultView);
 
-  const views: NavbarView[] = isAdmin ? ["graph", "list", "admin"] : ["graph", "list"];
+  const views: NavbarView[] = isSignedIn ? ["graph", "list", "manage", "admin"] : ["graph", "list"];
 
   const handleSelect = (view: NavbarView) => {
     setActiveView(view);
