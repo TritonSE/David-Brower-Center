@@ -62,7 +62,7 @@ export default function AddNpoPopup({
 
   const handlePickFiles = () => fileInputRef.current?.click();
 
-  const handleFiles = (files: FileList) => {
+  const handleFiles = (files: FileList | null) => {
     if (!files) return;
     const next = Array.from(files);
     setMediaFiles((prev) => [...prev, ...next]);
