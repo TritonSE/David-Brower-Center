@@ -143,3 +143,8 @@ vite.config.ts.timestamp-*
 
 # System specific files
 .DS_Store
+
+# Cursor / agent-only guidance (do not commit)
+AGENTS.md
+.cursor/rules/*.mdc
+skills/
