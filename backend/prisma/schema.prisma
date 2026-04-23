@@ -13,27 +13,57 @@ datasource db {
 // YOUR APPLICATION MODELS (public schema)
 // ===========================================
 
+enum RelationshipTier {
+  PRIMARY
+  SECONDARY
+  TERTIARY
+
+  @@schema("public")
+}
+
 model Organization {
-  id         String   @id @default(uuid()) @db.Uuid
-  name       String
-  mission    String?  @db.Text
-  city       String?
-  state      String?
-  country    String?  @default("United States")
-  latitude   Float?
-  longitude  Float?
-  min_budget Int?
-  max_budget Int?
-  tags       OrganizationTag[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                  String                     @id @default(uuid()) @db.Uuid
+  name                String
+  mission             String?                    @db.Text
+  city                String?
+  state               String?
+  country             String?                    @default("United States")
+  latitude            Float?
+  longitude           Float?
+  min_budget          Int?
+  max_budget          Int?
+  tags                OrganizationTag[]
+  relationshipsAsNpo1 OrganizationRelationship[] @relation("OrganizationRelationshipNpo1")
+  relationshipsAsNpo2 OrganizationRelationship[] @relation("OrganizationRelationshipNpo2")
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
   @@map("organizations")
   @@schema("public")
 }
 
+model OrganizationRelationship {
+  id               String           @id @default(uuid()) @db.Uuid
+  npo1Id           String           @db.Uuid
+  npo2Id           String           @db.Uuid
+  relationshipTier RelationshipTier
+  relationshipType String?
+  description      String?          @db.Text
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  npo1 Organization @relation("OrganizationRelationshipNpo1", fields: [npo1Id], references: [id])
+  npo2 Organization @relation("OrganizationRelationshipNpo2", fields: [npo2Id], references: [id])
+
+  @@unique([npo1Id, npo2Id, relationshipTier])
+  @@index([npo1Id])
+  @@index([npo2Id])
+  @@map("organization_relationships")
+  @@schema("public")
+}
+
 model Tag {
-  id            String           @id @default(uuid()) @db.Uuid
+  id            String            @id @default(uuid()) @db.Uuid
   name          String
   description   String?
   organizations OrganizationTag[]
@@ -46,8 +76,8 @@ model OrganizationTag {
   organizationId String @db.Uuid
   tagId          String @db.Uuid
 
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  tag            Tag          @relation(fields: [tagId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  tag          Tag          @relation(fields: [tagId], references: [id])
 
   @@id([organizationId, tagId])
   @@map("organization_tags")
@@ -59,6 +89,9 @@ model User {
   supabase_user_id String   @id @db.Uuid
   email            String   @unique
   name             String?
+  first_name       String?
+  last_name        String?
+  phone            String?
   role             String   @default("admin")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   // References Supabase auth.users.id at the application layer (not Prisma-managed FK).
