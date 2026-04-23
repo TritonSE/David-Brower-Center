@@ -3,12 +3,18 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { SearchIcon } from "./icons/AppIcons";
+import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon, SearchIcon } from "./icons/AppIcons";
+import NpoProfileCard from "./NpoProfileCard";
 
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
 
-import { getOrganizations, type OrganizationListItem } from "@/api/organization";
+import {
+  getOrganizationById,
+  getOrganizations,
+  type OrganizationDetail,
+  type OrganizationListItem,
+} from "@/api/organization";
 
 // Reagraph depends on WebGL/Three.js, so it must only render on the client.
 // Using `dynamic` with `ssr: false` prevents Next.js from attempting to
@@ -42,6 +48,10 @@ type GraphEdge = {
 // Branching factor for the dummy tree — how many children each parent has.
 // 3 produces a full, bushy crown without getting too wide.
 const DUMMY_TREE_BRANCHING_FACTOR = 3;
+
+// Matches the fade duration of the overlay card so we can fully tear down
+// the associated detail state after the exit animation finishes.
+const POPUP_FADE_DURATION_MS = 200;
 
 // Parameters that shape the rendered tree silhouette. Tuned for readability
 // at reagraph's default camera distance; adjust if the graph feels cramped
@@ -218,11 +228,27 @@ export default function GraphPage() {
   // Positions are mutable at runtime so that dragging a node can translate
   // it and all of its descendants together. Keyed by node id.
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
+  // Detail-panel state: mirrors the list view so clicking a node opens the
+  // same NpoProfileCard overlay with the selected organization's info.
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [isCardVisible, setIsCardVisible] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+  // Monotonically increasing id used to ignore stale detail responses when
+  // the user clicks through several nodes quickly.
+  const detailRequestIdRef = useRef(0);
   // Imperative handle to the reagraph canvas. Used to re-fit the camera on
   // the currently rendered nodes whenever the search filter changes the
   // visible set (or on initial load).
   const graphRef = useRef<GraphCanvasRef | null>(null);
+
+  const selectedOrganization = useMemo(
+    () => organizations.find((org) => org.id === selectedOrgId) ?? null,
+    [organizations, selectedOrgId],
+  );
 
   // Case-insensitive, substring match on organization name — matches the
   // list view's search behavior so the two surfaces feel consistent.
@@ -259,6 +285,48 @@ export default function GraphPage() {
     void fetchOrganizations();
     return () => abortRef.current?.abort();
   }, [fetchOrganizations]);
+
+  const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
+    detailAbortRef.current?.abort();
+    const abortController = new AbortController();
+    detailAbortRef.current = abortController;
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+
+    setIsDetailLoading(true);
+    setDetailError(null);
+    setActiveOrgDetail(null);
+
+    try {
+      const detail = await getOrganizationById(organizationId, abortController.signal);
+      if (detailRequestIdRef.current !== requestId) return;
+      setActiveOrgDetail(detail);
+    } catch (caughtError) {
+      if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) return;
+      setDetailError(getErrorMessage(caughtError, "Unable to load organization details."));
+    } finally {
+      if (detailRequestIdRef.current === requestId) {
+        setIsDetailLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => detailAbortRef.current?.abort(), []);
+
+  // After the overlay finishes fading out, fully clear the selection so we
+  // don't keep stale data around (and a future selection starts fresh).
+  useEffect(() => {
+    if (!isCardVisible && selectedOrgId) {
+      const timer = setTimeout(() => {
+        setSelectedOrgId(null);
+        setActiveOrgDetail(null);
+        setDetailError(null);
+        setIsDetailLoading(false);
+      }, POPUP_FADE_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isCardVisible, selectedOrgId]);
 
   // Derive the graph's structural data (base nodes, edges, and a
   // parent -> children adjacency map) from the organization list.
@@ -365,6 +433,60 @@ export default function GraphPage() {
     void fetchOrganizations();
   }, [fetchOrganizations]);
 
+  // Clicking the same node again toggles the overlay closed, matching the
+  // list view's behavior where re-clicking the active row collapses it.
+  const handleNodeClick = useCallback(
+    (node: InternalGraphNode) => {
+      if (selectedOrgId === node.id && isCardVisible) {
+        detailAbortRef.current?.abort();
+        setIsCardVisible(false);
+        return;
+      }
+
+      setSelectedOrgId(node.id);
+      setIsCardVisible(true);
+      void fetchOrganizationDetail(node.id);
+    },
+    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+  );
+
+  const handleCloseCard = useCallback(() => {
+    detailAbortRef.current?.abort();
+    setIsCardVisible(false);
+  }, []);
+
+  const handleRetryDetail = useCallback(() => {
+    if (!selectedOrgId) return;
+    void fetchOrganizationDetail(selectedOrgId);
+  }, [fetchOrganizationDetail, selectedOrgId]);
+
+  const selectedCardProps = useMemo(() => {
+    if (!activeOrgDetail) return null;
+    return {
+      name: activeOrgDetail.name,
+      tags: [
+        {
+          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.focus,
+        },
+        {
+          icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
+          label: activeOrgDetail.size,
+        },
+        {
+          icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.budget,
+        },
+        {
+          icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.location,
+        },
+      ],
+      description: activeOrgDetail.description,
+      mission: activeOrgDetail.mission,
+    };
+  }, [activeOrgDetail]);
+
   // Distinguish "no data at all" from "search returned nothing" so the
   // empty state can explain why the graph is blank.
   const hasSearchQuery = search.trim().length > 0;
@@ -418,8 +540,79 @@ export default function GraphPage() {
           nodes={nodes}
           edges={edges}
           onNodeDragged={handleNodeDragged}
+          onNodeClick={handleNodeClick}
         />
       )}
+
+      {/* Overlay card that fades in/out and sits above the canvas. Mirrors
+          the list view's profile card so the two surfaces behave the same. */}
+      <div
+        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
+          isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {selectedOrgId ? (
+          <div
+            className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
+            style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
+          >
+            {selectedCardProps ? (
+              <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
+            ) : (
+              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={handleCloseCard}
+                  className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+
+                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                  {selectedOrganization?.name ?? "Organization"}
+                </h1>
+
+                {isDetailLoading ? (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    Loading organization details...
+                  </p>
+                ) : detailError ? (
+                  <div className="mt-3 space-y-3">
+                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                      {detailError}
+                    </p>
+                    <button
+                      className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+                      type="button"
+                      onClick={handleRetryDetail}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    No organization details available.
+                  </p>
+                )}
+              </section>
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
