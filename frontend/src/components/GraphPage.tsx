@@ -3,16 +3,25 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { GraphCanvasProps, InternalGraphNode } from "reagraph";
+import { SearchIcon } from "./icons/AppIcons";
+
+import type React from "react";
+import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
 
 import { getOrganizations, type OrganizationListItem } from "@/api/organization";
 
 // Reagraph depends on WebGL/Three.js, so it must only render on the client.
 // Using `dynamic` with `ssr: false` prevents Next.js from attempting to
 // render the canvas during server-side rendering.
+// We re-assert the ref-forwarding type because `next/dynamic`'s public
+// types drop the ref signature, even though Next preserves refs at
+// runtime. Without this cast, passing `ref` to <GraphCanvas /> would
+// fail to type-check.
 const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
   ssr: false,
-});
+}) as unknown as React.ForwardRefExoticComponent<
+  GraphCanvasProps & React.RefAttributes<GraphCanvasRef>
+>;
 
 // Node/edge shapes accepted by reagraph. `fx`/`fy` pin a node's position in
 // the force-directed layout so we can compute a custom tree silhouette.
@@ -205,10 +214,23 @@ export default function GraphPage() {
   const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   // Positions are mutable at runtime so that dragging a node can translate
   // it and all of its descendants together. Keyed by node id.
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
+  // Imperative handle to the reagraph canvas. Used to re-fit the camera on
+  // the currently rendered nodes whenever the search filter changes the
+  // visible set (or on initial load).
+  const graphRef = useRef<GraphCanvasRef | null>(null);
+
+  // Case-insensitive, substring match on organization name — matches the
+  // list view's search behavior so the two surfaces feel consistent.
+  const filteredOrganizations = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (query.length === 0) return organizations;
+    return organizations.filter((org) => org.name.toLowerCase().includes(query));
+  }, [organizations, search]);
 
   const fetchOrganizations = useCallback(async () => {
     abortRef.current?.abort();
@@ -243,7 +265,7 @@ export default function GraphPage() {
   // `childrenByParent` is used both for the initial layout and for
   // subtree drag handling.
   const { baseNodes, edges, childrenByParent } = useMemo(() => {
-    const nextBaseNodes: GraphNode[] = organizations.map((org) => ({
+    const nextBaseNodes: GraphNode[] = filteredOrganizations.map((org) => ({
       id: org.id,
       label: org.name,
     }));
@@ -259,7 +281,7 @@ export default function GraphPage() {
       edges: nextEdges,
       childrenByParent: nextChildrenByParent,
     };
-  }, [organizations]);
+  }, [filteredOrganizations]);
 
   // Reset positions whenever the underlying organization list changes.
   // This throws away any drag translations the user applied, which is
@@ -280,6 +302,36 @@ export default function GraphPage() {
       }),
     [baseNodes, positions],
   );
+
+  // Stable key that changes only when the *set* of rendered node ids
+  // changes (e.g. because search filtered the list). We use this to
+  // re-fit the camera without re-firing the effect on unrelated
+  // re-renders like drag updates.
+  const visibleNodeIdsKey = useMemo(
+    () =>
+      baseNodes
+        .map((node) => node.id)
+        .sort()
+        .join("|"),
+    [baseNodes],
+  );
+
+  // Whenever the visible node set changes, fit the camera to the current
+  // nodes so the graph stays centered on screen. We defer to
+  // requestAnimationFrame so reagraph has a chance to apply the new
+  // layout positions before we ask it to fit them.
+  useEffect(() => {
+    if (visibleNodeIdsKey.length === 0) return;
+    let cancelled = false;
+    const rafId = requestAnimationFrame(() => {
+      if (cancelled) return;
+      graphRef.current?.fitNodesInView(undefined, { animated: true });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [visibleNodeIdsKey]);
 
   // Drag handler: translate the dragged node AND every descendant by the
   // same delta so an entire branch of the tree moves as a unit.
@@ -313,8 +365,31 @@ export default function GraphPage() {
     void fetchOrganizations();
   }, [fetchOrganizations]);
 
+  // Distinguish "no data at all" from "search returned nothing" so the
+  // empty state can explain why the graph is blank.
+  const hasSearchQuery = search.trim().length > 0;
+  const hasOrganizations = organizations.length > 0;
+
   return (
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
+      {!isLoading && !error && hasOrganizations && (
+        // Floating search control layered over the canvas. Uses the same
+        // styling as the list view's search input so both views feel
+        // consistent. `z-10` keeps it above the reagraph WebGL canvas.
+        <div className="pointer-events-none absolute left-4 top-4 z-10">
+          <div className="pointer-events-auto relative flex w-[320px] max-w-[calc(100vw-2rem)] items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
+            <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
+            <input
+              className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
+              placeholder="Search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
           Loading organizations...
@@ -332,10 +407,11 @@ export default function GraphPage() {
         </div>
       ) : nodes.length === 0 ? (
         <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
-          No organizations to display.
+          {hasSearchQuery ? "No organizations match your search." : "No organizations to display."}
         </div>
       ) : (
         <GraphCanvas
+          ref={graphRef}
           draggable
           layoutType="forceDirected2d"
           edgeArrowPosition="none"
