@@ -3,7 +3,14 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon, SearchIcon } from "./icons/AppIcons";
+import {
+  FilterIcon,
+  LeafIcon,
+  LocationIcon,
+  MoneyIcon,
+  PeopleIcon,
+  SearchIcon,
+} from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type React from "react";
@@ -225,6 +232,10 @@ export default function GraphPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // Tag IDs the user has enabled in the filter panel. Using a Set makes
+  // toggle-and-check operations O(1). When empty, no tag filter is applied
+  // (i.e. all organizations pass the tag criterion).
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
   // Positions are mutable at runtime so that dragging a node can translate
   // it and all of its descendants together. Keyed by node id.
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
@@ -250,13 +261,79 @@ export default function GraphPage() {
     [organizations, selectedOrgId],
   );
 
-  // Case-insensitive, substring match on organization name — matches the
-  // list view's search behavior so the two surfaces feel consistent.
+  // Aggregate every unique tag present on the loaded organizations so the
+  // filter panel can render one row per tag along with an "orgs in data"
+  // count. Sorted alphabetically for stable, predictable ordering.
+  const availableTags = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; count: number }>();
+    for (const org of organizations) {
+      for (const tag of org.tags) {
+        const existing = byId.get(tag.id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          byId.set(tag.id, { id: tag.id, name: tag.name, count: 1 });
+        }
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [organizations]);
+
+  // Drop selected tag ids that no longer exist on any loaded organization
+  // (e.g. after a refetch returns a reduced dataset). Without this the user
+  // could end up with a "stuck" filter that matches nothing with no way to
+  // clear it via the UI.
+  useEffect(() => {
+    setSelectedTagIds((previous) => {
+      if (previous.size === 0) return previous;
+      const validIds = new Set(availableTags.map((tag) => tag.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of previous) {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : previous;
+    });
+  }, [availableTags]);
+
+  // Case-insensitive substring match on organization name combined with an
+  // OR-style tag filter: when any tags are selected, an org must carry at
+  // least one of them to pass. When no tags are selected, the tag check is
+  // a no-op.
   const filteredOrganizations = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (query.length === 0) return organizations;
-    return organizations.filter((org) => org.name.toLowerCase().includes(query));
-  }, [organizations, search]);
+    const hasQuery = query.length > 0;
+    const hasTagFilter = selectedTagIds.size > 0;
+    if (!hasQuery && !hasTagFilter) return organizations;
+
+    return organizations.filter((org) => {
+      if (hasQuery && !org.name.toLowerCase().includes(query)) return false;
+      if (hasTagFilter && !org.tags.some((tag) => selectedTagIds.has(tag.id))) {
+        return false;
+      }
+      return true;
+    });
+  }, [organizations, search, selectedTagIds]);
+
+  const toggleTag = useCallback((tagId: string) => {
+    setSelectedTagIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(tagId)) {
+        next.delete(tagId);
+      } else {
+        next.add(tagId);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearTagFilter = useCallback(() => {
+    setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
+  }, []);
 
   const fetchOrganizations = useCallback(async () => {
     abortRef.current?.abort();
@@ -487,19 +564,24 @@ export default function GraphPage() {
     };
   }, [activeOrgDetail]);
 
-  // Distinguish "no data at all" from "search returned nothing" so the
+  // Distinguish "no data at all" from "filters returned nothing" so the
   // empty state can explain why the graph is blank.
   const hasSearchQuery = search.trim().length > 0;
+  const hasTagFilter = selectedTagIds.size > 0;
+  const hasActiveFilters = hasSearchQuery || hasTagFilter;
   const hasOrganizations = organizations.length > 0;
 
   return (
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
       {!isLoading && !error && hasOrganizations && (
-        // Floating search control layered over the canvas. Uses the same
-        // styling as the list view's search input so both views feel
-        // consistent. `z-10` keeps it above the reagraph WebGL canvas.
-        <div className="pointer-events-none absolute left-4 top-4 z-10">
-          <div className="pointer-events-auto relative flex w-[320px] max-w-[calc(100vw-2rem)] items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
+        // Floating left-side control column layered over the canvas. Holds
+        // the search input on top and the tag filter panel below it so the
+        // two filtering affordances live together. `z-10` keeps it above
+        // the reagraph WebGL canvas, while `pointer-events-none` on the
+        // outer wrapper lets unclaimed regions pass clicks through to the
+        // graph for panning.
+        <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
+          <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
             <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
             <input
               className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
@@ -508,6 +590,61 @@ export default function GraphPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
+          </div>
+
+          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
+                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" aria-hidden="true" />
+                <span>Filter by tag</span>
+                {selectedTagIds.size > 0 ? (
+                  <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
+                    {selectedTagIds.size}
+                  </span>
+                ) : null}
+              </div>
+              {selectedTagIds.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearTagFilter}
+                  className="text-xs font-semibold text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            {availableTags.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-[#6c6c6c]">
+                No tags are associated with the loaded organizations.
+              </p>
+            ) : (
+              <ul className="flex-1 overflow-y-auto py-1">
+                {availableTags.map((tag) => {
+                  const isSelected = selectedTagIds.has(tag.id);
+                  return (
+                    <li key={tag.id}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#f5f5f5] ${
+                          isSelected ? "bg-[#f0f8f8] text-[#2f7f7f]" : "text-[#333]"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
+                          checked={isSelected}
+                          onChange={() => toggleTag(tag.id)}
+                        />
+                        <span className="flex-1 truncate" title={tag.name}>
+                          {tag.name}
+                        </span>
+                        <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       )}
@@ -529,7 +666,9 @@ export default function GraphPage() {
         </div>
       ) : nodes.length === 0 ? (
         <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
-          {hasSearchQuery ? "No organizations match your search." : "No organizations to display."}
+          {hasActiveFilters
+            ? "No organizations match the current filters."
+            : "No organizations to display."}
         </div>
       ) : (
         <GraphCanvas

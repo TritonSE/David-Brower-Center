@@ -127,12 +127,18 @@ function getRequiredString(value: unknown, route: string, field: string): string
   return stringValue;
 }
 
+export type OrganizationTag = {
+  id: string;
+  name: string;
+};
+
 export type OrganizationListItem = {
   id: string;
   name: string;
   focus: string;
   year: string;
   updatedAt: string;
+  tags: OrganizationTag[];
 };
 
 export type OrganizationDetail = {
@@ -145,7 +151,29 @@ export type OrganizationDetail = {
   location: string;
   description: string;
   mission: string;
+  tags: OrganizationTag[];
 };
+
+// Parses a single tag object. The backend flattens the `organization_tags`
+// pivot into plain `{ id, name }` pairs, but we still defensively handle
+// missing/malformed entries so one bad tag can't poison the whole list.
+function parseOrganizationTag(value: unknown): OrganizationTag | null {
+  if (!isRecord(value)) return null;
+  const id = toOptionalString(value.id);
+  const name = toOptionalString(value.name);
+  if (!id || !name) return null;
+  return { id, name };
+}
+
+function parseOrganizationTagList(value: unknown): OrganizationTag[] {
+  if (!Array.isArray(value)) return [];
+  const tags: OrganizationTag[] = [];
+  for (const entry of value) {
+    const tag = parseOrganizationTag(entry);
+    if (tag) tags.push(tag);
+  }
+  return tags;
+}
 
 function parseOrganizationListItem(value: unknown): OrganizationListItem {
   if (!isRecord(value)) {
@@ -158,6 +186,7 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     focus: toFallbackString(value.focus),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
+    tags: parseOrganizationTagList(value.tags),
   };
 }
 
@@ -176,6 +205,7 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     location: toFallbackString(value.location),
     description: toFallbackString(value.description),
     mission: toFallbackString(value.mission),
+    tags: parseOrganizationTagList(value.tags),
   };
 }
 
