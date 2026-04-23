@@ -1,5 +1,6 @@
 "use client";
 
+// NOTE: THIS IS A VIBE CODED PROTOTYPE FOR USER TESTING PURPOSES
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
