@@ -17,7 +17,7 @@ import NpoProfileCard from "./NpoProfileCard";
 
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 
-import { getOrganizationById, getOrganizations } from "@/api/organization";
+import { createOrganization, getOrganizationById, getOrganizations } from "@/api/organization";
 
 type ManageStatus = "published" | "draft";
 
@@ -71,6 +71,7 @@ export default function ManagePage() {
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -171,6 +172,30 @@ export default function ManagePage() {
     detailAbortRef.current?.abort();
     setIsCardVisible(false);
   }, []);
+
+  const handleCreateOrganization = useCallback(
+    async (values: { title: string; description: string }) => {
+      if (isCreating) return;
+
+      setIsCreating(true);
+
+      try {
+        await createOrganization({
+          name: values.title.trim(),
+          mission: values.description.trim() || undefined,
+        });
+
+        setIsAddNpoOpen(false);
+        setEditingOrg(null);
+        void fetchOrganizations();
+      } catch (error: unknown) {
+        console.error("Failed to create organization:", error);
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [isCreating, fetchOrganizations],
+  );
 
   const selectedRow = useMemo(
     () => organizations.find((org) => org.id === selectedOrgId) ?? null,
@@ -499,6 +524,7 @@ export default function ManagePage() {
           setIsAddNpoOpen(false);
           setEditingOrg(null);
         }}
+        onNext={(values) => void handleCreateOrganization(values)}
         initialTitle={editingOrg?.name ?? ""}
       />
     </div>

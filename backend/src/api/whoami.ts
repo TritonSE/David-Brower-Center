@@ -1,28 +1,16 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 
-import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "../config";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
 
 const supabaseAuthUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAdminUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
 const supabaseAuth = supabaseAuthUnknown as SupabaseClient;
-const supabaseAdmin = supabaseAdminUnknown as SupabaseClient;
-
-type PublicUserRow = {
-  supabase_user_id: string;
-  role: string;
-};
 
 type AuthUserResult = {
-  data: { user: { id: string } } | null;
-  error: Error | null;
-};
-
-type DbResult = {
-  data: PublicUserRow | null;
+  data: { user: { id: string; email?: string } } | null;
   error: Error | null;
 };
 
@@ -48,24 +36,34 @@ router.get("/whoami", async (req: Request, res: Response, next: NextFunction) =>
     }
 
     const supabaseUserId = authData.user.id;
+    const userEmail = authData.user.email;
 
-    // Type the result explicitly, not the client
-    const dbResult = (await supabaseAdmin
-      .from("users")
-      .select("supabase_user_id, role")
-      .eq("supabase_user_id", supabaseUserId)
-      .single()) as DbResult;
+    // Try to find existing user
+    let user = await prisma.user.findUnique({
+      where: { supabase_user_id: supabaseUserId },
+      select: { supabase_user_id: true, role: true, email: true },
+    });
 
-    const { data: userRow, error: dbError } = dbResult;
-
-    if (dbError || !userRow) {
-      return res.status(404).json({ error: "User does not exist" });
+    // Auto-create user if they don't exist (useful for development)
+    if (!user) {
+      if (!userEmail) {
+        return res.status(400).json({ error: "User email not available from auth provider" });
+      }
+      user = await prisma.user.create({
+        data: {
+          supabase_user_id: supabaseUserId,
+          email: userEmail,
+          role: "admin",
+        },
+        select: { supabase_user_id: true, role: true, email: true },
+      });
+      console.info(`Auto-created user: ${userEmail} (${supabaseUserId})`);
     }
 
     return res.json({
-      id: userRow.supabase_user_id,
-      role: userRow.role,
-      supabase_user_id: userRow.supabase_user_id,
+      id: user.supabase_user_id,
+      role: user.role,
+      supabase_user_id: user.supabase_user_id,
     });
   } catch (err: unknown) {
     next(err);
