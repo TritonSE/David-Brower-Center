@@ -137,25 +137,47 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
       throw createError(400, "name is required");
     }
 
+    // `tags` is a relation through the `OrganizationTag` join table, so we
+    // can't assign a scalar array. Accept an array of Tag UUIDs from the
+    // client and translate them into nested join-row creates that connect
+    // to existing tags. `Tag.name` is not unique in the schema, so IDs are
+    // the only safe lookup key.
+    const tagIds: string[] =
+      Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
+        ? body.tags
+        : [];
+
     const organization = await prisma.organization.create({
       data: {
         name: body.name.trim(),
         mission: typeof body.mission === "string" ? body.mission : null,
         city: typeof body.city === "string" ? body.city : null,
         state: typeof body.state === "string" ? body.state : null,
-        country: typeof body.country === "string" ? body.country : undefined,
+        // Conditionally include `country` so that when it's absent the
+        // schema default ("United States") applies. Under
+        // `exactOptionalPropertyTypes: true` we can't pass `undefined` to a
+        // non-optional field, and passing `null` would override the default.
+        ...(typeof body.country === "string" && { country: body.country }),
         latitude: typeof body.latitude === "number" ? body.latitude : null,
         longitude: typeof body.longitude === "number" ? body.longitude : null,
         min_budget: typeof body.min_budget === "number" ? Math.trunc(body.min_budget) : null,
         max_budget: typeof body.max_budget === "number" ? Math.trunc(body.max_budget) : null,
-        tags:
-          Array.isArray(body.tags) && body.tags.every((tag) => typeof tag === "string")
-            ? body.tags
-            : undefined,
+        tags: {
+          create: tagIds.map((tagId) => ({
+            tag: { connect: { id: tagId } },
+          })),
+        },
+      },
+      include: {
+        tags: {
+          select: {
+            tag: { select: { id: true, name: true } },
+          },
+        },
       },
     });
 
-    res.status(201).json({ organization });
+    res.status(201).json({ organization: flattenOrganizationTags(organization) });
   } catch (err: unknown) {
     next(err);
   }
