@@ -41,25 +41,6 @@ app.get("/", (req, res) => {
 app.use("/api", apiRouter);
 app.use(organizationsRouter);
 
-app.get("/organizations/:id", async (req, res, next) => {
-  try {
-    const organization = await prisma.organization.findUnique({
-      where: {
-        id: req.params.id,
-      },
-    });
-
-    if (!organization) {
-      next(createError(404, `Organization ${req.params.id} not found`));
-      return;
-    }
-
-    res.status(200).json({ organization });
-  } catch {
-    next(createError(500, `Failed to fetch organization ${req.params.id}`));
-  }
-});
-
 app.use(errorHandler);
 app.listen(PORT, () => {
   console.info(`> Listening on port ${PORT}`);

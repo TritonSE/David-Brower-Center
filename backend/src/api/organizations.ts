@@ -63,12 +63,67 @@ async function requireAdminUser(req: Request): Promise<string> {
   return user.supabase_user_id;
 }
 
+// Flattens the Prisma `tags` relation (a pivot row that nests a `tag`) into a
+// plain array of `{ id, name }` objects. Clients don't care about the join
+// table; they just want to render and filter on the tag list itself.
+type OrganizationTagJoin = { tag: { id: string; name: string } };
+function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
+  organization: T,
+): Omit<T, "tags"> & { tags: { id: string; name: string }[] } {
+  const { tags, ...rest } = organization;
+  return {
+    ...rest,
+    tags: tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name })),
+  };
+}
+
 router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const organizations = await prisma.organization.findMany();
-    res.status(200).json({ organizations });
+    const organizations = await prisma.organization.findMany({
+      include: {
+        tags: {
+          select: {
+            tag: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    res.status(200).json({ organizations: organizations.map(flattenOrganizationTags) });
   } catch {
     next(createError(500, "Failed to fetch organizations"));
+  }
+});
+
+router.get("/organizations/:id", async (req: Request, res: Response, next: NextFunction) => {
+  // Express 5 types `req.params` values as `string | string[] | undefined`,
+  // so narrow to a plain string before using it in queries or messages.
+  const rawId: unknown = req.params.id;
+  if (typeof rawId !== "string" || rawId.length === 0) {
+    next(createError(400, "Organization id is required"));
+    return;
+  }
+  const id: string = rawId;
+
+  try {
+    const organization = await prisma.organization.findUnique({
+      where: { id },
+      include: {
+        tags: {
+          select: {
+            tag: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!organization) {
+      next(createError(404, `Organization ${id} not found`));
+      return;
+    }
+
+    res.status(200).json({ organization: flattenOrganizationTags(organization) });
+  } catch {
+    next(createError(500, `Failed to fetch organization ${id}`));
   }
 });
 
