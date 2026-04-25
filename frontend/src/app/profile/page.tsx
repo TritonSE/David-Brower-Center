@@ -1,21 +1,48 @@
 "use client";
 import Image from "next/image";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { getProfile, updateProfile } from "@/api/profile";
+import { signOut } from "@/services/auth";
 
 import "./AdminProfile.css";
 
+type ProfileFormData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+};
+
+function isValidEmail(value: string): boolean {
+  const parts = value.split("@");
+  if (parts.length !== 2) return false;
+  const [local, domainWithTld] = parts;
+  if (!local || /\s/.test(local) || !domainWithTld || /\s/.test(domainWithTld)) return false;
+  const lastDot = domainWithTld.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot >= domainWithTld.length - 1) return false;
+  return true;
+}
+
 export default function AdminProfile() {
   type View = "profile" | "changePassword";
+  const router = useRouter();
 
   const [view, setView] = useState<View>("profile");
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSavedAt, setProfileSavedAt] = useState<string | null>(null);
 
   const [activeSidebarItem, setActiveSidebarItem] = useState("Account");
-  const role = "Founder";
-  const [userData, setUserData] = useState({
-    firstName: "Jane",
-    lastName: "Doe",
-    email: "Janedoe@gmail.com",
-    phone: "858-000-000",
+  const [userData, setUserData] = useState<ProfileFormData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    role: "",
   });
 
   // change user info states
@@ -31,20 +58,89 @@ export default function AdminProfile() {
   const [pwError, setPwError] = useState("");
   const [pwSavedAt, setPwSavedAt] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function loadProfile() {
+      setIsLoadingProfile(true);
+      setProfileError(null);
+      try {
+        const profile = await getProfile();
+        const nextUserData: ProfileFormData = {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          phone: profile.phone,
+          role: profile.role,
+        };
+        setUserData(nextUserData);
+        setDraftUserInfo(nextUserData);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to load profile.";
+        setProfileError(message);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    }
+
+    void loadProfile();
+  }, []);
+
   function handleUserInfoChange(key: keyof typeof draftUserInfo, value: string) {
     setDraftUserInfo((prev) => ({ ...prev, [key]: value }));
     setShowSaveWarning(false);
+    setProfileError(null);
+    setProfileSavedAt(null);
   }
 
   function startEditing() {
     setDraftUserInfo(userData); // set info to latest save data
     setEditing(true);
+    setProfileError(null);
+    setProfileSavedAt(null);
   }
 
-  function saveEditing() {
-    setUserData(draftUserInfo); // commit info changes
-    setEditing(false);
-    setShowSaveWarning(false);
+  async function saveEditing() {
+    const normalizedFirstName = draftUserInfo.firstName.trim();
+    const normalizedLastName = draftUserInfo.lastName.trim();
+    const normalizedEmail = draftUserInfo.email.trim();
+
+    if (!normalizedFirstName || !normalizedLastName || !normalizedEmail) {
+      setProfileError("First name, last name, and email are required.");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setProfileError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError(null);
+
+    try {
+      const updatedProfile = await updateProfile({
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
+        email: normalizedEmail,
+        phone: draftUserInfo.phone.trim(),
+      });
+      const nextUserData: ProfileFormData = {
+        firstName: updatedProfile.firstName,
+        lastName: updatedProfile.lastName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        role: updatedProfile.role,
+      };
+
+      setUserData(nextUserData);
+      setDraftUserInfo(nextUserData);
+      setEditing(false);
+      setShowSaveWarning(false);
+      setProfileSavedAt(new Date().toLocaleDateString());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save profile changes.";
+      setProfileError(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   function triggerChangePassword() {
@@ -62,6 +158,17 @@ export default function AdminProfile() {
     setNewPassword("");
     setConfirmNewPassword("");
     setView("profile");
+  }
+
+  async function confirmSignOut() {
+    try {
+      await signOut();
+      setShowSignOutModal(false);
+      router.push("/sign-in");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to sign out.";
+      setProfileError(message);
+    }
   }
 
   return (
@@ -141,12 +248,18 @@ export default function AdminProfile() {
                 </div>
 
                 <div className="profile-text">
-                  <h2>Maria</h2>
-                  <p className="role-text">{role}</p>
+                  <h2>{`${userData.firstName} ${userData.lastName}`.trim() || "User"}</h2>
+                  <p className="role-text">{userData.role || "Member"}</p>
                 </div>
               </div>
 
               <h3 className="section-title">Personal Information</h3>
+
+              {isLoadingProfile ? <div className="pw-saved">Loading profile...</div> : null}
+              {profileError ? <div className="pw-error">{profileError}</div> : null}
+              {profileSavedAt ? (
+                <div className="pw-saved">Profile updated {profileSavedAt}</div>
+              ) : null}
 
               <div className="form-grid">
                 <div>
@@ -203,7 +316,7 @@ export default function AdminProfile() {
 
                 <div>
                   <label>Role</label>
-                  <div className="info-value">{role}</div>
+                  <div className="info-value">{userData.role || "Member"}</div>
                 </div>
 
                 <div>
@@ -283,11 +396,15 @@ export default function AdminProfile() {
 
         {/* Floating edit button */}
         {isEditing ? (
-          <button className="save-btn" onClick={saveEditing}>
-            Save changes
+          <button
+            className="save-btn"
+            disabled={isSavingProfile}
+            onClick={() => void saveEditing()}
+          >
+            {isSavingProfile ? "Saving..." : "Save changes"}
           </button>
         ) : (
-          <button className="edit-btn" onClick={startEditing}>
+          <button className="edit-btn" disabled={isLoadingProfile} onClick={startEditing}>
             <Image
               src="/AdminProfilePngs/ic_outline-edit.png"
               alt="edit"
@@ -333,7 +450,7 @@ export default function AdminProfile() {
                 <button
                   className="modal-confirm"
                   onClick={() => {
-                    // TODO: implement what happens when user confirms sign out (e.g. clear auth tokens, redirect to login page, etc.)
+                    void confirmSignOut();
                   }}
                 >
                   ⎋ Sign Out
