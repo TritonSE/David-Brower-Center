@@ -1,7 +1,13 @@
 generator client {
+<<<<<<< HEAD
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
   previewFeatures = ["multiSchema"]
+=======
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+>>>>>>> origin/main
 }
 datasource db {
   provider = "postgresql"
