@@ -16,14 +16,6 @@ const loadPath = fs.existsSync(envPath)
     : envPath;
 dotenv.config({ path: loadPath });
 
-type OrganizationData = {
-  projectId: string;
-  name: string;
-  sizeCategory: string;
-  focus: string;
-  website: string;
-};
-
 const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set.");
@@ -44,37 +36,51 @@ async function main(): Promise<void> {
 
   console.info("Seeding organizations and tags...");
 
-  const orgPromises = organizationsData.map(async (org: OrganizationData) => {
+  for (const org of organizationsData) {
     const focusAreas = org.focus ? org.focus.split("|").map((s: string) => s.trim()) : [];
 
-    return prisma.organization.upsert({
-      where: { projectId: org.projectId }, // Use the unique ID to find the record
-      update: {
-        name: org.name,
-        sizeCategory: org.sizeCategory,
-        website: org.website,
-        // You can add logic to update tags here if needed
-      },
-      create: {
-        projectId: org.projectId,
-        name: org.name,
-        sizeCategory: org.sizeCategory,
-        website: org.website,
-        tags: {
-          create: focusAreas.map((tagName: string) => ({
-            tag: {
-              connectOrCreate: {
-                where: { name: tagName },
-                create: { name: tagName },
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await prisma.organization.upsert({
+        where: { projectId: org.projectId },
+        update: {
+          name: org.name,
+          sizeCategory: org.sizeCategory,
+          website: org.website,
+          tags: {
+            deleteMany: {}, // Optional: clears old tags so you don't get duplicates
+            create: focusAreas.map((tagName: string) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: { name: tagName },
+                },
               },
-            },
-          })),
+            })),
+          },
         },
-      },
-    });
-  });
-
-  await Promise.all(orgPromises);
+        create: {
+          projectId: org.projectId,
+          name: org.name,
+          sizeCategory: org.sizeCategory,
+          website: org.website,
+          tags: {
+            create: focusAreas.map((tagName: string) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: { name: tagName },
+                },
+              },
+            })),
+          },
+        },
+      });
+      console.info(`✅ Seeded: ${org.name}`);
+    } catch (error) {
+      console.error(`❌ Failed to seed ${org.name}:`, error);
+    }
+  }
 
   console.info(`Successfully seeded ${organizationsData.length} organizations.`);
 }
