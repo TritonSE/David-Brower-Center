@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
@@ -16,16 +18,12 @@ type AuthUserResult = {
 };
 
 type OrganizationBody = {
+  images?: unknown;
   name?: unknown;
-  mission?: unknown;
-  city?: unknown;
-  state?: unknown;
-  country?: unknown;
-  latitude?: unknown;
-  longitude?: unknown;
-  min_budget?: unknown;
-  max_budget?: unknown;
+  projectId?: unknown;
+  sizeCategory?: unknown;
   tags?: unknown;
+  website?: unknown;
 };
 
 async function requireAdminUser(req: Request): Promise<string> {
@@ -75,6 +73,22 @@ function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
     ...rest,
     tags: tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name })),
   };
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim());
+}
+
+function toProjectId(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug || randomUUID();
 }
 
 router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
@@ -140,33 +154,25 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
     // `tags` is a relation through the `OrganizationTag` join table, so we
     // can't assign a scalar array. Accept an array of Tag UUIDs from the
     // client and translate them into nested join-row creates that connect
-    // to existing tags. `Tag.name` is not unique in the schema, so IDs are
-    // the only safe lookup key.
-    const tagIds: string[] =
-      Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
-        ? body.tags
-        : [];
+    // to existing tags.
+    const tagIds = toStringArray(body.tags);
+    const images = toStringArray(body.images);
 
     const organization = await prisma.organization.create({
       data: {
+        images,
         name: body.name.trim(),
-        mission: typeof body.mission === "string" ? body.mission : null,
-        city: typeof body.city === "string" ? body.city : null,
-        state: typeof body.state === "string" ? body.state : null,
-        // Conditionally include `country` so that when it's absent the
-        // schema default ("United States") applies. Under
-        // `exactOptionalPropertyTypes: true` we can't pass `undefined` to a
-        // non-optional field, and passing `null` would override the default.
-        ...(typeof body.country === "string" && { country: body.country }),
-        latitude: typeof body.latitude === "number" ? body.latitude : null,
-        longitude: typeof body.longitude === "number" ? body.longitude : null,
-        min_budget: typeof body.min_budget === "number" ? Math.trunc(body.min_budget) : null,
-        max_budget: typeof body.max_budget === "number" ? Math.trunc(body.max_budget) : null,
+        projectId:
+          typeof body.projectId === "string" && body.projectId.trim().length > 0
+            ? body.projectId.trim()
+            : toProjectId(body.name),
+        sizeCategory: typeof body.sizeCategory === "string" ? body.sizeCategory : null,
         tags: {
           create: tagIds.map((tagId) => ({
             tag: { connect: { id: tagId } },
           })),
         },
+        website: typeof body.website === "string" ? body.website : null,
       },
       include: {
         tags: {

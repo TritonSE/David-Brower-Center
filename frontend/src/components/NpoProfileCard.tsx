@@ -25,6 +25,26 @@ type NpoProfileCardProps = {
   onClose?: () => void;
 };
 
+export function getNpoProfileCardImageProps(
+  images: string[],
+): Partial<Pick<NpoProfileCardProps, "images" | "moreCountLabel">> {
+  if (images.length === 0) return {};
+
+  const primary = images[0];
+  const secondary = images[1] ?? primary;
+  const morePreview = images[2] ?? secondary;
+  const remainingImageCount = images.length - 2;
+
+  return {
+    images: {
+      primary,
+      secondary,
+      morePreview,
+    },
+    moreCountLabel: remainingImageCount > 0 ? `+ ${remainingImageCount} More` : "",
+  };
+}
+
 const imgPrimary = "/images/dbc-primary.svg";
 const imgSecondary = "/images/dbc-secondary.svg";
 const imgMorePreview = "/images/dbc-more-preview.svg";
@@ -147,11 +167,13 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
               sizes="(min-width: 640px) 159px, 50vw"
               className="h-full w-full object-cover"
             />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px]/[normal] font-normal text-white">
-                {content.moreCountLabel}
-              </span>
-            </div>
+            {content.moreCountLabel ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px]/[normal] font-normal text-white">
+                  {content.moreCountLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
