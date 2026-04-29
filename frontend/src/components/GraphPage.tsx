@@ -12,7 +12,7 @@ import {
   PeopleIcon,
   SearchIcon,
 } from "./icons/AppIcons";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
@@ -561,6 +561,7 @@ export default function GraphPage() {
         },
       ],
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);

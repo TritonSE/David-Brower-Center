@@ -13,6 +13,7 @@ const supabaseAdmin = supabaseAdminUnknown as SupabaseClient;
 
 type PublicUserRow = {
   supabase_user_id: string;
+  profile_picture: string | null;
   role: string;
 };
 
@@ -52,7 +53,7 @@ router.get("/whoami", async (req: Request, res: Response, next: NextFunction) =>
     // Type the result explicitly, not the client
     const dbResult = (await supabaseAdmin
       .from("users")
-      .select("supabase_user_id, role")
+      .select("supabase_user_id, profile_picture, role")
       .eq("supabase_user_id", supabaseUserId)
       .single()) as DbResult;
 
@@ -64,6 +65,7 @@ router.get("/whoami", async (req: Request, res: Response, next: NextFunction) =>
 
     return res.json({
       id: userRow.supabase_user_id,
+      profile_picture: userRow.profile_picture,
       role: userRow.role,
       supabase_user_id: userRow.supabase_user_id,
     });
