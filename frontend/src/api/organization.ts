@@ -89,9 +89,9 @@ function toOrganizationDetail(record: OrganizationRecord): OrganizationDetail {
   };
 }
 
-export async function getOrganizations(): Promise<APIResult<OrganizationListItem[]>> {
+export async function getOrganizations(signal?: AbortSignal): Promise<APIResult<OrganizationListItem[]>> {
   try {
-    const response = await get("/organizations");
+    const response = await get("/organizations", {}, signal);
     const json = (await response.json()) as OrganizationsResponse;
     return { success: true, data: json.organizations.map(toOrganizationListItem) };
   } catch (error) {
@@ -99,9 +99,12 @@ export async function getOrganizations(): Promise<APIResult<OrganizationListItem
   }
 }
 
-export async function getOrganizationById(id: string): Promise<APIResult<OrganizationDetail>> {
+export async function getOrganizationById(
+  id: string,
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
   try {
-    const response = await get(`/organizations/${encodeURIComponent(id)}`);
+    const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
     const json = (await response.json()) as OrganizationResponse;
     return { success: true, data: toOrganizationDetail(json.organization) };
   } catch (error) {
