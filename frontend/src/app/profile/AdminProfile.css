@@ -1,7 +1,7 @@
 .page {
   min-height: 100vh;
-  background: #ffffff;
-  padding: 22px 46px 56px;
+  background: linear-gradient(180deg, #edf4f2 0%, #f7fbfa 100%);
+  padding: 14px 16px 28px;
   position: relative;
   font-family: system-ui, sans-serif;
 }
@@ -11,7 +11,7 @@ body:has(main > .page) header {
 }
 
 body:has(main > .page) .min-h-screen.bg-slate-100 {
-  background: #ffffff;
+  background: linear-gradient(180deg, #edf4f2 0%, #f7fbfa 100%);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -32,40 +32,39 @@ body:has(main > .page) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 50px;
-  padding-right: 28px;
+  gap: 20px;
+  margin-bottom: 12px;
 }
 
-.page-title {
-  margin: 18px 0 0 58px;
-  color: #3ba9b0;
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+.profile-nav {
+  flex-shrink: 0;
 }
 
 .account-dropdown {
   position: sticky;
-  top: 22px;
+  top: 14px;
   z-index: 20;
+  margin-left: auto;
 }
 
 .account-chip {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 14px;
-  border: 1px solid #d8d8d8;
+  gap: 12px;
+  padding: 10px 16px 10px 12px;
+  border: 1px solid #d7dcd8;
   border-radius: 999px;
   background: #ffffff;
   color: #3b9a9a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
 }
 
 .account-chip-avatar {
   border-radius: 999px;
   width: 28px;
   height: 28px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .account-chip-name {
@@ -158,107 +157,190 @@ body:has(main > .page) {
   color: #3b9a9a;
 }
 
-.profile-layout {
-  position: relative;
-  padding-left: 58px;
-  padding-bottom: 120px;
+.profile-card {
+  border: 1px solid #d8ddda;
+  border-radius: 28px;
+  background: #ffffff;
+  min-height: calc(100vh - 124px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
 }
 
-.profile-header {
+.profile-card-inner {
+  width: min(100%, 860px);
+  margin: 0 auto;
+  padding: 42px 28px 36px;
+}
+
+.profile-hero {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 52px;
-  margin-bottom: 56px;
+  gap: 14px;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.profile-avatar-shell {
+  position: relative;
 }
 
 .avatar-large {
   border-radius: 999px;
-  width: 132px;
-  height: 132px;
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
 }
 
-.profile-text h2 {
+.avatar-edit-badge {
+  position: absolute;
+  right: -4px;
+  bottom: 2px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #43a9ad;
+  border: 4px solid #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(67, 169, 173, 0.2);
+  padding: 0;
+  cursor: pointer;
+}
+
+.avatar-edit-badge img {
+  filter: brightness(0) invert(1);
+}
+
+.profile-text h1 {
   margin: 0;
   font-size: 22px;
   font-weight: 400;
-  color: #212121;
+  color: #1d1d1d;
+  letter-spacing: -0.02em;
 }
 
 .role-text {
-  margin: 6px 0 0;
-  color: #3b9a9a;
-  font-size: 14px;
+  margin: 4px 0 0;
+  color: #43a9ad;
+  font-size: 13px;
   font-weight: 400;
 }
 
 .profile-section {
-  width: min(100%, 1140px);
+  width: min(100%, 780px);
+  margin: 0 auto;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 488px;
+  max-width: 100%;
+  margin: 0 auto 22px;
+  gap: 24px;
 }
 
 .section-title {
-  margin: 0 0 30px;
-  color: #949494;
+  margin: 0;
+  color: #8f8f8f;
   font-size: 18px;
   font-weight: 400;
+}
+
+.edit-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #43a9ad;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.edit-inline-btn img {
+  width: 16px;
+  height: 16px;
+}
+
+.edit-inline-icon {
+  filter: brightness(0) saturate(100%) invert(50%) sepia(33%) saturate(709%) hue-rotate(131deg)
+    brightness(92%) contrast(90%);
 }
 
 .details-grid {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .detail-row {
   display: grid;
-  grid-template-columns: 220px minmax(0, 460px);
+  grid-template-columns: 200px 260px;
+  justify-content: center;
   align-items: center;
-  column-gap: 60px;
+  column-gap: 28px;
 }
 
 .detail-label,
 .field-label {
-  color: #999999;
+  color: #8f8f8f;
   font-size: 13px;
   font-weight: 400;
 }
 
 .detail-value {
-  color: #a2a2a2;
+  width: 100%;
+  max-width: 260px;
+  min-height: 34px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  color: #9a9a9a;
   font-size: 13px;
   font-weight: 400;
 }
 
 .input {
-  width: 460px;
-  height: 36px;
+  width: 100%;
+  max-width: 260px;
+  height: 34px;
   padding: 0 12px;
-  border: 1px solid #dedede;
+  border: 1px solid #dddddd;
   border-radius: 6px;
   outline: none;
   font-size: 13px;
-  color: #525252;
+  color: #5e5e5e;
   background: #ffffff;
 }
 
 .input:focus {
-  border-color: #4498f2;
-  box-shadow: 0 0 0 1px #4498f2;
+  border-color: #43a9ad;
+  box-shadow: 0 0 0 1px rgba(67, 169, 173, 0.2);
 }
 
 .input-readonly {
   color: #9a9a9a;
+  background: #fcfcfc;
 }
 
 .section-divider {
   height: 1px;
-  margin: 28px 0 28px;
-  background: #e7e7e7;
+  width: 488px;
+  max-width: 100%;
+  margin: 26px auto 24px;
+  background: #ececec;
 }
 
 .password-row {
   display: grid;
-  grid-template-columns: 220px minmax(0, 460px);
-  column-gap: 60px;
+  grid-template-columns: 200px 260px;
+  justify-content: center;
+  column-gap: 28px;
   align-items: start;
 }
 
@@ -269,26 +351,35 @@ body:has(main > .page) {
   gap: 8px;
 }
 
-.change-password-link {
+.change-password-link,
+.back-button {
   padding: 0;
   border: 0;
   background: none;
-  color: #3b9a9a;
+  color: #43a9ad;
   font-size: 13px;
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .password-text {
-  padding-top: 3px;
+  width: 100%;
+  max-width: 260px;
+  min-height: 34px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
   letter-spacing: 0.22em;
   color: #d5d5d5;
   font-size: 13px;
 }
 
 .password-input-shell {
-  width: 460px;
-  height: 36px;
-  border: 1px solid #dedede;
+  width: 100%;
+  max-width: 260px;
+  height: 34px;
+  border: 1px solid #dddddd;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -303,37 +394,309 @@ body:has(main > .page) {
 }
 
 .form-error {
-  margin: 14px 0 0 280px;
+  width: 488px;
+  max-width: 100%;
+  margin: 14px auto 0;
   color: #d54848;
   font-size: 13px;
 }
 
-.edit-btn,
-.save-btn {
-  position: absolute;
-  right: 28px;
-  bottom: 28px;
-  min-height: 48px;
+.profile-actions {
+  display: flex;
+  width: 488px;
+  max-width: 100%;
+  justify-content: flex-end;
+  margin: 28px auto 0;
+}
+
+.save-btn,
+.save-btn-inline,
+.modal-primary {
+  min-height: 36px;
   padding: 0 24px;
   border: 0;
-  border-radius: 20px;
+  border-radius: 999px;
   background: #43a9ad;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   font-size: 14px;
   font-weight: 400;
-  box-shadow: none;
 }
 
-.edit-button-icon {
-  filter: brightness(0) invert(1);
+.save-btn-card {
+  min-width: 154px;
+}
+
+.password-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(239, 243, 241, 0.52);
+  backdrop-filter: blur(0.35px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.password-modal-card {
+  width: min(100%, 540px);
+  border: 1px solid #e1e5e2;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.08);
+  padding: 28px 44px 18px;
+}
+
+.password-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.password-modal-title {
+  margin: 0;
+  color: #1d1d1d;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.password-modal-close {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #181818;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.password-modal-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.password-modal-input {
+  max-width: 268px;
+  height: 36px;
+}
+
+.password-modal-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.password-modal-save {
+  min-height: 36px;
+  min-width: 140px;
+  font-size: 14px;
+}
+
+.photo-modal-card {
+  width: min(100%, 640px);
+  padding: 28px 42px 36px;
+}
+
+.photo-hidden-input {
+  display: none;
+}
+
+.photo-upload-dropzone {
+  min-height: 228px;
+  border: 1px dashed #d8dedb;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: #ffffff;
+}
+
+.photo-modal-card .password-modal-actions {
+  margin-top: 18px;
+}
+
+.photo-upload-title {
+  margin: 0;
+  color: #4b4b4b;
+  font-size: 16px;
+}
+
+.photo-upload-browse {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #4b4b4b;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.photo-upload-subtitle {
+  margin: 8px 0 0;
+  color: #c5c5c5;
+  font-size: 13px;
+}
+
+.photo-editor-stage {
+  width: 100%;
+  min-height: 230px;
+  border: 1px solid #d8dedb;
+  border-radius: 8px;
+  background: #dddddd;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.photo-editor-stage-dragging {
+  cursor: grabbing;
+}
+
+.photo-editor-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  user-select: none;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.photo-editor-image-hidden {
+  opacity: 0;
+}
+
+.photo-editor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 105px at center,
+    transparent 0 104px,
+    rgba(221, 221, 221, 0.82) 105px
+  );
+}
+
+.photo-editor-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+}
+
+.photo-editor-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.photo-zoom-button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #43a9ad;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.photo-zoom-slider {
+  flex: 1;
+  accent-color: #43a9ad;
+}
+
+.photo-zoom-value {
+  min-width: 48px;
+  color: #1d1d1d;
+  font-size: 16px;
+}
+
+.password-modal-save:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.password-success-card {
+  width: min(100%, 380px);
+  padding: 28px 28px 24px;
+}
+
+.password-success-title {
+  margin: 0;
+  color: #1d1d1d;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.password-success-text {
+  margin: 10px 0 0;
+  color: #4f4f4f;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.password-success-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  background: #43a9ad;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  line-height: 1;
+  margin: 30px auto 26px;
+}
+
+.password-success-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.password-success-button {
+  min-height: 40px;
+  min-width: 138px;
+  font-size: 13px;
 }
 
 .change-password-layout {
-  padding-left: 58px;
+  width: 100%;
+}
+
+.change-password-shell {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 320px);
+  gap: 34px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.section-title-password {
+  margin-bottom: 10px;
+}
+
+.change-password-note {
+  margin: 0;
+  color: #9c9c9c;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .change-password-form {
@@ -341,48 +704,29 @@ body:has(main > .page) {
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  width: 268px;
-  margin-top: 18px;
-}
-
-.back-button {
-  padding: 0;
-  margin: 0 0 8px;
-  border: 0;
-  background: none;
-  color: #3b9a9a;
-  font-size: 13px;
-  text-decoration: underline;
+  width: 100%;
 }
 
 .password-input {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .save-btn-inline {
-  margin-top: 6px;
-  min-height: 37px;
-  padding: 0 22px;
-  border: 0;
-  border-radius: 18px;
-  background: #43a9ad;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 400;
+  margin-top: 10px;
 }
 
 .toast {
-  margin-top: 40px;
-  width: 248px;
+  margin-top: 18px;
+  width: min(100%, 320px);
   min-height: 43px;
   border: 1px solid #78c5c7;
   background: #cfeef0;
-  border-radius: 4px;
+  border-radius: 8px;
   display: grid;
   grid-template-columns: 18px 1fr 18px;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
+  padding: 10px 14px;
   box-sizing: border-box;
 }
 
@@ -461,25 +805,15 @@ body:has(main > .page) {
   margin-top: 22px;
 }
 
-.modal-secondary,
-.modal-primary {
+.modal-secondary {
   min-height: 40px;
   padding: 0 18px;
   border-radius: 999px;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.modal-secondary {
   border: 1px solid #d8d8d8;
   background: #ffffff;
   color: #6f6f6f;
-}
-
-.modal-primary {
-  border: 0;
-  background: #43a9ad;
-  color: #ffffff;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 button {
@@ -489,44 +823,85 @@ button {
 
 @media (max-width: 900px) {
   .page {
-    padding: 20px 20px 32px;
+    padding: 14px 12px 20px;
   }
 
-  .page-top,
-  .profile-header {
+  .page-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .account-dropdown {
+    position: static;
+    margin-left: 0;
+    align-self: flex-end;
+  }
+
+  .profile-card {
+    min-height: auto;
+  }
+
+  .profile-card-inner {
+    padding: 28px 18px 24px;
+  }
+
+  .section-heading,
+  .change-password-shell {
+    grid-template-columns: 1fr;
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .page-title,
-  .profile-layout,
-  .change-password-layout {
-    margin-left: 0;
-    padding-left: 0;
+  .password-modal-card {
+    padding: 28px 22px 24px;
   }
 
-  .page-title {
-    margin: 0;
+  .password-modal-title {
+    font-size: 24px;
+  }
+
+  .password-modal-input {
+    max-width: 100%;
+  }
+
+  .password-modal-actions {
+    justify-content: flex-start;
+  }
+
+  .password-success-actions {
+    justify-content: flex-start;
+  }
+
+  .photo-modal-card {
+    padding: 26px 20px 22px;
+  }
+
+  .photo-editor-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .password-modal-save {
+    width: 100%;
   }
 
   .detail-row,
   .password-row {
     grid-template-columns: 1fr;
-    row-gap: 10px;
+    row-gap: 8px;
   }
 
-  .profile-section,
   .input,
-  .password-input-shell,
-  .change-password-form,
-  .detail-row,
-  .password-row {
-    width: 100%;
+  .password-input-shell {
+    max-width: 100%;
   }
 
-  .edit-btn,
-  .save-btn {
-    position: static;
-    margin-top: 32px;
+  .profile-actions {
+    justify-content: flex-start;
+  }
+
+  .form-error {
+    margin-left: 0;
   }
 }
