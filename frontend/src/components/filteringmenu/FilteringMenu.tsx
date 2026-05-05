@@ -4,7 +4,28 @@ import CheckboxGroup from "./Checkbox";
 import SelectionBox from "./SelectionBox";
 import SliderFilter from "./SliderFilter";
 
-export default function FilteringMenu() {
+type FocusAreaState = "ready" | "loading" | "empty" | "error";
+
+type FilteringMenuProps = {
+  focusAreaOptions: string[];
+  focusAreaState: FocusAreaState;
+  focusAreaErrorMessage?: string | null;
+};
+
+export default function FilteringMenu({
+  focusAreaOptions,
+  focusAreaState,
+  focusAreaErrorMessage,
+}: FilteringMenuProps) {
+  const focusAreaStatusMessage =
+    focusAreaState === "loading"
+      ? "Loading focus areas..."
+      : focusAreaState === "error"
+        ? (focusAreaErrorMessage ?? "Unable to load focus areas.")
+        : focusAreaState === "empty"
+          ? "No focus areas available."
+          : null;
+
   return (
     <div
       className="bg-white border-[#B4B4B4] rounded-2xl border flex flex-col overflow-hidden"
@@ -15,18 +36,14 @@ export default function FilteringMenu() {
     >
       {/* Scrollable Content Area */}
       <div className="p-6 overflow-y-auto h-full">
-        <SelectionBox
-          title="Focus Area"
-          options={[
-            "Environmental",
-            "Food",
-            "Agriculture",
-            "Government",
-            "Social",
-            "Education",
-            "Technology",
-          ]}
-        />
+        {focusAreaState === "ready" ? (
+          <SelectionBox title="Focus Area" options={focusAreaOptions} />
+        ) : (
+          <div className="mb-6 border-black pt-4">
+            <h3 className="font-sans text-xl font-semibold text-gray-900">Focus Area</h3>
+            <p className="mt-2 text-sm text-[#484848]">{focusAreaStatusMessage}</p>
+          </div>
+        )}
 
         <CheckboxGroup
           title="Distance from me"

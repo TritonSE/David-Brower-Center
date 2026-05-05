@@ -4,14 +4,56 @@ import type { APIResult } from "./request";
 
 const NOT_PROVIDED = "Not provided";
 
-type OrganizationRecord = {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toFallbackString(value: unknown): string {
+  return toOptionalString(value) ?? NOT_PROVIDED;
+}
+
+function parseOrganizationsPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  if (isRecord(payload)) {
+    const candidates = [payload.organizations, payload.data, payload.items];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  throw new Error("[/organizations] Unexpected response shape.");
+}
+
+function parseOrganizationPayload(payload: unknown): unknown {
+  if (isRecord(payload)) {
+    if (isRecord(payload.organization)) return payload.organization;
+    if (isRecord(payload.data)) return payload.data;
+    return payload;
+  }
+
+  throw new Error("[/organizations/:id] Unexpected response shape.");
+}
+
+function getRequiredString(value: unknown, route: string, field: string): string {
+  const stringValue = toOptionalString(value);
+  if (!stringValue) {
+    throw new Error(`[${route}] Missing required field "${field}" in response.`);
+  }
+  return stringValue;
+}
+
+export type OrganizationTag = {
   id: string;
   name: string;
-  mission?: string | null;
-  city?: string | null;
-  state?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
 };
 
 export type OrganizationListItem = {
@@ -20,6 +62,7 @@ export type OrganizationListItem = {
   focus: string;
   year: string;
   updatedAt: string;
+  tags: OrganizationTag[];
 };
 
 export type OrganizationDetail = {
@@ -32,98 +75,58 @@ export type OrganizationDetail = {
   location: string;
   description: string;
   mission: string;
+  tags: OrganizationTag[];
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function toOptionalString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function parseOrganizationRecord(value: unknown, route: string): OrganizationRecord {
-  if (!isRecord(value)) {
-    throw new Error(`[${route}] Organization payload must be an object.`);
-  }
-
+function parseOrganizationTag(value: unknown): OrganizationTag | null {
+  if (!isRecord(value)) return null;
   const id = toOptionalString(value.id);
   const name = toOptionalString(value.name);
-  if (!id || !name) {
-    throw new Error(`[${route}] Organization payload missing required fields.`);
+  if (!id || !name) return null;
+  return { id, name };
+}
+
+function parseOrganizationTagList(value: unknown): OrganizationTag[] {
+  if (!Array.isArray(value)) return [];
+  const tags: OrganizationTag[] = [];
+  for (const entry of value) {
+    const tag = parseOrganizationTag(entry);
+    if (tag) tags.push(tag);
+  }
+  return tags;
+}
+
+function parseOrganizationListItem(value: unknown): OrganizationListItem {
+  if (!isRecord(value)) {
+    throw new Error("[/organizations] Expected each organization item to be an object.");
   }
 
   return {
-    id,
-    name,
-    mission: toOptionalString(value.mission) ?? null,
-    city: toOptionalString(value.city) ?? null,
-    state: toOptionalString(value.state) ?? null,
-    createdAt: toOptionalString(value.createdAt),
-    updatedAt: toOptionalString(value.updatedAt),
+    id: getRequiredString(value.id, "/organizations", "id"),
+    name: getRequiredString(value.name, "/organizations", "name"),
+    focus: toFallbackString(value.focus),
+    year: toFallbackString(value.year),
+    updatedAt: toFallbackString(value.updatedAt),
+    tags: parseOrganizationTagList(value.tags),
   };
 }
 
-function parseOrganizationsResponse(payload: unknown): OrganizationRecord[] {
-  if (!isRecord(payload) || !Array.isArray(payload.organizations)) {
-    throw new Error("[/organizations] Unexpected response shape.");
+function parseOrganizationDetail(value: unknown): OrganizationDetail {
+  if (!isRecord(value)) {
+    throw new Error("[/organizations/:id] Expected organization detail to be an object.");
   }
-  return payload.organizations.map((organization) =>
-    parseOrganizationRecord(organization, "/organizations"),
-  );
-}
 
-function parseOrganizationResponse(payload: unknown): OrganizationRecord {
-  if (!isRecord(payload) || !("organization" in payload)) {
-    throw new Error("[/organizations/:id] Unexpected response shape.");
-  }
-  return parseOrganizationRecord(payload.organization, "/organizations/:id");
-}
-
-function toFallbackString(value: string | null | undefined): string {
-  if (!value) return NOT_PROVIDED;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : NOT_PROVIDED;
-}
-
-function toYear(value: string | undefined): string {
-  if (!value) return NOT_PROVIDED;
-  const year = new Date(value).getUTCFullYear();
-  return Number.isNaN(year) ? NOT_PROVIDED : year.toString();
-}
-
-function toLocation(record: OrganizationRecord): string {
-  const city = toFallbackString(record.city);
-  const state = toFallbackString(record.state);
-  if (city === NOT_PROVIDED && state === NOT_PROVIDED) {
-    return NOT_PROVIDED;
-  }
-  if (city === NOT_PROVIDED) return state;
-  if (state === NOT_PROVIDED) return city;
-  return `${city}, ${state}`;
-}
-
-function toOrganizationListItem(record: OrganizationRecord): OrganizationListItem {
   return {
-    id: record.id,
-    name: record.name,
-    focus: NOT_PROVIDED,
-    year: toYear(record.createdAt),
-    updatedAt: toFallbackString(record.updatedAt),
-  };
-}
-
-function toOrganizationDetail(record: OrganizationRecord): OrganizationDetail {
-  return {
-    id: record.id,
-    name: record.name,
-    focus: NOT_PROVIDED,
-    year: toYear(record.createdAt),
-    size: NOT_PROVIDED,
-    budget: NOT_PROVIDED,
-    location: toLocation(record),
-    description: NOT_PROVIDED,
-    mission: toFallbackString(record.mission),
+    id: getRequiredString(value.id, "/organizations/:id", "id"),
+    name: getRequiredString(value.name, "/organizations/:id", "name"),
+    focus: toFallbackString(value.focus),
+    year: toFallbackString(value.year),
+    size: toFallbackString(value.size),
+    budget: toFallbackString(value.budget),
+    location: toFallbackString(value.location),
+    description: toFallbackString(value.description),
+    mission: toFallbackString(value.mission),
+    tags: parseOrganizationTagList(value.tags),
   };
 }
 
@@ -132,9 +135,9 @@ export async function getOrganizations(
 ): Promise<APIResult<OrganizationListItem[]>> {
   try {
     const response = await get("/organizations", {}, signal);
-    const json: unknown = await response.json();
-    const organizations = parseOrganizationsResponse(json);
-    return { success: true, data: organizations.map(toOrganizationListItem) };
+    const payload: unknown = await response.json();
+    const organizations = parseOrganizationsPayload(payload);
+    return { success: true, data: organizations.map(parseOrganizationListItem) };
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
@@ -149,9 +152,9 @@ export async function getOrganizationById(
 ): Promise<APIResult<OrganizationDetail>> {
   try {
     const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
-    const json: unknown = await response.json();
-    const organization = parseOrganizationResponse(json);
-    return { success: true, data: toOrganizationDetail(organization) };
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
