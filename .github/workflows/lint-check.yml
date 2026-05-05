@@ -18,6 +18,7 @@ jobs:
           DIRECT_URL: ${{ secrets.LINT_DB_URL }}
         run: |
           npm ci
+          mkdir -p src/generated/prisma
           npx prisma generate
           npm run lint-check
   frontend:

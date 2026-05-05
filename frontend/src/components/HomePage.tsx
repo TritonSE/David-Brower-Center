@@ -7,6 +7,8 @@ import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
+import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { APIResult } from "@/api/request";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
 const POPUP_FADE_DURATION_MS = 200;
@@ -27,13 +29,12 @@ export default function HomePage() {
   const [isListLoading, setIsListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [activeOrgDetail, setActiveOrgDetail] = useState<Awaited<
-    ReturnType<typeof getOrganizationById>
-  > | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const listAbortRef = useRef<AbortController | null>(null);
+  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -46,19 +47,30 @@ export default function HomePage() {
     listAbortRef.current?.abort();
     const abortController = new AbortController();
     listAbortRef.current = abortController;
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
 
     setIsListLoading(true);
     setListError(null);
 
     try {
-      const organizations = await getOrganizations(abortController.signal);
-      setRows(organizations);
+      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
+        abortController.signal,
+      );
+      if (listRequestIdRef.current !== requestId) return;
+      if (result.success) {
+        setRows(result.data);
+        return;
+      }
+
+      setRows([]);
+      setListError(result.error || "Unable to load organizations.");
     } catch (error) {
-      if (isAbortError(error)) return;
+      if (isAbortError(error) || listRequestIdRef.current !== requestId) return;
       setRows([]);
       setListError(getErrorMessage(error, "Unable to load organizations."));
     } finally {
-      if (listAbortRef.current === abortController) {
+      if (listAbortRef.current === abortController && listRequestIdRef.current === requestId) {
         setIsListLoading(false);
       }
     }
@@ -81,9 +93,17 @@ export default function HomePage() {
     setActiveOrgDetail(null);
 
     try {
-      const detail = await getOrganizationById(organizationId, abortController.signal);
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
+      if (result.success) {
+        if (detailRequestIdRef.current !== requestId) return;
+        setActiveOrgDetail(result.data);
+        return;
+      }
       if (detailRequestIdRef.current !== requestId) return;
-      setActiveOrgDetail(detail);
+      setDetailError(result.error || "Unable to load organization details.");
     } catch (error) {
       if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
       setDetailError(getErrorMessage(error, "Unable to load organization details."));
@@ -93,7 +113,6 @@ export default function HomePage() {
       }
     }
   }, []);
-
   useEffect(() => () => detailAbortRef.current?.abort(), []);
 
   useEffect(() => {
@@ -132,6 +151,11 @@ export default function HomePage() {
     if (!selectedOrgId) return;
     void fetchOrganizationDetail(selectedOrgId);
   }, [fetchOrganizationDetail, selectedOrgId]);
+
+  const handleCloseCard = useCallback(() => {
+    detailAbortRef.current?.abort();
+    setIsCardVisible(false);
+  }, []);
 
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
@@ -195,9 +219,31 @@ export default function HomePage() {
             style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
           >
             {selectedCardProps ? (
-              <NpoProfileCard {...selectedCardProps} />
+              <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
             ) : (
-              <section className="w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={handleCloseCard}
+                  className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+
                 <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
                   {selectedRow?.name ?? "Organization"}
                 </h1>

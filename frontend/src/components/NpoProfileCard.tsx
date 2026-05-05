@@ -22,6 +22,7 @@ type NpoProfileCardProps = {
   moreCountLabel: string;
   previousLabel: string;
   nextLabel: string;
+  onClose?: () => void;
 };
 
 const imgPrimary = "/images/dbc-primary.svg";
@@ -68,7 +69,31 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
   };
 
   return (
-    <section className="w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+    <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+      {content.onClose && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={content.onClose}
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
+
       <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
         {content.name}
       </h1>

@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 # System specific files
 .DS_Store
 /src/generated/prisma
+
+# IDE workspace files
+*.code-workspace

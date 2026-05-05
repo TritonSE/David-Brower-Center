@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import createError from "http-errors";
 
+import organizationsRouter from "./api/organizations";
 import tagsRouter from "./api/tags";
 import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
@@ -42,31 +43,18 @@ app.get("/", (req, res) => {
 // Mount API routes
 app.use("/api", apiRouter);
 app.use("/api/tags", tagsRouter);
-app.get("/organizations", async (req, res, next) => {
-  try {
-    const organizations = await prisma.organization.findMany();
-    res.status(200).json({ organizations });
-  } catch {
-    next(createError(500, "Failed to fetch organizations"));
-  }
-});
+app.use(organizationsRouter);
 
-app.get("/organizations/:id", async (req, res, next) => {
+app.get("/tags", async (req, res, next) => {
   try {
-    const organization = await prisma.organization.findUnique({
-      where: {
-        id: req.params.id,
+    const tags = await prisma.tag.findMany({
+      orderBy: {
+        name: "asc",
       },
     });
-
-    if (!organization) {
-      next(createError(404, `Organization ${req.params.id} not found`));
-      return;
-    }
-
-    res.status(200).json({ organization });
+    res.status(200).json({ tags });
   } catch {
-    next(createError(500, `Failed to fetch organization ${req.params.id}`));
+    next(createError(500, "Failed to fetch tags"));
   }
 });
 
