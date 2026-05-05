@@ -14,9 +14,9 @@ check_command='npm run lint-check'
 fix_command='npm run lint-fix'
 
 # Escape sequences for formatted output.
-format_error="$(tput setaf 3 2> /dev/null)"
-format_warn="$(tput setaf 1 2> /dev/null)"
-format_clear="$(tput sgr0 2> /dev/null)"
+format_error="$(tput setaf 3 2> /dev/null || true)"
+format_warn="$(tput setaf 1 2> /dev/null || true)"
+format_clear="$(tput sgr0 2> /dev/null || true)"
 
 # The preceding commands may fail in environments where tput is not available.
 # Return 0 explicitly to indicate that the config was sourced successfully.
