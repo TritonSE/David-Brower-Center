@@ -3,6 +3,7 @@ import express from "express";
 import createError from "http-errors";
 
 import organizationsRouter from "./api/organizations";
+import tagsRouter from "./api/tags";
 import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import { prisma } from "./lib/prisma";
@@ -41,6 +42,7 @@ app.get("/", (req, res) => {
 
 // Mount API routes
 app.use("/api", apiRouter);
+app.use("/api/tags", tagsRouter);
 app.use(organizationsRouter);
 
 app.get("/tags", async (req, res, next) => {
