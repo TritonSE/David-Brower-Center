@@ -1,22 +1,11 @@
-const MISSING_BACKEND_URL_ERROR =
-  "Missing NEXT_PUBLIC_BACKEND_URL. Set it in frontend/.env to call the backend APIs.";
+import { get, handleAPIError, isAbortError } from "./request";
+
+import type { APIResult } from "./request";
+
 const NOT_PROVIDED = "Not provided";
-const REQUEST_TIMEOUT_MS = 10_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function getBackendUrl(): string {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (!backendUrl) {
-    throw new Error(MISSING_BACKEND_URL_ERROR);
-  }
-  return backendUrl;
-}
-
-function toUrl(route: string): string {
-  return new URL(route, getBackendUrl()).toString();
 }
 
 function toOptionalString(value: unknown): string | null {
@@ -27,71 +16,6 @@ function toOptionalString(value: unknown): string | null {
 
 function toFallbackString(value: unknown): string {
   return toOptionalString(value) ?? NOT_PROVIDED;
-}
-
-function parseErrorMessage(route: string, status: number, payload: unknown): string {
-  if (isRecord(payload)) {
-    const maybeMessage =
-      typeof payload.message === "string"
-        ? payload.message
-        : typeof payload.error === "string"
-          ? payload.error
-          : null;
-
-    if (maybeMessage && maybeMessage.trim().length > 0) {
-      return `[${route}] Request failed with status ${status}: ${maybeMessage}`;
-    }
-  }
-  return `[${route}] Request failed with status ${status}`;
-}
-
-async function requestJson(route: string, signal?: AbortSignal): Promise<unknown> {
-  const timeoutController = new AbortController();
-  const requestController = new AbortController();
-
-  const forwardCallerAbort = () => requestController.abort(signal?.reason);
-  const forwardTimeoutAbort = () => requestController.abort(timeoutController.signal.reason);
-
-  if (signal) {
-    if (signal.aborted) {
-      requestController.abort(signal.reason);
-    } else {
-      signal.addEventListener("abort", forwardCallerAbort, { once: true });
-    }
-  }
-
-  timeoutController.signal.addEventListener("abort", forwardTimeoutAbort, { once: true });
-
-  const timeoutId = setTimeout(() => {
-    timeoutController.abort(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
-  }, REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(toUrl(route), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      signal: requestController.signal,
-    });
-
-    const payload: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(parseErrorMessage(route, response.status, payload));
-    }
-    return payload;
-  } catch (error: unknown) {
-    if (timeoutController.signal.aborted && !(signal?.aborted ?? false)) {
-      throw new Error(`[${route}] Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    timeoutController.signal.removeEventListener("abort", forwardTimeoutAbort);
-    if (signal) {
-      signal.removeEventListener("abort", forwardCallerAbort);
-    }
-  }
 }
 
 function parseOrganizationsPayload(payload: unknown): unknown[] {
@@ -154,9 +78,6 @@ export type OrganizationDetail = {
   tags: OrganizationTag[];
 };
 
-// Parses a single tag object. The backend flattens the `organization_tags`
-// pivot into plain `{ id, name }` pairs, but we still defensively handle
-// missing/malformed entries so one bad tag can't poison the whole list.
 function parseOrganizationTag(value: unknown): OrganizationTag | null {
   if (!isRecord(value)) return null;
   const id = toOptionalString(value.id);
@@ -209,17 +130,35 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
   };
 }
 
-export async function getOrganizations(signal?: AbortSignal): Promise<OrganizationListItem[]> {
-  const payload = await requestJson("/organizations", signal);
-  const organizations = parseOrganizationsPayload(payload);
-  return organizations.map(parseOrganizationListItem);
+export async function getOrganizations(
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationListItem[]>> {
+  try {
+    const response = await get("/organizations", {}, signal);
+    const payload: unknown = await response.json();
+    const organizations = parseOrganizationsPayload(payload);
+    return { success: true, data: organizations.map(parseOrganizationListItem) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
 }
 
 export async function getOrganizationById(
   id: string,
   signal?: AbortSignal,
-): Promise<OrganizationDetail> {
-  const payload = await requestJson(`/organizations/${encodeURIComponent(id)}`, signal);
-  const organization = parseOrganizationPayload(payload);
-  return parseOrganizationDetail(organization);
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
 }

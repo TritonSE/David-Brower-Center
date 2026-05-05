@@ -16,6 +16,7 @@ import NpoProfileCard from "./NpoProfileCard";
 
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
+import type { APIResult } from "@/api/request";
 
 import {
   getOrganizationById,
@@ -248,6 +249,7 @@ export default function GraphPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   // Monotonically increasing id used to ignore stale detail responses when
   // the user clicks through several nodes quickly.
@@ -340,20 +342,35 @@ export default function GraphPage() {
     abortRef.current?.abort();
     const abortController = new AbortController();
     abortRef.current = abortController;
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const fetched = await getOrganizations(abortController.signal);
-      if (abortRef.current !== abortController) return;
-      setOrganizations(fetched);
+      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
+        abortController.signal,
+      );
+      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) return;
+      if (result.success) {
+        setOrganizations(result.data);
+        return;
+      }
+      setOrganizations([]);
+      setError(result.error || "Unable to load organizations.");
     } catch (caughtError) {
-      if (isAbortError(caughtError) || abortRef.current !== abortController) return;
+      if (
+        isAbortError(caughtError) ||
+        abortRef.current !== abortController ||
+        listRequestIdRef.current !== requestId
+      ) {
+        return;
+      }
       setOrganizations([]);
       setError(getErrorMessage(caughtError, "Unable to load organizations."));
     } finally {
-      if (abortRef.current === abortController) {
+      if (abortRef.current === abortController && listRequestIdRef.current === requestId) {
         setIsLoading(false);
       }
     }
@@ -376,9 +393,16 @@ export default function GraphPage() {
     setActiveOrgDetail(null);
 
     try {
-      const detail = await getOrganizationById(organizationId, abortController.signal);
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
       if (detailRequestIdRef.current !== requestId) return;
-      setActiveOrgDetail(detail);
+      if (result.success) {
+        setActiveOrgDetail(result.data);
+        return;
+      }
+      setDetailError(result.error || "Unable to load organization details.");
     } catch (caughtError) {
       if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) return;
       setDetailError(getErrorMessage(caughtError, "Unable to load organization details."));

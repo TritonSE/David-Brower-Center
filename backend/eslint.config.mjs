@@ -26,7 +26,7 @@ export default antfu(
       tsconfigPath: "./tsconfig.json",
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["./*.js"],
+          allowDefaultProject: ["*.js", "prisma.config.ts", "prisma/*.ts"],
         },
       },
       overrides: {
