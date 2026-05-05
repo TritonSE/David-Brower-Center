@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
@@ -82,15 +80,6 @@ function toStringArray(value: unknown): string[] {
     .map((item) => item.trim());
 }
 
-function toProjectId(value: string): string {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return slug || randomUUID();
-}
-
 router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organizations = await prisma.organization.findMany({
@@ -151,28 +140,39 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
       throw createError(400, "name is required");
     }
 
-    // `tags` is a relation through the `OrganizationTag` join table, so we
-    // can't assign a scalar array. Accept an array of Tag UUIDs from the
-    // client and translate them into nested join-row creates that connect
-    // to existing tags.
-    const tagIds = toStringArray(body.tags);
+    // `tags` is a relation through the `OrganizationTag` join table. Accept an
+    // array of Tag UUIDs and create join rows linking to existing tags.
+    const tagIds: string[] =
+      Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
+        ? body.tags
+        : [];
     const images = toStringArray(body.images);
+
+    if (typeof body.projectId !== "string" || body.projectId.trim().length === 0) {
+      throw createError(400, "projectId is required");
+    }
+
+    const sizeCategoryRaw = body.sizeCategory;
+    const websiteRaw = body.website;
 
     const organization = await prisma.organization.create({
       data: {
         images,
         name: body.name.trim(),
-        projectId:
-          typeof body.projectId === "string" && body.projectId.trim().length > 0
-            ? body.projectId.trim()
-            : toProjectId(body.name),
-        sizeCategory: typeof body.sizeCategory === "string" ? body.sizeCategory : null,
-        tags: {
-          create: tagIds.map((tagId) => ({
-            tag: { connect: { id: tagId } },
-          })),
-        },
-        website: typeof body.website === "string" ? body.website : null,
+        projectId: body.projectId.trim(),
+        ...(typeof sizeCategoryRaw === "string"
+          ? { sizeCategory: sizeCategoryRaw.trim() || null }
+          : {}),
+        ...(typeof websiteRaw === "string" ? { website: websiteRaw.trim() || null } : {}),
+        ...(tagIds.length > 0
+          ? {
+              tags: {
+                create: tagIds.map((tagId) => ({
+                  tag: { connect: { id: tagId } },
+                })),
+              },
+            }
+          : {}),
       },
       include: {
         tags: {
