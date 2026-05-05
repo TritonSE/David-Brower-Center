@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import FilteringMenu from "./filteringmenu/FilteringMenu";
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import SortMenuPopup from "./SortMenuPopup";
+
+import { getTags } from "@/api/tags";
 
 export type Row = {
   id: string;
@@ -17,8 +19,16 @@ type NpoListViewProps = {
   onSelect?: (row: Row) => void;
 };
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const [search, setSearch] = useState("");
+  const [focusAreaOptions, setFocusAreaOptions] = useState<string[]>([]);
+  const [isTagsLoading, setIsTagsLoading] = useState(true);
+  const [tagsError, setTagsError] = useState<string | null>(null);
+  const tagsAbortRef = useRef<AbortController | null>(null);
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -28,6 +38,41 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+  useEffect(() => {
+    tagsAbortRef.current?.abort();
+    const abortController = new AbortController();
+    tagsAbortRef.current = abortController;
+    setIsTagsLoading(true);
+    setTagsError(null);
+
+    const loadTags = async () => {
+      try {
+        const tags = await getTags(abortController.signal);
+        setFocusAreaOptions(tags);
+      } catch (error) {
+        if (!isAbortError(error)) {
+          setFocusAreaOptions([]);
+          setTagsError("Unable to load focus areas.");
+        }
+      } finally {
+        if (tagsAbortRef.current === abortController) {
+          setIsTagsLoading(false);
+        }
+      }
+    };
+
+    void loadTags();
+    return () => abortController.abort();
+  }, []);
+
+  const focusAreaState = isTagsLoading
+    ? "loading"
+    : tagsError
+      ? "error"
+      : focusAreaOptions.length > 0
+        ? "ready"
+        : "empty";
 
   return (
     <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-4 shadow-sm">
@@ -56,7 +101,11 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
           {showFilterMenu && (
             <div className="absolute right-0 top-14 z-20">
-              <FilteringMenu />
+              <FilteringMenu
+                focusAreaOptions={focusAreaOptions}
+                focusAreaState={focusAreaState}
+                focusAreaErrorMessage={tagsError}
+              />
             </div>
           )}
         </div>

@@ -41,6 +41,19 @@ app.get("/", (req, res) => {
 app.use("/api", apiRouter);
 app.use(organizationsRouter);
 
+app.get("/tags", async (req, res, next) => {
+  try {
+    const tags = await prisma.tag.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    });
+    res.status(200).json({ tags });
+  } catch {
+    next(createError(500, "Failed to fetch tags"));
+  }
+});
+
 app.use(errorHandler);
 app.listen(PORT, () => {
   console.info(`> Listening on port ${PORT}`);
