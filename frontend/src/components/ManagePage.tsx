@@ -15,6 +15,7 @@ import {
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { APIResult } from "@/api/request";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
 
@@ -68,6 +69,7 @@ export default function ManagePage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const listAbortRef = useRef<AbortController | null>(null);
+  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -75,12 +77,17 @@ export default function ManagePage() {
     listAbortRef.current?.abort();
     const abortController = new AbortController();
     listAbortRef.current = abortController;
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
 
     setIsLoading(true);
     setLoadError(null);
 
     try {
-      const result = await getOrganizations(abortController.signal);
+      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
+        abortController.signal,
+      );
+      if (listRequestIdRef.current !== requestId) return;
       if (result.success) {
         setOrganizations(result.data);
         return;
@@ -89,11 +96,11 @@ export default function ManagePage() {
       setOrganizations([]);
       setLoadError(result.error || "Unable to load organizations.");
     } catch (error) {
-      if (isAbortError(error)) return;
+      if (isAbortError(error) || listRequestIdRef.current !== requestId) return;
       setOrganizations([]);
       setLoadError(getErrorMessage(error, "Unable to load organizations."));
     } finally {
-      if (listAbortRef.current === abortController) {
+      if (listAbortRef.current === abortController && listRequestIdRef.current === requestId) {
         setIsLoading(false);
       }
     }
@@ -120,7 +127,10 @@ export default function ManagePage() {
     setActiveOrgDetail(null);
 
     try {
-      const result = await getOrganizationById(organizationId, abortController.signal);
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
       if (result.success) {
         if (detailRequestIdRef.current !== requestId) return;
         setActiveOrgDetail(result.data);

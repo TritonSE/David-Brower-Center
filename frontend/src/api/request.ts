@@ -146,7 +146,14 @@ export type APIData<T> = { success: true; data: T };
 export type APIError = { success: false; error: string };
 export type APIResult<T> = APIData<T> | APIError;
 
+export function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export function handleAPIError(error: unknown): APIError {
+  if (isAbortError(error)) {
+    throw error;
+  }
   if (error instanceof Error) {
     return { success: false, error: error.message };
   }

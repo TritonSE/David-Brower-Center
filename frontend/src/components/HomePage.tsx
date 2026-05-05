@@ -7,7 +7,8 @@ import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
-import type { OrganizationDetail } from "@/api/organization";
+import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { APIResult } from "@/api/request";
 
 import { getOrganizationById, getOrganizations } from "@/api/organization";
 const POPUP_FADE_DURATION_MS = 200;
@@ -33,6 +34,7 @@ export default function HomePage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const listAbortRef = useRef<AbortController | null>(null);
+  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -45,12 +47,17 @@ export default function HomePage() {
     listAbortRef.current?.abort();
     const abortController = new AbortController();
     listAbortRef.current = abortController;
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
 
     setIsListLoading(true);
     setListError(null);
 
     try {
-      const result = await getOrganizations(abortController.signal);
+      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
+        abortController.signal,
+      );
+      if (listRequestIdRef.current !== requestId) return;
       if (result.success) {
         setRows(result.data);
         return;
@@ -59,11 +66,11 @@ export default function HomePage() {
       setRows([]);
       setListError(result.error || "Unable to load organizations.");
     } catch (error) {
-      if (isAbortError(error)) return;
+      if (isAbortError(error) || listRequestIdRef.current !== requestId) return;
       setRows([]);
       setListError(getErrorMessage(error, "Unable to load organizations."));
     } finally {
-      if (listAbortRef.current === abortController) {
+      if (listAbortRef.current === abortController && listRequestIdRef.current === requestId) {
         setIsListLoading(false);
       }
     }
@@ -86,7 +93,10 @@ export default function HomePage() {
     setActiveOrgDetail(null);
 
     try {
-      const result = await getOrganizationById(organizationId, abortController.signal);
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
       if (result.success) {
         if (detailRequestIdRef.current !== requestId) return;
         setActiveOrgDetail(result.data);

@@ -1,4 +1,4 @@
-import { get, handleAPIError } from "./request";
+import { get, handleAPIError, isAbortError } from "./request";
 
 import type { APIResult } from "./request";
 
@@ -12,14 +12,6 @@ type OrganizationRecord = {
   state?: string | null;
   createdAt?: string;
   updatedAt?: string;
-};
-
-type OrganizationsResponse = {
-  organizations: OrganizationRecord[];
-};
-
-type OrganizationResponse = {
-  organization: OrganizationRecord;
 };
 
 export type OrganizationListItem = {
@@ -41,6 +33,52 @@ export type OrganizationDetail = {
   description: string;
   mission: string;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseOrganizationRecord(value: unknown, route: string): OrganizationRecord {
+  if (!isRecord(value)) {
+    throw new Error(`[${route}] Organization payload must be an object.`);
+  }
+
+  const id = toOptionalString(value.id);
+  const name = toOptionalString(value.name);
+  if (!id || !name) {
+    throw new Error(`[${route}] Organization payload missing required fields.`);
+  }
+
+  return {
+    id,
+    name,
+    mission: toOptionalString(value.mission) ?? null,
+    city: toOptionalString(value.city) ?? null,
+    state: toOptionalString(value.state) ?? null,
+    createdAt: toOptionalString(value.createdAt),
+    updatedAt: toOptionalString(value.updatedAt),
+  };
+}
+
+function parseOrganizationsResponse(payload: unknown): OrganizationRecord[] {
+  if (!isRecord(payload) || !Array.isArray(payload.organizations)) {
+    throw new Error("[/organizations] Unexpected response shape.");
+  }
+  return payload.organizations.map((organization) =>
+    parseOrganizationRecord(organization, "/organizations"),
+  );
+}
+
+function parseOrganizationResponse(payload: unknown): OrganizationRecord {
+  if (!isRecord(payload) || !("organization" in payload)) {
+    throw new Error("[/organizations/:id] Unexpected response shape.");
+  }
+  return parseOrganizationRecord(payload.organization, "/organizations/:id");
+}
 
 function toFallbackString(value: string | null | undefined): string {
   if (!value) return NOT_PROVIDED;
@@ -89,12 +127,18 @@ function toOrganizationDetail(record: OrganizationRecord): OrganizationDetail {
   };
 }
 
-export async function getOrganizations(signal?: AbortSignal): Promise<APIResult<OrganizationListItem[]>> {
+export async function getOrganizations(
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationListItem[]>> {
   try {
     const response = await get("/organizations", {}, signal);
-    const json = (await response.json()) as OrganizationsResponse;
-    return { success: true, data: json.organizations.map(toOrganizationListItem) };
+    const json: unknown = await response.json();
+    const organizations = parseOrganizationsResponse(json);
+    return { success: true, data: organizations.map(toOrganizationListItem) };
   } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
     return handleAPIError(error);
   }
 }
@@ -105,9 +149,13 @@ export async function getOrganizationById(
 ): Promise<APIResult<OrganizationDetail>> {
   try {
     const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
-    const json = (await response.json()) as OrganizationResponse;
-    return { success: true, data: toOrganizationDetail(json.organization) };
+    const json: unknown = await response.json();
+    const organization = parseOrganizationResponse(json);
+    return { success: true, data: toOrganizationDetail(organization) };
   } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
     return handleAPIError(error);
   }
 }
