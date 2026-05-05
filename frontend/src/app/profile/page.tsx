@@ -237,6 +237,7 @@ export default function AdminProfile() {
     if (!isDraggingPhoto || !photoNaturalSize) {
       return;
     }
+    const naturalSize = photoNaturalSize;
 
     function handleMouseMove(event: MouseEvent) {
       if (!photoDragRef.current) {
@@ -252,7 +253,7 @@ export default function AdminProfile() {
             x: photoDragRef.current.originX + deltaX,
             y: photoDragRef.current.originY + deltaY,
           },
-          photoNaturalSize,
+          naturalSize,
           photoZoom,
         ),
       );
