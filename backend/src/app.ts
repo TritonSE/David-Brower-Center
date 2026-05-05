@@ -41,7 +41,7 @@ app.get("/", (req, res) => {
 
 // Mount API routes
 app.use("/api", apiRouter);
-app.use("/tags", tagsRouter);
+app.use("/api/tags", tagsRouter);
 app.get("/organizations", async (req, res, next) => {
   try {
     const organizations = await prisma.organization.findMany();
