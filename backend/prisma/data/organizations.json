@@ -1,0 +1,436 @@
+[
+  {
+    "projectId": "094",
+    "name": "A Local Empowered Response Team",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | Pollution and Toxics",
+    "website": "http://alertproject.org"
+  },
+  {
+    "projectId": "020",
+    "name": "Alaska Clean Water Advocacy",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Oceans and Water | Pollution and Toxics",
+    "website": "http://www.acwa-alaska.org"
+  },
+  {
+    "projectId": "081",
+    "name": "Alter Terra",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Community Resilience | Environmental Justice",
+    "website": "http://www.alterterra.org/"
+  },
+  {
+    "projectId": "076",
+    "name": "Armenia Environmental Network",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Pollution and Toxics | International Initiatives",
+    "website": "http://www.armenia-environment.org/"
+  },
+  {
+    "projectId": "026",
+    "name": "Baikal Watch",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Oceans and Water | International Initiatives",
+    "website": "https://secure.acceptiva.com/?cst=e74133"
+  },
+  {
+    "projectId": "027",
+    "name": "Borneo Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Justice | International Initiatives",
+    "website": "http://borneoproject.org"
+  },
+  {
+    "projectId": "109",
+    "name": "CA Institute for Community, Art & Nature",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Arts | Environmental Education | Indigenous Communities",
+    "website": "https://californiaican.org/"
+  },
+  {
+    "projectId": "112",
+    "name": "CA Trade Justice Coalition",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Environmental Justice",
+    "website": "http://catradejustice.org/"
+  },
+  {
+    "projectId": "132",
+    "name": "California Climate and Agricultural Network",
+    "sizeCategory": "Medium",
+    "focus": "Climate Change Solutions | Conservation | Sustainable Agriculture and Food Systems",
+    "website": "https://calclimateag.org/"
+  },
+  {
+    "projectId": "083",
+    "name": "California Urban Streams Partnership",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Community Resilience | Environmental Justice",
+    "website": "https://www.californiaurbanstreamspartnership.com/"
+  },
+  {
+    "projectId": "136",
+    "name": "Castanea Fellowship",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://www.castaneafellowship.org/"
+  },
+  {
+    "projectId": "119",
+    "name": "Conservation Kids",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Youth Empowerment",
+    "website": "https://www.conservationkids.org/"
+  },
+  {
+    "projectId": "104",
+    "name": "Cultivate Oregon",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://www.cultivateoregon.org/"
+  },
+  {
+    "projectId": "011",
+    "name": "Eco Equity",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives",
+    "website": "http://www.ecoequity.org/"
+  },
+  {
+    "projectId": "117",
+    "name": "Ecovet Global",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Wildlife Protection | Women's Environmental Leadership",
+    "website": "http://www.ecovetglobal.org"
+  },
+  {
+    "projectId": "053",
+    "name": "Eco-Village Farm Learning Center",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Justice | Sustainable Agriculture and Food Systems | Youth Empowerment",
+    "website": "http://www.ecovillagefarm.org/"
+  },
+  {
+    "projectId": "114",
+    "name": "Energie Rich",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Justice | International Initiatives",
+    "website": "http://www.energierich.org/"
+  },
+  {
+    "projectId": "056",
+    "name": "Ethical Traveler",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | International Initiatives | Wildlife Protection",
+    "website": "http://www.ethicaltraveler.org/"
+  },
+  {
+    "projectId": "021",
+    "name": "Eurasian Wildlife and Peoples",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Justice | International Initiatives | Wildlife Protection",
+    "website": "https://www.ewandp.org/"
+  },
+  {
+    "projectId": "146",
+    "name": "Fish On",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Justice | Oceans and Water",
+    "website": "https://www.fishon.us/"
+  },
+  {
+    "projectId": "099",
+    "name": "Food Culture Collective",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Arts | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://foodculture.org/"
+  },
+  {
+    "projectId": "078",
+    "name": "Food Shift",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Sustainable Agriculture and Food Systems",
+    "website": "http://www.foodshift.net/"
+  },
+  {
+    "projectId": "144",
+    "name": "Fossil Fuel Non-Proliferation Treaty Initiative",
+    "sizeCategory": "Large",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives",
+    "website": "https://fossilfueltreaty.org"
+  },
+  {
+    "projectId": "139",
+    "name": "Friends of Alemany Farm",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "http://www.alemanyfarm.org/"
+  },
+  {
+    "projectId": "088",
+    "name": "Friends of Muonde",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | International Initiatives | Sustainable Agriculture and Food Systems",
+    "website": "http://www.friendsofmuonde.org/"
+  },
+  {
+    "projectId": "142",
+    "name": "Garden for the Environment",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "https://www.gardenfortheenvironment.org/"
+  },
+  {
+    "projectId": "116",
+    "name": "Green Schoolyards America",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Education",
+    "website": "http://greenschoolyards.org"
+  },
+  {
+    "projectId": "113",
+    "name": "Guias Unidos",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | International Initiatives | Youth Empowerment",
+    "website": "http://guiasunidos.org/"
+  },
+  {
+    "projectId": "007",
+    "name": "International Marine Mammal Project",
+    "sizeCategory": "Small",
+    "focus": "International Initiatives | Oceans and Water | Wildlife Protection",
+    "website": "https://savedolphins.eii.org/"
+  },
+  {
+    "projectId": "024",
+    "name": "John Muir Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Wildlife Protection",
+    "website": "http://www.johnmuirproject.org/"
+  },
+  {
+    "projectId": "103",
+    "name": "Junior Wildlife Rangers",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Wildlife Protection | Youth Empowerment",
+    "website": "http://www.juniorwildliferanger.org/"
+  },
+  {
+    "projectId": "107",
+    "name": "Kelly Creek Protection Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://extendputnampark.org"
+  },
+  {
+    "projectId": "032",
+    "name": "Kids for the Bay",
+    "sizeCategory": "Small",
+    "focus": "Environmental Education | Oceans and Water | Youth Empowerment",
+    "website": "http://www.kidsforthebay.org/"
+  },
+  {
+    "projectId": "143",
+    "name": "Law Students for Climate Accountability",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Environmental Justice",
+    "website": "https://www.ls4ca.org/"
+  },
+  {
+    "projectId": "118",
+    "name": "Mississippi Farm to School Network",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "http://www.mississippifarmtoschool.org/"
+  },
+  {
+    "projectId": "015",
+    "name": "Nature in the City",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://natureinthecity.org/"
+  },
+  {
+    "projectId": "123",
+    "name": "PGM ONE",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Arts | Environmental Justice",
+    "website": "https://www.pgmone.org/"
+  },
+  {
+    "projectId": "949",
+    "name": "Planet Earth Arts",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Arts | Environmental Justice",
+    "website": "http://www.planeteartharts.org/"
+  },
+  {
+    "projectId": "055",
+    "name": "Plastic Pollution Coalition",
+    "sizeCategory": "Large",
+    "focus": "Environmental Education | Environmental Justice | Oceans and Water | Pollution and Toxics",
+    "website": "http://plasticpollutioncoalition.org"
+  },
+  {
+    "projectId": "058",
+    "name": "Project Coyote",
+    "sizeCategory": "Small",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://www.projectcoyote.org"
+  },
+  {
+    "projectId": "110",
+    "name": "Public Lands Media",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "https://george-wuerthner-t3yb.squarespace.com/"
+  },
+  {
+    "projectId": "085",
+    "name": "Raptors Are the Solution",
+    "sizeCategory": "Small",
+    "focus": "Environmental Education | Pollution and Toxics | Wildlife Protection",
+    "website": "http://www.raptorsarethesolution.org/"
+  },
+  {
+    "projectId": "108",
+    "name": "Richmond Trees",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Education",
+    "website": "http://www.richmondtrees.org/"
+  },
+  {
+    "projectId": "140",
+    "name": "Rise St. James",
+    "sizeCategory": "Small",
+    "focus": "Community Resilience | Environmental Education | Environmental Justice | Pollution and Toxics",
+    "website": "https://www.risestjames.org/"
+  },
+  {
+    "projectId": "012",
+    "name": "Sacred Lands Film Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Environmental Justice | Indigenous Communities",
+    "website": "http://www.sacredland.org/"
+  },
+  {
+    "projectId": "054",
+    "name": "Save Our Soils",
+    "sizeCategory": "Grassroots",
+    "focus": "Oceans and Water | Pollution and Toxics | Sustainable Agriculture and Food Systems",
+    "website": "https://saveoursoil.us"
+  },
+  {
+    "projectId": "069",
+    "name": "Serengeti Watch",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Indigenous Communities | International Initiatives | Wildlife Protection",
+    "website": "http://www.serengetiwatch.org"
+  },
+  {
+    "projectId": "086",
+    "name": "Shark Stewards",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Oceans and Water | Wildlife Protection",
+    "website": "http://sharkstewards.org"
+  },
+  {
+    "projectId": "096",
+    "name": "She Builds Power",
+    "sizeCategory": "Small",
+    "focus": "Environmental Justice | International Initiatives | Oceans and Water | Women's Environmental Leadership",
+    "website": "https://shebuildspower.org/"
+  },
+  {
+    "projectId": "147",
+    "name": "SIRGE Coalition",
+    "sizeCategory": "Medium",
+    "focus": "Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://www.sirgecoalition.org/"
+  },
+  {
+    "projectId": "042",
+    "name": "South Coast Habitat Restoration",
+    "sizeCategory": "Large",
+    "focus": "Conservation | Oceans and Water | Wildlife Protection",
+    "website": "http://www.schabitatrestoration.org/"
+  },
+  {
+    "projectId": "127",
+    "name": "Stop Fish Bombing",
+    "sizeCategory": "Grassroots",
+    "focus": "International Initiatives | Oceans and Water | Sustainable Agriculture and Food Systems",
+    "website": "https://www.sfbusa.org/"
+  },
+  {
+    "projectId": "145",
+    "name": "Tallgrass Institute",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://tallgrassinstitute.org"
+  },
+  {
+    "projectId": "098",
+    "name": "The Capacity Collaborative",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://www.thecapacitycollaborative.org/"
+  },
+  {
+    "projectId": "102",
+    "name": "Transition Earth",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Community Resilience | International Initiatives",
+    "website": "http://transition-earth.org/"
+  },
+  {
+    "projectId": "050",
+    "name": "Ultimate Civics",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Education",
+    "website": "https://ultimatecivics.org"
+  },
+  {
+    "projectId": "035",
+    "name": "Viva Sierra Gorda",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Community Resilience | International Initiatives",
+    "website": "http://planetacarbononeutral.org/en/home/"
+  },
+  {
+    "projectId": "122",
+    "name": "Wild Heritage",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Indigenous Communities",
+    "website": "https://wild-heritage.org/"
+  },
+  {
+    "projectId": "106",
+    "name": "Wild Oyster Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Oceans and Water | Wildlife Protection",
+    "website": "https://wildoysters.org/"
+  },
+  {
+    "projectId": "048",
+    "name": "WildFutures",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Wildlife Protection",
+    "website": "https://www.wildfutures.us"
+  },
+  {
+    "projectId": "030",
+    "name": "Women's Earth Alliance",
+    "sizeCategory": "Large",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives | Women's Environmental Leadership",
+    "website": "https://womensearthalliance.org/"
+  },
+  {
+    "projectId": "074",
+    "name": "Youth Empowered Action Camp",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Youth Empowerment",
+    "website": "https://yeacamp.org/"
+  }
+]

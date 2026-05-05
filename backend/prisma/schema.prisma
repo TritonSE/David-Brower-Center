@@ -3,45 +3,40 @@ generator client {
   output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
-
 datasource db {
   provider = "postgresql"
   schemas  = ["public"]
 }
-
+// ===========================================
+// YOUR APPLICATION MODELS (public schema)
+// ===========================================
 model Organization {
-  id           String            @id @default(uuid()) @db.Uuid
-  name         String
-  projectId    String            @unique
-  sizeCategory String?
-  website      String?
-  tags         OrganizationTag[]
-
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId   String  @unique
+  name       String   
+  website        String?           
+  sizeCategory   String?           
+  tags       OrganizationTag[]
   @@map("organizations")
   @@schema("public")
 }
-
 model Tag {
-  id            String            @id @default(uuid()) @db.Uuid
-  name          String            @unique
+  id            String           @id @default(uuid()) @db.Uuid
+  name          String           @unique
   description   String?
   organizations OrganizationTag[]
-
   @@map("tags")
   @@schema("public")
 }
-
 model OrganizationTag {
-  organizationId String       @db.Uuid
-  tagId          String       @db.Uuid
+  organizationId String @db.Uuid
+  tagId          String @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id])
   tag            Tag          @relation(fields: [tagId], references: [id])
-
   @@id([organizationId, tagId])
   @@map("organization_tags")
   @@schema("public")
 }
-
 /// Your application's users table
 model User {
   supabase_user_id String   @id @db.Uuid
@@ -49,7 +44,7 @@ model User {
   name             String?
   role             String   @default("admin")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
-
+  // References Supabase auth.users.id at the application layer (not Prisma-managed FK).
   @@map("users")
   @@schema("public")
 }
