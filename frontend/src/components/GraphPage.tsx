@@ -14,9 +14,9 @@ import {
 } from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
-import type React from "react";
-import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
 import type { APIResult } from "@/api/request";
+import type React from "react";
+import type { GraphCanvasProps } from "reagraph";
 
 import {
   getOrganizationById,
@@ -32,11 +32,27 @@ import {
 // types drop the ref signature, even though Next preserves refs at
 // runtime. Without this cast, passing `ref` to <GraphCanvas /> would
 // fail to type-check.
-const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
-  ssr: false,
-}) as unknown as React.ForwardRefExoticComponent<
-  GraphCanvasProps & React.RefAttributes<GraphCanvasRef>
->;
+type GraphCanvasHandle = {
+  fitNodesInView: (nodeIds?: string[], options?: { animated?: boolean }) => void;
+};
+
+type GraphNodeEvent = {
+  id: string;
+  position: { x: number; y: number };
+};
+
+const loadGraphCanvas = async (): Promise<
+  React.ForwardRefExoticComponent<GraphCanvasProps & React.RefAttributes<GraphCanvasHandle>>
+> => {
+  const mod = (await import("reagraph")) as unknown as {
+    GraphCanvas: React.ForwardRefExoticComponent<
+      GraphCanvasProps & React.RefAttributes<GraphCanvasHandle>
+    >;
+  };
+  return mod.GraphCanvas;
+};
+
+const GraphCanvas = dynamic(loadGraphCanvas, { ssr: false });
 
 // Node/edge shapes accepted by reagraph. `fx`/`fy` pin a node's position in
 // the force-directed layout so we can compute a custom tree silhouette.
@@ -257,7 +273,7 @@ export default function GraphPage() {
   // Imperative handle to the reagraph canvas. Used to re-fit the camera on
   // the currently rendered nodes whenever the search filter changes the
   // visible set (or on initial load).
-  const graphRef = useRef<GraphCanvasRef | null>(null);
+  const graphRef = useRef<GraphCanvasHandle | null>(null);
 
   const selectedOrganization = useMemo(
     () => organizations.find((org) => org.id === selectedOrgId) ?? null,
@@ -506,7 +522,7 @@ export default function GraphPage() {
   // Drag handler: translate the dragged node AND every descendant by the
   // same delta so an entire branch of the tree moves as a unit.
   const handleNodeDragged = useCallback(
-    (node: InternalGraphNode) => {
+    (node: GraphNodeEvent) => {
       setPositions((previousPositions) => {
         const previous = previousPositions.get(node.id);
         if (!previous) return previousPositions;
@@ -538,7 +554,7 @@ export default function GraphPage() {
   // Clicking the same node again toggles the overlay closed, matching the
   // list view's behavior where re-clicking the active row collapses it.
   const handleNodeClick = useCallback(
-    (node: InternalGraphNode) => {
+    (node: GraphNodeEvent) => {
       if (selectedOrgId === node.id && isCardVisible) {
         detailAbortRef.current?.abort();
         setIsCardVisible(false);
