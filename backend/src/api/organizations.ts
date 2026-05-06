@@ -3,6 +3,7 @@ import { type NextFunction, type Request, type Response, Router } from "express"
 import createError from "http-errors";
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config";
+import { Prisma, RelationshipTier } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
@@ -21,6 +22,14 @@ type OrganizationBody = {
   sizeCategory?: unknown;
   website?: unknown;
   tags?: unknown;
+};
+
+type OrganizationRelationshipBody = {
+  npo1Id?: unknown;
+  npo2Id?: unknown;
+  relationshipTier?: unknown;
+  relationshipType?: unknown;
+  description?: unknown;
 };
 
 async function requireAdminUser(req: Request): Promise<string> {
@@ -178,5 +187,80 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
     next(err);
   }
 });
+
+router.post(
+  "/organizations/relationships",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await requireAdminUser(req);
+
+      const body = req.body as OrganizationRelationshipBody;
+
+      if (typeof body.npo1Id !== "string" || body.npo1Id.trim().length === 0) {
+        throw createError(400, "npo1Id is required");
+      }
+      if (typeof body.npo2Id !== "string" || body.npo2Id.trim().length === 0) {
+        throw createError(400, "npo2Id is required");
+      }
+
+      const npo1Id = body.npo1Id.trim();
+      const npo2Id = body.npo2Id.trim();
+
+      if (npo1Id === npo2Id) {
+        throw createError(400, "npo1Id and npo2Id must be different organizations");
+      }
+
+      if (typeof body.relationshipTier !== "string") {
+        throw createError(400, "relationshipTier is required");
+      }
+      const relationshipTierRaw = body.relationshipTier.trim();
+      const relationshipTier = (RelationshipTier as Record<string, RelationshipTier>)[
+        relationshipTierRaw
+      ];
+      if (!relationshipTier) {
+        throw createError(400, "relationshipTier must be one of PRIMARY, SECONDARY, TERTIARY");
+      }
+
+      const relationshipType =
+        typeof body.relationshipType === "string" ? body.relationshipType.trim() || null : null;
+      const description =
+        typeof body.description === "string" ? body.description.trim() || null : null;
+
+      const organizations = await prisma.organization.findMany({
+        where: { id: { in: [npo1Id, npo2Id] } },
+        select: { id: true },
+      });
+
+      const found = new Set(organizations.map((o) => o.id));
+      if (!found.has(npo1Id)) {
+        throw createError(404, `Organization ${npo1Id} not found`);
+      }
+      if (!found.has(npo2Id)) {
+        throw createError(404, `Organization ${npo2Id} not found`);
+      }
+
+      try {
+        const relationship = await prisma.organizationRelationship.create({
+          data: {
+            npo1Id,
+            npo2Id,
+            relationshipTier,
+            relationshipType,
+            description,
+          },
+        });
+
+        res.status(201).json({ relationship });
+      } catch (err: unknown) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          throw createError(409, "That relationship already exists");
+        }
+        throw err;
+      }
+    } catch (err: unknown) {
+      next(err);
+    }
+  },
+);
 
 export default router;

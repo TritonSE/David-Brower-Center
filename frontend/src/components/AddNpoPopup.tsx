@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 
 import styles from "./AddNpoPopup.module.css";
@@ -196,7 +197,14 @@ export default function AddNpoPopup({
             <div className={styles.mediaGrid} onDrop={handleDrop} onDragOver={handleDragOver}>
               {mediaFiles.map((item) => (
                 <div key={item.id} className={styles.mediaCard}>
-                  <img src={item.previewUrl} alt={item.file.name} className={styles.mediaImage} />
+                  <Image
+                    src={item.previewUrl}
+                    alt={item.file.name}
+                    className={styles.mediaImage}
+                    width={160}
+                    height={160}
+                    unoptimized
+                  />
                   <button
                     type="button"
                     className={styles.mediaDeleteButton}
