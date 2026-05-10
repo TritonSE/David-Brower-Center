@@ -5,7 +5,8 @@ import { getRequestAuthUser, requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
 
-router.get("/whoami", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+/** GET /api/whoami — mounted at app.use("/api/whoami", whoamiRouter). */
+router.get("/", requireAuth, (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getRequestAuthUser(req);
 
