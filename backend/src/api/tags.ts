@@ -12,8 +12,21 @@ type CreateTagBody = {
 };
 
 /**
- * POST /tags
- * Creates a new tag in the database.
+ * GET /api/tags — list tags (mounted in app.ts as app.use("/api/tags", tagsRouter)).
+ */
+router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tags = await prisma.tag.findMany({
+      orderBy: { name: "asc" },
+    });
+    return res.status(200).json({ tags });
+  } catch {
+    return next(createError(500, "Failed to fetch tags"));
+  }
+});
+
+/**
+ * POST /api/tags — create a tag.
  * Body: { name: string, description?: string }
  */
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {

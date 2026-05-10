@@ -1,12 +1,10 @@
 import cors from "cors";
 import express from "express";
-import createError from "http-errors";
 
 import organizationsRouter from "./api/organizations";
 import tagsRouter from "./api/tags";
 import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
-import { prisma } from "./lib/prisma";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 
@@ -44,19 +42,6 @@ app.get("/", (req, res) => {
 app.use("/api", apiRouter);
 app.use("/api/tags", tagsRouter);
 app.use(organizationsRouter);
-
-app.get("/tags", async (req, res, next) => {
-  try {
-    const tags = await prisma.tag.findMany({
-      orderBy: {
-        name: "asc",
-      },
-    });
-    res.status(200).json({ tags });
-  } catch {
-    next(createError(500, "Failed to fetch tags"));
-  }
-});
 
 app.use(errorHandler);
 app.listen(PORT, () => {

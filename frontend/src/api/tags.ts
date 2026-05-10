@@ -103,7 +103,7 @@ function parseTagsPayload(payload: unknown): unknown[] {
     }
   }
 
-  throw new Error("[/tags] Unexpected response shape.");
+  throw new Error("[/api/tags] Unexpected response shape.");
 }
 
 function parseTagName(value: unknown): string {
@@ -119,11 +119,11 @@ function parseTagName(value: unknown): string {
     if (name) return name;
   }
 
-  throw new Error('[/tags] Missing required field "name" in response.');
+  throw new Error('[/api/tags] Missing required field "name" in response.');
 }
 
 export async function getTags(signal?: AbortSignal): Promise<string[]> {
-  const payload = await requestJson("/tags", signal);
+  const payload = await requestJson("/api/tags", signal);
   const rawTags = parseTagsPayload(payload);
   const names = rawTags.map(parseTagName);
 
