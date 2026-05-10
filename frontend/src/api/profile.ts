@@ -1,22 +1,9 @@
-import { supabase } from "@/services/supabase";
+import { get, patch } from "./request";
 
-const MISSING_BACKEND_URL_ERROR =
-  "Missing NEXT_PUBLIC_BACKEND_URL. Set it in frontend/.env to call the backend APIs.";
+import { supabase } from "@/services/supabase";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function getBackendUrl(): string {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (!backendUrl) {
-    throw new Error(MISSING_BACKEND_URL_ERROR);
-  }
-  return backendUrl;
-}
-
-function toUrl(route: string): string {
-  return new URL(route, getBackendUrl()).toString();
 }
 
 function toOptionalString(value: unknown): string | null {
@@ -72,51 +59,31 @@ function parseProfilePayload(payload: unknown): Profile {
   };
 }
 
-function parseErrorMessage(status: number, payload: unknown): string {
-  if (isRecord(payload) && typeof payload.error === "string" && payload.error.trim().length > 0) {
-    return payload.error;
-  }
-  return `Request failed with status ${status}`;
+function authHeaders(token: string): Record<string, string> {
+  return {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 }
 
-export async function getProfile(): Promise<Profile> {
+export async function getProfile(signal?: AbortSignal): Promise<Profile> {
   const token = await getAccessToken();
-  const response = await fetch(toUrl("/api/profile"), {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(parseErrorMessage(response.status, payload));
-  }
-
+  const response = await get("/api/profile", authHeaders(token), signal);
+  const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }
 
-export async function updateProfile(input: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-}): Promise<Profile> {
+export async function updateProfile(
+  input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  },
+  signal?: AbortSignal,
+): Promise<Profile> {
   const token = await getAccessToken();
-  const response = await fetch(toUrl("/api/profile"), {
-    method: "PATCH",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(input),
-  });
-
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(parseErrorMessage(response.status, payload));
-  }
-
+  const response = await patch("/api/profile", input, authHeaders(token), signal);
+  const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }
