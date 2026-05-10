@@ -68,7 +68,7 @@ function authHeaders(token: string): Record<string, string> {
 
 export async function getProfile(signal?: AbortSignal): Promise<Profile> {
   const token = await getAccessToken();
-  const response = await get("/api/profile", authHeaders(token), signal);
+  const response = await get("/api/users/profile", authHeaders(token), signal);
   const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }
@@ -83,7 +83,7 @@ export async function updateProfile(
   signal?: AbortSignal,
 ): Promise<Profile> {
   const token = await getAccessToken();
-  const response = await patch("/api/profile", input, authHeaders(token), signal);
+  const response = await patch("/api/users/profile", input, authHeaders(token), signal);
   const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }

@@ -1,12 +1,13 @@
 import cors from "cors";
 import express from "express";
 
-import organizationsRouter from "./api/organizations";
-import tagsRouter from "./api/tags";
-import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
+import organizationsRouter from "./routes/organizations";
+import tagsRouter from "./routes/tags";
+import usersRouter from "./routes/users";
+import whoamiRouter from "./routes/whoami";
 
 const app = express();
 const allowedOrigins = new Set([FRONTEND_ORIGIN]);
@@ -38,10 +39,10 @@ app.get("/", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
-// Mount API routes
-app.use("/api", apiRouter);
+app.use("/api/whoami", whoamiRouter);
+app.use("/api/users", usersRouter);
+app.use("/api/organizations", organizationsRouter);
 app.use("/api/tags", tagsRouter);
-app.use(organizationsRouter);
 
 app.use(errorHandler);
 app.listen(PORT, () => {

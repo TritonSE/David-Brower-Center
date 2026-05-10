@@ -30,7 +30,7 @@ function parseOrganizationsPayload(payload: unknown): unknown[] {
     }
   }
 
-  throw new Error("[/organizations] Unexpected response shape.");
+  throw new Error("[/api/organizations] Unexpected response shape.");
 }
 
 function parseOrganizationPayload(payload: unknown): unknown {
@@ -40,7 +40,7 @@ function parseOrganizationPayload(payload: unknown): unknown {
     return payload;
   }
 
-  throw new Error("[/organizations/:id] Unexpected response shape.");
+  throw new Error("[/api/organizations/:id] Unexpected response shape.");
 }
 
 function getRequiredString(value: unknown, route: string, field: string): string {
@@ -98,12 +98,12 @@ function parseOrganizationTagList(value: unknown): OrganizationTag[] {
 
 function parseOrganizationListItem(value: unknown): OrganizationListItem {
   if (!isRecord(value)) {
-    throw new Error("[/organizations] Expected each organization item to be an object.");
+    throw new Error("[/api/organizations] Expected each organization item to be an object.");
   }
 
   return {
-    id: getRequiredString(value.id, "/organizations", "id"),
-    name: getRequiredString(value.name, "/organizations", "name"),
+    id: getRequiredString(value.id, "/api/organizations", "id"),
+    name: getRequiredString(value.name, "/api/organizations", "name"),
     focus: toFallbackString(value.focus),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
@@ -113,12 +113,12 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
 
 function parseOrganizationDetail(value: unknown): OrganizationDetail {
   if (!isRecord(value)) {
-    throw new Error("[/organizations/:id] Expected organization detail to be an object.");
+    throw new Error("[/api/organizations/:id] Expected organization detail to be an object.");
   }
 
   return {
-    id: getRequiredString(value.id, "/organizations/:id", "id"),
-    name: getRequiredString(value.name, "/organizations/:id", "name"),
+    id: getRequiredString(value.id, "/api/organizations/:id", "id"),
+    name: getRequiredString(value.name, "/api/organizations/:id", "name"),
     focus: toFallbackString(value.focus),
     year: toFallbackString(value.year),
     size: toFallbackString(value.size),
@@ -134,7 +134,7 @@ export async function getOrganizations(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationListItem[]>> {
   try {
-    const response = await get("/organizations", {}, signal);
+    const response = await get("/api/organizations", {}, signal);
     const payload: unknown = await response.json();
     const organizations = parseOrganizationsPayload(payload);
     return { success: true, data: organizations.map(parseOrganizationListItem) };
@@ -151,7 +151,7 @@ export async function getOrganizationById(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationDetail>> {
   try {
-    const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
+    const response = await get(`/api/organizations/${encodeURIComponent(id)}`, {}, signal);
     const payload: unknown = await response.json();
     const organization = parseOrganizationPayload(payload);
     return { success: true, data: parseOrganizationDetail(organization) };

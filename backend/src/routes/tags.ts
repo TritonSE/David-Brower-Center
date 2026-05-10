@@ -12,7 +12,7 @@ type CreateTagBody = {
 };
 
 /**
- * GET /api/tags — list tags (mounted in app.ts as app.use("/api/tags", tagsRouter)).
+ * GET /api/tags — list tags (mounted as app.use("/api/tags", tagsRouter)).
  */
 router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {

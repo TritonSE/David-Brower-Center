@@ -1,14 +1,10 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config";
 import { prisma } from "../lib/prisma";
+import { supabaseAuth } from "../lib/supabaseClients";
 
 const router = Router();
-
-const supabaseAuthUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAuth = supabaseAuthUnknown as SupabaseClient;
 
 type AuthUserResult = {
   data: { user: { id: string } } | null;
@@ -58,9 +54,6 @@ async function requireAdminUser(req: Request): Promise<string> {
   return user.supabase_user_id;
 }
 
-// Flattens the Prisma `tags` relation (a pivot row that nests a `tag`) into a
-// plain array of `{ id, name }` objects. Clients don't care about the join
-// table; they just want to render and filter on the tag list itself.
 type OrganizationTagJoin = { tag: { id: string; name: string } };
 function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
   organization: T,
@@ -72,7 +65,8 @@ function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
   };
 }
 
-router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
+/** GET /api/organizations */
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organizations = await prisma.organization.findMany({
       include: {
@@ -89,9 +83,8 @@ router.get("/organizations", async (req: Request, res: Response, next: NextFunct
   }
 });
 
-router.get("/organizations/:id", async (req: Request, res: Response, next: NextFunction) => {
-  // Express 5 types `req.params` values as `string | string[] | undefined`,
-  // so narrow to a plain string before using it in queries or messages.
+/** GET /api/organizations/:id */
+router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   const rawId: unknown = req.params.id;
   if (typeof rawId !== "string" || rawId.length === 0) {
     next(createError(400, "Organization id is required"));
@@ -122,7 +115,8 @@ router.get("/organizations/:id", async (req: Request, res: Response, next: NextF
   }
 });
 
-router.post("/organizations", async (req: Request, res: Response, next: NextFunction) => {
+/** POST /api/organizations */
+router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     await requireAdminUser(req);
 
@@ -132,8 +126,6 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
       throw createError(400, "name is required");
     }
 
-    // `tags` is a relation through the `OrganizationTag` join table. Accept an
-    // array of Tag UUIDs and create join rows linking to existing tags.
     const tagIds: string[] =
       Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
         ? body.tags
