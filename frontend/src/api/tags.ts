@@ -122,6 +122,40 @@ function parseTagName(value: unknown): string {
   throw new Error('[/tags] Missing required field "name" in response.');
 }
 
+export type TagOption = {
+  id: string;
+  name: string;
+};
+
+function parseTagOption(value: unknown): TagOption {
+  if (!isRecord(value)) {
+    throw new Error("[/tags] Expected each tag to be an object.");
+  }
+
+  const id = toNonEmptyString(value.id);
+  const name = toNonEmptyString(value.name);
+
+  if (!id || !name) {
+    throw new Error('[/tags] Missing required fields "id" or "name" in response.');
+  }
+
+  return { id, name };
+}
+
+export async function getTagOptions(signal?: AbortSignal): Promise<TagOption[]> {
+  const payload = await requestJson("/tags", signal);
+  const rawTags = parseTagsPayload(payload);
+  const tags = rawTags.map(parseTagOption);
+  const seen = new Set<string>();
+
+  return tags.filter((tag) => {
+    const key = tag.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function getTags(signal?: AbortSignal): Promise<string[]> {
   const payload = await requestJson("/tags", signal);
   const rawTags = parseTagsPayload(payload);

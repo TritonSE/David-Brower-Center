@@ -14,9 +14,9 @@ import {
 } from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
+import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
-import type { APIResult } from "@/api/request";
 
 import {
   getOrganizationById,

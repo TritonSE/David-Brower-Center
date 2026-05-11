@@ -19,8 +19,11 @@ type OrganizationBody = {
   name?: unknown;
   projectId?: unknown;
   sizeCategory?: unknown;
+  location?: unknown;
+  budget?: unknown;
   website?: unknown;
   tags?: unknown;
+  tagNames?: unknown;
 };
 
 async function requireAdminUser(req: Request): Promise<string> {
@@ -64,12 +67,45 @@ async function requireAdminUser(req: Request): Promise<string> {
 type OrganizationTagJoin = { tag: { id: string; name: string } };
 function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
   organization: T,
-): Omit<T, "tags"> & { tags: { id: string; name: string }[] } {
+): Omit<T, "tags"> & {
+  tags: { id: string; name: string }[];
+  focus: string | null;
+  size: string | null;
+} {
   const { tags, ...rest } = organization;
+  const flattenedTags = tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name }));
   return {
     ...rest,
-    tags: tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name })),
+    tags: flattenedTags,
+    focus: flattenedTags.length > 0 ? flattenedTags.map((tag) => tag.name).join(" | ") : null,
+    size:
+      "sizeCategory" in rest && typeof rest.sizeCategory === "string" ? rest.sizeCategory : null,
   };
+}
+
+function toOptionalTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toUniqueTrimmedStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const strings: string[] = [];
+
+  for (const item of value) {
+    const trimmed = toOptionalTrimmedString(item);
+    if (!trimmed) continue;
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    strings.push(trimmed);
+  }
+
+  return strings;
 }
 
 router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
@@ -134,30 +170,55 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
 
     // `tags` is a relation through the `OrganizationTag` join table. Accept an
     // array of Tag UUIDs and create join rows linking to existing tags.
-    const tagIds: string[] =
-      Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
-        ? body.tags
-        : [];
+    const tagIds = toUniqueTrimmedStrings(body.tags);
+    const tagNames = toUniqueTrimmedStrings(body.tagNames);
 
     if (typeof body.projectId !== "string" || body.projectId.trim().length === 0) {
       throw createError(400, "projectId is required");
     }
 
-    const sizeCategoryRaw = body.sizeCategory;
-    const websiteRaw = body.website;
+    const tagsById = tagIds.length
+      ? await prisma.tag.findMany({
+          where: { id: { in: tagIds } },
+          select: { id: true },
+        })
+      : [];
+
+    const connectedTagIds = new Set(tagsById.map((tag) => tag.id));
+
+    const tagsByName = await Promise.all(
+      tagNames.map(
+        async (tagName) =>
+          await prisma.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName },
+            select: { id: true },
+          }),
+      ),
+    );
+
+    for (const tag of tagsByName) {
+      connectedTagIds.add(tag.id);
+    }
+
+    const sizeCategory = toOptionalTrimmedString(body.sizeCategory);
+    const website = toOptionalTrimmedString(body.website);
+    const location = toOptionalTrimmedString(body.location);
+    const budget = toOptionalTrimmedString(body.budget);
 
     const organization = await prisma.organization.create({
       data: {
         name: body.name.trim(),
         projectId: body.projectId.trim(),
-        ...(typeof sizeCategoryRaw === "string"
-          ? { sizeCategory: sizeCategoryRaw.trim() || null }
-          : {}),
-        ...(typeof websiteRaw === "string" ? { website: websiteRaw.trim() || null } : {}),
-        ...(tagIds.length > 0
+        sizeCategory,
+        website,
+        location,
+        budget,
+        ...(connectedTagIds.size > 0
           ? {
               tags: {
-                create: tagIds.map((tagId) => ({
+                create: [...connectedTagIds].map((tagId) => ({
                   tag: { connect: { id: tagId } },
                 })),
               },

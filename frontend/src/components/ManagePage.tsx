@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import AddNpoPopup from "./AddNpoPopup";
+import AddNpoPopup, { type AddNpoValues } from "./AddNpoPopup";
 import {
   FilterIcon,
   LeafIcon,
@@ -18,7 +18,7 @@ import NpoProfileCard from "./NpoProfileCard";
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 
-import { getOrganizationById, getOrganizations } from "@/api/organization";
+import { createOrganization, getOrganizationById, getOrganizations } from "@/api/organization";
 
 type ManageStatus = "published" | "draft";
 
@@ -40,6 +40,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function generateProjectId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${slug || "npo"}-${Date.now().toString(36)}`;
+}
+
+function toOptionalString(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function formatDate(dateString: string): string {
@@ -74,9 +89,12 @@ export default function ManagePage() {
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
+  const [isCreatingNpo, setIsCreatingNpo] = useState(false);
+  const [addNpoError, setAddNpoError] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
+  const createAbortRef = useRef<AbortController | null>(null);
 
   const fetchOrganizations = useCallback(async () => {
     listAbortRef.current?.abort();
@@ -153,6 +171,7 @@ export default function ManagePage() {
     }
   }, []);
   useEffect(() => () => detailAbortRef.current?.abort(), []);
+  useEffect(() => () => createAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
@@ -243,6 +262,72 @@ export default function ManagePage() {
     );
   }
 
+  const handleCloseAddNpo = useCallback(() => {
+    createAbortRef.current?.abort();
+    setIsAddNpoOpen(false);
+    setEditingOrg(null);
+    setAddNpoError(null);
+    setIsCreatingNpo(false);
+  }, []);
+
+  const handleCreateNpo = useCallback(
+    async (values: AddNpoValues) => {
+      const name = values.title.trim();
+      if (!name) {
+        setAddNpoError("NPO name is required.");
+        return;
+      }
+
+      createAbortRef.current?.abort();
+      const abortController = new AbortController();
+      createAbortRef.current = abortController;
+
+      setIsCreatingNpo(true);
+      setAddNpoError(null);
+
+      const existingTagIds = values.focusAreas
+        .filter((tag) => !tag.isCustom && tag.id)
+        .map((tag) => tag.id as string);
+      const customTagNames = values.focusAreas
+        .filter((tag) => tag.isCustom)
+        .map((tag) => tag.name.trim())
+        .filter(Boolean);
+
+      try {
+        const result = await createOrganization(
+          {
+            name,
+            projectId: generateProjectId(name),
+            sizeCategory: toOptionalString(values.npoSize),
+            location: toOptionalString(values.location),
+            budget: toOptionalString(values.budgetSize),
+            tags: existingTagIds,
+            tagNames: customTagNames,
+          },
+          abortController.signal,
+        );
+
+        if (!result.success) {
+          setAddNpoError(result.error || "Unable to create NPO.");
+          return;
+        }
+
+        setIsAddNpoOpen(false);
+        setEditingOrg(null);
+        await fetchOrganizations();
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setAddNpoError(getErrorMessage(error, "Unable to create NPO."));
+      } finally {
+        if (createAbortRef.current === abortController) {
+          createAbortRef.current = null;
+          setIsCreatingNpo(false);
+        }
+      }
+    },
+    [fetchOrganizations],
+  );
+
   if (isLoading) {
     return (
       <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
@@ -300,6 +385,7 @@ export default function ManagePage() {
               className="inline-flex items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
               onClick={() => {
                 setEditingOrg(null);
+                setAddNpoError(null);
                 setIsAddNpoOpen(true);
               }}
             >
@@ -422,6 +508,7 @@ export default function ManagePage() {
                             aria-label={`Edit ${row.name}`}
                             onClick={() => {
                               setEditingOrg(row);
+                              setAddNpoError(null);
                               setIsAddNpoOpen(true);
                             }}
                           >
@@ -515,11 +602,11 @@ export default function ManagePage() {
 
       <AddNpoPopup
         open={isAddNpoOpen}
-        onClose={() => {
-          setIsAddNpoOpen(false);
-          setEditingOrg(null);
-        }}
+        onClose={handleCloseAddNpo}
+        onNext={(values) => void handleCreateNpo(values)}
         initialTitle={editingOrg?.name ?? ""}
+        isSubmitting={isCreatingNpo}
+        errorMessage={addNpoError}
       />
     </div>
   );
