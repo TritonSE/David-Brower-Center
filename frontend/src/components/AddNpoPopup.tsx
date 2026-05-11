@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import styles from "./AddNpoPopup.module.css";
 
@@ -75,6 +75,7 @@ export default function AddNpoPopup({
   const [focusAreaQuery, setFocusAreaQuery] = useState("");
   const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusAreaValue[]>([]);
   const [isFocusAreaOpen, setIsFocusAreaOpen] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
   // Reset values when popup is opened
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function AddNpoPopup({
     setFocusAreaQuery("");
     setSelectedFocusAreas([]);
     setIsFocusAreaOpen(false);
+    setIsExitConfirmOpen(false);
     setMediaFiles((previous) => {
       previous.forEach((item) => URL.revokeObjectURL(item.previewUrl));
       return [];
@@ -133,17 +135,6 @@ export default function AddNpoPopup({
     [],
   );
 
-  // Escape key close
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
   const values: AddNpoValues = {
     title,
     description,
@@ -153,6 +144,65 @@ export default function AddNpoPopup({
     budgetSize,
     focusAreas: selectedFocusAreas,
   };
+
+  const hasFilledFields = useMemo(
+    () =>
+      title !== initialTitle ||
+      description !== initialDescription ||
+      mediaFiles.length > 0 ||
+      location.trim().length > 0 ||
+      npoSize.trim().length > 0 ||
+      budgetSize.trim().length > 0 ||
+      focusAreaQuery.trim().length > 0 ||
+      selectedFocusAreas.length > 0,
+    [
+      budgetSize,
+      description,
+      focusAreaQuery,
+      initialDescription,
+      initialTitle,
+      location,
+      mediaFiles.length,
+      npoSize,
+      selectedFocusAreas.length,
+      title,
+    ],
+  );
+
+  const handleRequestClose = useCallback(() => {
+    if (hasFilledFields) {
+      setIsExitConfirmOpen(true);
+      setIsFocusAreaOpen(false);
+      return;
+    }
+
+    onClose();
+  }, [hasFilledFields, onClose]);
+
+  const handleConfirmExit = () => {
+    setIsExitConfirmOpen(false);
+    onClose();
+  };
+
+  const handleContinueEditing = () => {
+    setIsExitConfirmOpen(false);
+  };
+
+  // Escape key close
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (isExitConfirmOpen) {
+        setIsExitConfirmOpen(false);
+        return;
+      }
+      handleRequestClose();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleRequestClose, isExitConfirmOpen, open]);
 
   const selectedFocusNames = useMemo(
     () => new Set(selectedFocusAreas.map((tag) => tag.name.toLowerCase())),
@@ -172,7 +222,7 @@ export default function AddNpoPopup({
     !selectedFocusNames.has(focusAreaQuery.trim().toLowerCase());
 
   const handleOverlayMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) handleRequestClose();
   };
 
   const handlePickFiles = () => fileInputRef.current?.click();
@@ -191,6 +241,16 @@ export default function AddNpoPopup({
     const name = focusAreaQuery.trim();
     if (!name || selectedFocusNames.has(name.toLowerCase())) return;
     handleAddFocusArea({ name, isCustom: true });
+  };
+
+  const handleBudgetSizeChange = (value: string) => {
+    const sanitized = value.replace(/[^\d.]/g, "");
+    const [rawDollars = "", ...rawCentsParts] = sanitized.split(".");
+    const normalizedDollars = rawDollars.replace(/^0+(?=\d)/, "");
+    const cents = rawCentsParts.join("").slice(0, 2);
+    const hasDecimal = sanitized.includes(".");
+
+    setBudgetSize(hasDecimal ? `${normalizedDollars || "0"}.${cents}` : normalizedDollars);
   };
 
   const handleFiles = (files: FileList | null) => {
@@ -243,7 +303,7 @@ export default function AddNpoPopup({
             <button
               type="button"
               className={styles.cancelButton}
-              onClick={onClose}
+              onClick={handleRequestClose}
               aria-label="Close"
             >
               <svg
@@ -409,13 +469,18 @@ export default function AddNpoPopup({
               <label className={styles.caption} htmlFor={budgetId}>
                 Budget Size
               </label>
-              <input
-                id={budgetId}
-                className={`${styles.input} ${styles.inputSm}`}
-                placeholder="$0.00"
-                value={budgetSize}
-                onChange={(e) => setBudgetSize(e.target.value)}
-              />
+              <div className={styles.currencyInputWrap}>
+                <span className={styles.currencyPrefix}>$</span>
+                <input
+                  id={budgetId}
+                  className={`${styles.input} ${styles.inputSm} ${styles.currencyInput}`}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0.00"
+                  value={budgetSize}
+                  onChange={(e) => handleBudgetSizeChange(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -534,6 +599,41 @@ export default function AddNpoPopup({
             </button>
           </div>
         </footer>
+
+        {isExitConfirmOpen ? (
+          <div className={styles.exitConfirmLayer} role="presentation">
+            <section
+              className={styles.exitConfirmDialog}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="exit-confirm-title"
+              aria-describedby="exit-confirm-description"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className={styles.exitConfirmCopy}>
+                <h3 id="exit-confirm-title" className={styles.exitConfirmTitle}>
+                  Exit?
+                </h3>
+                <p id="exit-confirm-description" className={styles.exitConfirmDescription}>
+                  If you leave without saving, all your changes will be lost.
+                </p>
+              </div>
+
+              <div className={styles.exitConfirmButtons}>
+                <button type="button" className={styles.exitButton} onClick={handleConfirmExit}>
+                  Exit
+                </button>
+                <button
+                  type="button"
+                  className={styles.continueEditingButton}
+                  onClick={handleContinueEditing}
+                >
+                  Continue editing
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@
 }
 
 .wrapper {
+  position: relative;
   width: min(825px, 100%);
   height: min(665px, 100%);
 
@@ -22,6 +23,103 @@
   flex-direction: column;
   box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.exitConfirmLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.exitConfirmDialog {
+  width: 379px;
+  max-width: calc(100vw - 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+  border: none;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.exitConfirmCopy {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.exitConfirmTitle {
+  width: 288px;
+  margin: 0;
+  color: #000000;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.exitConfirmDescription {
+  min-width: 100%;
+  margin: 0;
+  color: #484848;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.24px;
+}
+
+.exitConfirmButtons {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 24px;
+}
+
+.exitButton,
+.continueEditingButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 40px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.exitButton {
+  border: 1px solid #b4b4b4;
+  padding: 8px 16px;
+  background: #ffffff;
+  color: #3b9a9a;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.continueEditingButton {
+  border: none;
+  padding: 0 16px;
+  background: #3b9a9a;
+  color: #ffffff;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 32px;
+}
+
+.exitButton:hover,
+.continueEditingButton:hover {
+  filter: brightness(0.97);
 }
 
 .addNpoTitle {
@@ -127,8 +225,30 @@
 
 .input:focus {
   outline: none;
-  border-color: var(--ring, rgba(59, 130, 246, 0.65));
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  border: 2px solid #428bcd;
+  box-shadow: none;
+}
+
+.currencyInputWrap {
+  position: relative;
+  width: 100%;
+}
+
+.currencyPrefix {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #909090;
+  pointer-events: none;
+}
+
+.currencyInput {
+  padding-left: 24px;
 }
 
 .select {
@@ -313,8 +433,9 @@
 }
 
 .focusInputWrap:focus-within {
-  border-color: var(--ring, rgba(59, 130, 246, 0.65));
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  border: 2px solid #428bcd;
+  padding: 4px 7px;
+  box-shadow: none;
 }
 
 .focusPills {

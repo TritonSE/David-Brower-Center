@@ -57,6 +57,21 @@ function toOptionalString(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function formatBudgetSize(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return dateString;
@@ -300,7 +315,7 @@ export default function ManagePage() {
             projectId: generateProjectId(name),
             sizeCategory: toOptionalString(values.npoSize),
             location: toOptionalString(values.location),
-            budget: toOptionalString(values.budgetSize),
+            budget: formatBudgetSize(values.budgetSize),
             tags: existingTagIds,
             tagNames: customTagNames,
           },
@@ -382,7 +397,7 @@ export default function ManagePage() {
 
             <button
               type="button"
-              className="inline-flex items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
+              className="inline-flex cursor-pointer items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
               onClick={() => {
                 setEditingOrg(null);
                 setAddNpoError(null);
@@ -400,7 +415,7 @@ export default function ManagePage() {
                 type="button"
                 onClick={() => setActiveTab("published")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6",
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
                   activeTab === "published" ? "text-black" : "text-[#484848]",
                 )}
               >
@@ -416,7 +431,7 @@ export default function ManagePage() {
                 type="button"
                 onClick={() => setActiveTab("draft")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6",
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
                   activeTab === "draft" ? "text-black" : "text-[#484848]",
                 )}
               >
@@ -491,6 +506,7 @@ export default function ManagePage() {
                           <button
                             type="button"
                             aria-label={`View ${row.name}`}
+                            className="cursor-pointer"
                             onClick={() => handleViewOrg(row.id)}
                           >
                             <span className="flex h-[22px] w-[22px] items-center justify-center">
@@ -506,6 +522,7 @@ export default function ManagePage() {
                           <button
                             type="button"
                             aria-label={`Edit ${row.name}`}
+                            className="cursor-pointer"
                             onClick={() => {
                               setEditingOrg(row);
                               setAddNpoError(null);
