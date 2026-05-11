@@ -19,11 +19,11 @@ export default function Layout({ children }: LayoutProps) {
   const { isSignedIn, user, signOut } = auth;
   const pathname = usePathname();
   const router = useRouter();
-  const showHeader = pathname !== "/sign-in";
+  const showHeader = pathname !== "/signIn";
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/sign-in");
+    router.push("/signIn");
   };
 
   const displayName = user?.email ?? "User";
