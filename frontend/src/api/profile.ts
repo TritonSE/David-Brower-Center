@@ -1,5 +1,7 @@
 import { get, patch } from "./request";
 
+import type { Session } from "@supabase/supabase-js";
+
 import { supabase } from "@/services/supabase";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -13,15 +15,18 @@ function toOptionalString(value: unknown): string | null {
 }
 
 async function getAccessToken(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    throw new Error(error.message);
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    throw new Error(sessionError.message);
   }
-  const token = data.session?.access_token;
-  if (!token) {
+  // `getSession()` types `session` as `AuthSession`, which omits `access_token`; the
+  // runtime value includes the JWT on the full `Session` shape.
+  const session = data.session as Session | null;
+  const accessToken = session?.access_token;
+  if (typeof accessToken !== "string" || accessToken.length === 0) {
     throw new Error("You must be signed in to view or edit your profile.");
   }
-  return token;
+  return accessToken;
 }
 
 export type Profile = {
