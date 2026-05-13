@@ -153,14 +153,14 @@ export default function HomePage() {
   }, [activeOrgDetail]);
 
   return (
-    <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
+    <div>
       <div className="grid gap-6">
         {isListLoading ? (
-          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c]">
             Loading organizations...
           </div>
         ) : listError ? (
-          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 shadow-sm">
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6">
             <p className="text-sm text-[#484848]">{listError}</p>
             <button
               className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
