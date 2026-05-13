@@ -1,4 +1,4 @@
-import { type NextFunction, type Request, type Response, Router } from "express";
+﻿import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
 import { prisma } from "../lib/prisma";
@@ -12,7 +12,7 @@ type CreateTagBody = {
 };
 
 /**
- * GET /api/tags — list tags (mounted as app.use("/api/tags", tagsRouter)).
+ * GET /api/tags â€” list tags (mounted as app.use("/api/tags", tagsRouter)).
  */
 router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -26,7 +26,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
 });
 
 /**
- * POST /api/tags — create a tag.
+ * POST /api/tags â€” create a tag.
  * Body: { name: string, description?: string }
  */
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
@@ -59,7 +59,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>{
+router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     if (!id) {
@@ -69,11 +69,10 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
       where: { id },
     });
 
-    return res.status(200).json({tag});
+    return res.status(200).json({ tag });
   } catch (err: unknown) {
-    if (typeof err === "object" && err !== null 
-          && "code" in err && err.code === "P2025"){
-        return next(createError(404, "Tag not found"));
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "P2025") {
+      return next(createError(404, "Tag not found"));
     }
     return next(err);
   }
