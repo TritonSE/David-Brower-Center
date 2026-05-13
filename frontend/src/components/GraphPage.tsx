@@ -770,7 +770,7 @@ export default function GraphPage() {
             className="relative h-[80vh] w-full max-w-5xl transition-transform duration-300 hover:scale-[1.01]"
           >
             <Image
-              src="/images/static-tree.png"
+              src="/images/tree.svg"
               alt="Static organization tree"
               fill
               priority
