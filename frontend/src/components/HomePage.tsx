@@ -7,10 +7,11 @@ import NpoListView from "./NpoListView";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
-import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { OrganizationDetail } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 
-import { getOrganizationById, getOrganizations } from "@/api/organization";
+import { getOrganizationById } from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 const POPUP_FADE_DURATION_MS = 200;
 
 function isAbortError(error: unknown): boolean {
@@ -25,16 +26,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function HomePage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [isListLoading, setIsListLoading] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
+  const {
+    organizations,
+    isLoading: isListLoading,
+    error: listError,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
+  const rows: Row[] = useMemo(
+    () => organizations.map((o) => ({ id: o.id, name: o.name, focus: o.focus, year: o.year })),
+    [organizations],
+  );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
-  const listAbortRef = useRef<AbortController | null>(null);
-  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -42,44 +48,6 @@ export default function HomePage() {
     () => rows.find((row) => row.id === selectedOrgId) ?? null,
     [rows, selectedOrgId],
   );
-
-  const fetchOrganizations = useCallback(async () => {
-    listAbortRef.current?.abort();
-    const abortController = new AbortController();
-    listAbortRef.current = abortController;
-    const requestId = listRequestIdRef.current + 1;
-    listRequestIdRef.current = requestId;
-
-    setIsListLoading(true);
-    setListError(null);
-
-    try {
-      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
-        abortController.signal,
-      );
-      if (listRequestIdRef.current !== requestId) return;
-      if (result.success) {
-        setRows(result.data);
-        return;
-      }
-
-      setRows([]);
-      setListError(result.error || "Unable to load organizations.");
-    } catch (error) {
-      if (isAbortError(error) || listRequestIdRef.current !== requestId) return;
-      setRows([]);
-      setListError(getErrorMessage(error, "Unable to load organizations."));
-    } finally {
-      if (listAbortRef.current === abortController && listRequestIdRef.current === requestId) {
-        setIsListLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchOrganizations();
-    return () => listAbortRef.current?.abort();
-  }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -144,8 +112,8 @@ export default function HomePage() {
   );
 
   const handleRetryList = useCallback(() => {
-    void fetchOrganizations();
-  }, [fetchOrganizations]);
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
 
   const handleRetryDetail = useCallback(() => {
     if (!selectedOrgId) return;

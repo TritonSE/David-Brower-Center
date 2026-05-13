@@ -14,16 +14,12 @@ import {
 } from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
+import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
-import type { APIResult } from "@/api/request";
 
-import {
-  getOrganizationById,
-  getOrganizations,
-  type OrganizationDetail,
-  type OrganizationListItem,
-} from "@/api/organization";
+import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 // Reagraph depends on WebGL/Three.js, so it must only render on the client.
 // Using `dynamic` with `ssr: false` prevents Next.js from attempting to
@@ -230,9 +226,7 @@ function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[
 }
 
 export default function GraphPage() {
-  const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { organizations, isLoading, error, refetch: refetchOrganizations } = useOrganizations();
   const [search, setSearch] = useState("");
   // Tag IDs the user has enabled in the filter panel. Using a Set makes
   // toggle-and-check operations O(1). When empty, no tag filter is applied
@@ -248,8 +242,6 @@ export default function GraphPage() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const listRequestIdRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   // Monotonically increasing id used to ignore stale detail responses when
   // the user clicks through several nodes quickly.
@@ -337,49 +329,6 @@ export default function GraphPage() {
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
   }, []);
-
-  const fetchOrganizations = useCallback(async () => {
-    abortRef.current?.abort();
-    const abortController = new AbortController();
-    abortRef.current = abortController;
-    const requestId = listRequestIdRef.current + 1;
-    listRequestIdRef.current = requestId;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
-        abortController.signal,
-      );
-      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) return;
-      if (result.success) {
-        setOrganizations(result.data);
-        return;
-      }
-      setOrganizations([]);
-      setError(result.error || "Unable to load organizations.");
-    } catch (caughtError) {
-      if (
-        isAbortError(caughtError) ||
-        abortRef.current !== abortController ||
-        listRequestIdRef.current !== requestId
-      ) {
-        return;
-      }
-      setOrganizations([]);
-      setError(getErrorMessage(caughtError, "Unable to load organizations."));
-    } finally {
-      if (abortRef.current === abortController && listRequestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchOrganizations();
-    return () => abortRef.current?.abort();
-  }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -532,8 +481,8 @@ export default function GraphPage() {
   );
 
   const handleRetry = useCallback(() => {
-    void fetchOrganizations();
-  }, [fetchOrganizations]);
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
 
   // Clicking the same node again toggles the overlay closed, matching the
   // list view's behavior where re-clicking the active row collapses it.
