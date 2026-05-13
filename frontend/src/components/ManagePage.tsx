@@ -344,19 +344,15 @@ export default function ManagePage() {
               </button>
             </div>
 
-            <div className="border-b border-black py-4 pl-8 pr-16">
+            <div className="border-b border-[#d9d9d9] py-3 text-sm font-semibold text-black">
               <div className="flex items-center">
-                <div className="flex flex-1 items-center gap-1">
+                <div className="flex w-1/3 shrink-0 items-center gap-2">
                   <span className="inline-flex items-center justify-center">
-                    <SortArrowIcon className="h-[14px] w-[13px] text-black" />
+                    <SortArrowIcon className="h-3 w-3 text-[#1f1f1f]" />
                   </span>
-                  <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] text-black">
-                    NPO
-                  </span>
+                  <span>NPO</span>
                 </div>
-                <span className="flex-1 text-center font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] text-black whitespace-nowrap">
-                  Last Updated
-                </span>
+                <span className="flex-1 text-center whitespace-nowrap">Last Updated</span>
                 <span className="flex-1" />
               </div>
             </div>
@@ -377,7 +373,7 @@ export default function ManagePage() {
                     <div
                       key={row.id}
                       className={classNames(
-                        "border-b border-[#b4b4b4] py-3 pl-8 pr-16",
+                        "border-b border-[#b4b4b4] py-3",
                         striped ? "bg-[#f2f9f8]" : "bg-white",
                       )}
                     >
