@@ -27,6 +27,7 @@ model Organization {
   name                String
   website             String?
   sizeCategory        String?
+  images              String[]                   @default([])
   tags                OrganizationTag[]
   relationshipsAsNpo1 OrganizationRelationship[] @relation("OrganizationRelationshipNpo1")
   relationshipsAsNpo2 OrganizationRelationship[] @relation("OrganizationRelationshipNpo2")

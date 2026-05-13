@@ -1,4 +1,4 @@
-import { get, handleAPIError, isAbortError } from "./request";
+import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
 
@@ -63,6 +63,7 @@ export type OrganizationListItem = {
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
+  images: string[];
 };
 
 export type OrganizationDetail = {
@@ -76,6 +77,7 @@ export type OrganizationDetail = {
   description: string;
   mission: string;
   tags: OrganizationTag[];
+  images: string[];
 };
 
 function parseOrganizationTag(value: unknown): OrganizationTag | null {
@@ -96,6 +98,11 @@ function parseOrganizationTagList(value: unknown): OrganizationTag[] {
   return tags;
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 function parseOrganizationListItem(value: unknown): OrganizationListItem {
   if (!isRecord(value)) {
     throw new Error("[/api/organizations] Expected each organization item to be an object.");
@@ -108,6 +115,7 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
     tags: parseOrganizationTagList(value.tags),
+    images: parseStringArray(value.images),
   };
 }
 
@@ -127,7 +135,87 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     description: toFallbackString(value.description),
     mission: toFallbackString(value.mission),
     tags: parseOrganizationTagList(value.tags),
+    images: parseStringArray(value.images),
   };
+}
+
+export type ImageUploadUrlResult = {
+  uploadUrl: string;
+  token: string;
+  path: string;
+  publicUrl: string;
+};
+
+function parseImageUploadUrlResult(payload: unknown): ImageUploadUrlResult {
+  if (!isRecord(payload)) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Unexpected response shape.");
+  }
+  const uploadUrl = toOptionalString(payload.uploadUrl);
+  const token = toOptionalString(payload.token);
+  const path = toOptionalString(payload.path);
+  const publicUrl = toOptionalString(payload.publicUrl);
+  if (!uploadUrl || !token || !path || !publicUrl) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Missing fields in response.");
+  }
+  return { uploadUrl, token, path, publicUrl };
+}
+
+export async function getImageUploadUrl(
+  organizationId: string,
+  filename: string,
+  contentType: string,
+  signal?: AbortSignal,
+): Promise<APIResult<ImageUploadUrlResult>> {
+  try {
+    const response = await post(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images/upload-url`,
+      { filename, contentType },
+      {},
+      signal,
+    );
+    const payload: unknown = await response.json();
+    return { success: true, data: parseImageUploadUrlResult(payload) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
+}
+
+export async function uploadImageToStorage(
+  uploadUrl: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.status.toString()} ${response.statusText}`);
+  }
+}
+
+export async function recordOrganizationImages(
+  organizationId: string,
+  urls: string[],
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images`,
+      { urls },
+      {},
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
 }
 
 export async function getOrganizations(
