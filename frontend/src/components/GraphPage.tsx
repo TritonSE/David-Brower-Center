@@ -19,12 +19,8 @@ import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
 
-import {
-  getOrganizationById,
-  getOrganizations,
-  type OrganizationDetail,
-  type OrganizationListItem,
-} from "@/api/organization";
+import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
   ssr: false,
@@ -213,14 +209,10 @@ function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[
 }
 
 export default function GraphPage() {
-  // LANDING STATE
+  // LANDING STATE: static tree until user explicitly opens the interactive graph
   const [showFunctionalGraph, setShowFunctionalGraph] = useState(false);
 
-  const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
-
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
+  const { organizations, isLoading, error, refetch: refetchOrganizations } = useOrganizations();
 
   const [search, setSearch] = useState("");
 
@@ -237,9 +229,6 @@ export default function GraphPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const [isCardVisible, setIsCardVisible] = useState(false);
-
-  const abortRef = useRef<AbortController | null>(null);
-  const listRequestIdRef = useRef(0);
 
   const detailAbortRef = useRef<AbortController | null>(null);
 
@@ -353,62 +342,6 @@ export default function GraphPage() {
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
   }, []);
-
-  const fetchOrganizations = useCallback(async () => {
-    abortRef.current?.abort();
-
-    const abortController = new AbortController();
-
-    abortRef.current = abortController;
-
-    const requestId = listRequestIdRef.current + 1;
-
-    listRequestIdRef.current = requestId;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
-        abortController.signal,
-      );
-
-      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      if (result.success) {
-        setOrganizations(result.data);
-        return;
-      }
-
-      setOrganizations([]);
-
-      setError(result.error || "Unable to load organizations.");
-    } catch (caughtError) {
-      if (
-        isAbortError(caughtError) ||
-        abortRef.current !== abortController ||
-        listRequestIdRef.current !== requestId
-      ) {
-        return;
-      }
-
-      setOrganizations([]);
-
-      setError(getErrorMessage(caughtError, "Unable to load organizations."));
-    } finally {
-      if (abortRef.current === abortController && listRequestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchOrganizations();
-
-    return () => abortRef.current?.abort();
-  }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -583,8 +516,8 @@ export default function GraphPage() {
   );
 
   const handleRetry = useCallback(() => {
-    void fetchOrganizations();
-  }, [fetchOrganizations]);
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
 
   const handleNodeClick = useCallback(
     (node: InternalGraphNode) => {
