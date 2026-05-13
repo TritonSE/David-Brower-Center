@@ -1,4 +1,4 @@
-﻿import { type NextFunction, type Request, type Response, Router } from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
 import { prisma } from "../lib/prisma";
