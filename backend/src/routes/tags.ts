@@ -59,4 +59,24 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>{
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return next(createError(400, "Missing tag ID"));
+    }
+    const tag = await prisma.tag.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({tag});
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null 
+          && "code" in err && err.code === "P2025"){
+        return next(createError(404, "Tag not found"));
+    }
+    return next(err);
+  }
+});
+
 export default router;
