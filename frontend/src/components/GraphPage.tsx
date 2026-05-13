@@ -2,6 +2,7 @@
 
 // NOTE: THIS IS A VIBE CODED PROTOTYPE FOR USER TESTING PURPOSES
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -14,9 +15,9 @@ import {
 } from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
+import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
-import type { APIResult } from "@/api/request";
 
 import {
   getOrganizationById,
@@ -25,21 +26,12 @@ import {
   type OrganizationListItem,
 } from "@/api/organization";
 
-// Reagraph depends on WebGL/Three.js, so it must only render on the client.
-// Using `dynamic` with `ssr: false` prevents Next.js from attempting to
-// render the canvas during server-side rendering.
-// We re-assert the ref-forwarding type because `next/dynamic`'s public
-// types drop the ref signature, even though Next preserves refs at
-// runtime. Without this cast, passing `ref` to <GraphCanvas /> would
-// fail to type-check.
 const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
   ssr: false,
 }) as unknown as React.ForwardRefExoticComponent<
   GraphCanvasProps & React.RefAttributes<GraphCanvasRef>
 >;
 
-// Node/edge shapes accepted by reagraph. `fx`/`fy` pin a node's position in
-// the force-directed layout so we can compute a custom tree silhouette.
 type GraphNode = {
   id: string;
   label: string;
@@ -54,22 +46,13 @@ type GraphEdge = {
   label?: string;
 };
 
-// Branching factor for the dummy tree — how many children each parent has.
-// 3 produces a full, bushy crown without getting too wide.
 const DUMMY_TREE_BRANCHING_FACTOR = 3;
-
-// Matches the fade duration of the overlay card so we can fully tear down
-// the associated detail state after the exit animation finishes.
 const POPUP_FADE_DURATION_MS = 200;
-
-// Parameters that shape the rendered tree silhouette. Tuned for readability
-// at reagraph's default camera distance; adjust if the graph feels cramped
-// or overly spread out.
-const RADIUS_STEP = 140; // Radial distance between consecutive tree depths.
-const TREE_FAN_MIN_ANGLE = Math.PI * 0.12; // ~22°; lower bound of the root fan.
-const TREE_FAN_MAX_ANGLE = Math.PI * 0.88; // ~158°; upper bound (fan points upward).
-const ANGLE_JITTER_RATIO = 0.18; // Jitter as a fraction of each node's own slice.
-const RADIUS_JITTER_RATIO = 0.08; // ±8% deterministic variation in radius per node.
+const RADIUS_STEP = 140;
+const TREE_FAN_MIN_ANGLE = Math.PI * 0.12;
+const TREE_FAN_MAX_ANGLE = Math.PI * 0.88;
+const ANGLE_JITTER_RATIO = 0.18;
+const RADIUS_JITTER_RATIO = 0.08;
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -79,14 +62,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
   }
+
   return fallback;
 }
 
-// Builds deterministic, client-only edges that form a balanced tree between
-// organizations. The backend does not yet model relationships between orgs,
-// so we synthesize a tree topology where the first node is the root and each
-// subsequent node is assigned to a parent based on its index. This produces
-// the parent/child structure we use to lay out a natural-looking tree.
 function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
   if (nodes.length < 2) return [];
 
@@ -95,8 +74,10 @@ function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
 
   for (let i = 1; i < nodes.length; i++) {
     const parentIndex = Math.floor((i - 1) / branchingFactor);
+
     const source = nodes[parentIndex];
     const target = nodes[i];
+
     edges.push({
       id: `${source.id}->${target.id}`,
       source: source.id,
@@ -108,66 +89,59 @@ function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
   return edges;
 }
 
-// Deterministic hash of a string to a value in [0, 1). Used to seed per-node
-// jitter so the tree looks organic but renders identically every time.
 function hashToUnitInterval(value: string): number {
   let hash = 0;
+
   for (let i = 0; i < value.length; i++) {
     hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
   }
+
   return (hash >>> 0) / 0x100000000;
 }
 
-// Computes (x, y) positions for each node such that the graph resembles a
-// natural tree: the root sits at the base and branches fan upward, with
-// each subtree confined to its own angular slice so sibling subtrees can
-// never overlap at any depth. Positions are written onto a Map keyed by id.
 function computeTreePositions(
   nodes: GraphNode[],
   edges: GraphEdge[],
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
+
   if (nodes.length === 0) return positions;
 
-  // Build a parent -> children adjacency list from the dummy tree edges.
-  // Edge order is preserved so siblings render left-to-right consistently.
   const childrenByParent = new Map<string, string[]>();
+
   for (const edge of edges) {
     const list = childrenByParent.get(edge.source) ?? [];
     list.push(edge.target);
     childrenByParent.set(edge.source, list);
   }
 
-  // The first node is treated as the trunk's base. It sits at the origin;
-  // its children will fan outward along the range [TREE_FAN_MIN_ANGLE,
-  // TREE_FAN_MAX_ANGLE] in standard math angle convention (0 = right,
-  // PI / 2 = up), so the tree opens upward from the base.
   const rootId = nodes[0].id;
+
   positions.set(rootId, { x: 0, y: 0 });
 
-  // Post-order traversal: compute each subtree's total leaf count. The
-  // leaf count determines how much angular territory that subtree needs
-  // — more leaves means a wider angular slice, which prevents cramping.
   const leafCountById = new Map<string, number>();
+
   const computeLeafCount = (id: string): number => {
     const children = childrenByParent.get(id);
+
     if (!children || children.length === 0) {
       leafCountById.set(id, 1);
       return 1;
     }
+
     let total = 0;
+
     for (const childId of children) {
       total += computeLeafCount(childId);
     }
+
     leafCountById.set(id, total);
+
     return total;
   };
+
   computeLeafCount(rootId);
 
-  // Pre-order placement. Each node is assigned an angular slice by its
-  // parent; the node places itself at the slice's center (plus jitter),
-  // then recursively subdivides the slice among its own children
-  // proportionally to their leaf counts.
   const placeSubtree = (
     nodeId: string,
     depth: number,
@@ -175,6 +149,7 @@ function computeTreePositions(
     sliceEnd: number,
   ): void => {
     const children = childrenByParent.get(nodeId);
+
     if (!children || children.length === 0) return;
 
     const parentLeafCount = leafCountById.get(nodeId) ?? 1;
@@ -182,18 +157,21 @@ function computeTreePositions(
     const childRadius = (depth + 1) * RADIUS_STEP;
 
     let cursor = sliceStart;
+
     for (const childId of children) {
       const childLeafCount = leafCountById.get(childId) ?? 1;
+
       const childSliceWidth = sliceWidth * (childLeafCount / parentLeafCount);
+
       const childSliceStart = cursor;
       const childSliceEnd = cursor + childSliceWidth;
+
       const childSliceCenter = (childSliceStart + childSliceEnd) / 2;
 
-      // Deterministic per-node jitter for organic asymmetry. Angle jitter
-      // is scaled to a fraction of the child's own slice so it can never
-      // push the node into a sibling's territory.
       const rand = hashToUnitInterval(childId);
+
       const angleJitter = (rand - 0.5) * 2 * ANGLE_JITTER_RATIO * childSliceWidth;
+
       const radiusJitter = 1 + (rand - 0.5) * 2 * RADIUS_JITTER_RATIO;
 
       const finalAngle = childSliceCenter + angleJitter;
@@ -205,93 +183,119 @@ function computeTreePositions(
       });
 
       placeSubtree(childId, depth + 1, childSliceStart, childSliceEnd);
+
       cursor = childSliceEnd;
     }
   };
 
   placeSubtree(rootId, 0, TREE_FAN_MIN_ANGLE, TREE_FAN_MAX_ANGLE);
+
   return positions;
 }
 
-// Collects the given node id plus every descendant in the parent -> children
-// adjacency map. Used so that dragging a node translates its whole subtree
-// (i.e. the "branch" hanging off that node) as a single unit.
 function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[]>): Set<string> {
   const visited = new Set<string>();
   const stack: string[] = [rootId];
+
   while (stack.length > 0) {
     const current = stack.pop();
+
     if (current === undefined || visited.has(current)) continue;
+
     visited.add(current);
+
     const children = childrenByParent.get(current);
+
     if (children) stack.push(...children);
   }
+
   return visited;
 }
 
 export default function GraphPage() {
+  // LANDING STATE
+  const [showFunctionalGraph, setShowFunctionalGraph] = useState(false);
+
   const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
-  // Tag IDs the user has enabled in the filter panel. Using a Set makes
-  // toggle-and-check operations O(1). When empty, no tag filter is applied
-  // (i.e. all organizations pass the tag criterion).
+
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
-  // Positions are mutable at runtime so that dragging a node can translate
-  // it and all of its descendants together. Keyed by node id.
+
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
-  // Detail-panel state: mirrors the list view so clicking a node opens the
-  // same NpoProfileCard overlay with the selected organization's info.
+
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
+
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+
   const [detailError, setDetailError] = useState<string | null>(null);
+
   const [isCardVisible, setIsCardVisible] = useState(false);
+
   const abortRef = useRef<AbortController | null>(null);
   const listRequestIdRef = useRef(0);
+
   const detailAbortRef = useRef<AbortController | null>(null);
-  // Monotonically increasing id used to ignore stale detail responses when
-  // the user clicks through several nodes quickly.
+
   const detailRequestIdRef = useRef(0);
-  // Imperative handle to the reagraph canvas. Used to re-fit the camera on
-  // the currently rendered nodes whenever the search filter changes the
-  // visible set (or on initial load).
+
   const graphRef = useRef<GraphCanvasRef | null>(null);
+
+  // ACTIVATE GRAPH
+  const activateGraph = useCallback(() => {
+    setShowFunctionalGraph(true);
+  }, []);
 
   const selectedOrganization = useMemo(
     () => organizations.find((org) => org.id === selectedOrgId) ?? null,
     [organizations, selectedOrgId],
   );
 
-  // Aggregate every unique tag present on the loaded organizations so the
-  // filter panel can render one row per tag along with an "orgs in data"
-  // count. Sorted alphabetically for stable, predictable ordering.
   const availableTags = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; count: number }>();
+    const byId = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        count: number;
+      }
+    >();
+
     for (const org of organizations) {
       for (const tag of org.tags) {
         const existing = byId.get(tag.id);
+
         if (existing) {
           existing.count += 1;
         } else {
-          byId.set(tag.id, { id: tag.id, name: tag.name, count: 1 });
+          byId.set(tag.id, {
+            id: tag.id,
+            name: tag.name,
+            count: 1,
+          });
         }
       }
     }
+
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [organizations]);
 
-  // Drop selected tag ids that no longer exist on any loaded organization
-  // (e.g. after a refetch returns a reduced dataset). Without this the user
-  // could end up with a "stuck" filter that matches nothing with no way to
-  // clear it via the UI.
   useEffect(() => {
     setSelectedTagIds((previous) => {
       if (previous.size === 0) return previous;
+
       const validIds = new Set(availableTags.map((tag) => tag.id));
+
       let changed = false;
+
       const next = new Set<string>();
+
       for (const id of previous) {
         if (validIds.has(id)) {
           next.add(id);
@@ -299,40 +303,52 @@ export default function GraphPage() {
           changed = true;
         }
       }
+
       return changed ? next : previous;
     });
   }, [availableTags]);
 
-  // Case-insensitive substring match on organization name combined with an
-  // OR-style tag filter: when any tags are selected, an org must carry at
-  // least one of them to pass. When no tags are selected, the tag check is
-  // a no-op.
   const filteredOrganizations = useMemo(() => {
     const query = search.trim().toLowerCase();
+
     const hasQuery = query.length > 0;
     const hasTagFilter = selectedTagIds.size > 0;
-    if (!hasQuery && !hasTagFilter) return organizations;
+
+    if (!hasQuery && !hasTagFilter) {
+      return organizations;
+    }
 
     return organizations.filter((org) => {
-      if (hasQuery && !org.name.toLowerCase().includes(query)) return false;
+      if (hasQuery && !org.name.toLowerCase().includes(query)) {
+        return false;
+      }
+
       if (hasTagFilter && !org.tags.some((tag) => selectedTagIds.has(tag.id))) {
         return false;
       }
+
       return true;
     });
   }, [organizations, search, selectedTagIds]);
 
-  const toggleTag = useCallback((tagId: string) => {
-    setSelectedTagIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(tagId)) {
-        next.delete(tagId);
-      } else {
-        next.add(tagId);
-      }
-      return next;
-    });
-  }, []);
+  const toggleTag = useCallback(
+    (tagId: string) => {
+      activateGraph();
+
+      setSelectedTagIds((previous) => {
+        const next = new Set(previous);
+
+        if (next.has(tagId)) {
+          next.delete(tagId);
+        } else {
+          next.add(tagId);
+        }
+
+        return next;
+      });
+    },
+    [activateGraph],
+  );
 
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
@@ -340,9 +356,13 @@ export default function GraphPage() {
 
   const fetchOrganizations = useCallback(async () => {
     abortRef.current?.abort();
+
     const abortController = new AbortController();
+
     abortRef.current = abortController;
+
     const requestId = listRequestIdRef.current + 1;
+
     listRequestIdRef.current = requestId;
 
     setIsLoading(true);
@@ -352,12 +372,18 @@ export default function GraphPage() {
       const result: APIResult<OrganizationListItem[]> = await getOrganizations(
         abortController.signal,
       );
-      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) return;
+
+      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) {
+        return;
+      }
+
       if (result.success) {
         setOrganizations(result.data);
         return;
       }
+
       setOrganizations([]);
+
       setError(result.error || "Unable to load organizations.");
     } catch (caughtError) {
       if (
@@ -367,7 +393,9 @@ export default function GraphPage() {
       ) {
         return;
       }
+
       setOrganizations([]);
+
       setError(getErrorMessage(caughtError, "Unable to load organizations."));
     } finally {
       if (abortRef.current === abortController && listRequestIdRef.current === requestId) {
@@ -378,14 +406,19 @@ export default function GraphPage() {
 
   useEffect(() => {
     void fetchOrganizations();
+
     return () => abortRef.current?.abort();
   }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
+
     const abortController = new AbortController();
+
     detailAbortRef.current = abortController;
+
     const requestId = detailRequestIdRef.current + 1;
+
     detailRequestIdRef.current = requestId;
 
     setIsDetailLoading(true);
@@ -397,14 +430,22 @@ export default function GraphPage() {
         organizationId,
         abortController.signal,
       );
-      if (detailRequestIdRef.current !== requestId) return;
+
+      if (detailRequestIdRef.current !== requestId) {
+        return;
+      }
+
       if (result.success) {
         setActiveOrgDetail(result.data);
         return;
       }
+
       setDetailError(result.error || "Unable to load organization details.");
     } catch (caughtError) {
-      if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) return;
+      if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setDetailError(getErrorMessage(caughtError, "Unable to load organization details."));
     } finally {
       if (detailRequestIdRef.current === requestId) {
@@ -415,8 +456,6 @@ export default function GraphPage() {
 
   useEffect(() => () => detailAbortRef.current?.abort(), []);
 
-  // After the overlay finishes fading out, fully clear the selection so we
-  // don't keep stale data around (and a future selection starts fresh).
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
       const timer = setTimeout(() => {
@@ -425,27 +464,31 @@ export default function GraphPage() {
         setDetailError(null);
         setIsDetailLoading(false);
       }, POPUP_FADE_DURATION_MS);
+
       return () => clearTimeout(timer);
     }
+
     return undefined;
   }, [isCardVisible, selectedOrgId]);
 
-  // Derive the graph's structural data (base nodes, edges, and a
-  // parent -> children adjacency map) from the organization list.
-  // `childrenByParent` is used both for the initial layout and for
-  // subtree drag handling.
   const { baseNodes, edges, childrenByParent } = useMemo(() => {
     const nextBaseNodes: GraphNode[] = filteredOrganizations.map((org) => ({
       id: org.id,
       label: org.name,
     }));
+
     const nextEdges = buildDummyTreeEdges(nextBaseNodes);
+
     const nextChildrenByParent = new Map<string, string[]>();
+
     for (const edge of nextEdges) {
       const list = nextChildrenByParent.get(edge.source) ?? [];
+
       list.push(edge.target);
+
       nextChildrenByParent.set(edge.source, list);
     }
+
     return {
       baseNodes: nextBaseNodes,
       edges: nextEdges,
@@ -453,30 +496,26 @@ export default function GraphPage() {
     };
   }, [filteredOrganizations]);
 
-  // Reset positions whenever the underlying organization list changes.
-  // This throws away any drag translations the user applied, which is
-  // the correct behavior since the tree structure itself has changed.
   useEffect(() => {
     setPositions(computeTreePositions(baseNodes, edges));
   }, [baseNodes, edges]);
 
-  // Produce the final node list for reagraph by pinning each node's
-  // position via `fx` / `fy`. Reagraph will respect these fixed positions
-  // as long as we're using a force-directed layout.
   const nodes = useMemo<GraphNode[]>(
     () =>
       baseNodes.map((node) => {
         const position = positions.get(node.id);
+
         if (!position) return node;
-        return { ...node, fx: position.x, fy: position.y };
+
+        return {
+          ...node,
+          fx: position.x,
+          fy: position.y,
+        };
       }),
     [baseNodes, positions],
   );
 
-  // Stable key that changes only when the *set* of rendered node ids
-  // changes (e.g. because search filtered the list). We use this to
-  // re-fit the camera without re-firing the effect on unrelated
-  // re-renders like drag updates.
   const visibleNodeIdsKey = useMemo(
     () =>
       baseNodes
@@ -486,45 +525,57 @@ export default function GraphPage() {
     [baseNodes],
   );
 
-  // Whenever the visible node set changes, fit the camera to the current
-  // nodes so the graph stays centered on screen. We defer to
-  // requestAnimationFrame so reagraph has a chance to apply the new
-  // layout positions before we ask it to fit them.
   useEffect(() => {
-    if (visibleNodeIdsKey.length === 0) return;
+    if (visibleNodeIdsKey.length === 0 || !showFunctionalGraph) {
+      return;
+    }
+
     let cancelled = false;
+
     const rafId = requestAnimationFrame(() => {
       if (cancelled) return;
-      graphRef.current?.fitNodesInView(undefined, { animated: true });
+
+      graphRef.current?.fitNodesInView(undefined, {
+        animated: true,
+      });
     });
+
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
     };
-  }, [visibleNodeIdsKey]);
+  }, [visibleNodeIdsKey, showFunctionalGraph]);
 
-  // Drag handler: translate the dragged node AND every descendant by the
-  // same delta so an entire branch of the tree moves as a unit.
   const handleNodeDragged = useCallback(
     (node: InternalGraphNode) => {
       setPositions((previousPositions) => {
         const previous = previousPositions.get(node.id);
+
         if (!previous) return previousPositions;
 
         const deltaX = node.position.x - previous.x;
+
         const deltaY = node.position.y - previous.y;
-        if (deltaX === 0 && deltaY === 0) return previousPositions;
+
+        if (deltaX === 0 && deltaY === 0) {
+          return previousPositions;
+        }
 
         const subtreeIds = collectSubtreeIds(node.id, childrenByParent);
+
         const nextPositions = new Map(previousPositions);
+
         for (const id of subtreeIds) {
           const current = nextPositions.get(id);
+
           if (!current) continue;
+
           nextPositions.set(id, {
             x: current.x + deltaX,
             y: current.y + deltaY,
           });
         }
+
         return nextPositions;
       });
     },
@@ -535,10 +586,10 @@ export default function GraphPage() {
     void fetchOrganizations();
   }, [fetchOrganizations]);
 
-  // Clicking the same node again toggles the overlay closed, matching the
-  // list view's behavior where re-clicking the active row collapses it.
   const handleNodeClick = useCallback(
     (node: InternalGraphNode) => {
+      activateGraph();
+
       if (selectedOrgId === node.id && isCardVisible) {
         detailAbortRef.current?.abort();
         setIsCardVisible(false);
@@ -547,9 +598,10 @@ export default function GraphPage() {
 
       setSelectedOrgId(node.id);
       setIsCardVisible(true);
+
       void fetchOrganizationDetail(node.id);
     },
-    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+    [activateGraph, fetchOrganizationDetail, isCardVisible, selectedOrgId],
   );
 
   const handleCloseCard = useCallback(() => {
@@ -559,13 +611,16 @@ export default function GraphPage() {
 
   const handleRetryDetail = useCallback(() => {
     if (!selectedOrgId) return;
+
     void fetchOrganizationDetail(selectedOrgId);
   }, [fetchOrganizationDetail, selectedOrgId]);
 
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
+
     return {
       name: activeOrgDetail.name,
+
       tags: [
         {
           icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
@@ -584,50 +639,62 @@ export default function GraphPage() {
           label: activeOrgDetail.location,
         },
       ],
+
       description: activeOrgDetail.description,
+
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
 
-  // Distinguish "no data at all" from "filters returned nothing" so the
-  // empty state can explain why the graph is blank.
   const hasSearchQuery = search.trim().length > 0;
+
   const hasTagFilter = selectedTagIds.size > 0;
+
   const hasActiveFilters = hasSearchQuery || hasTagFilter;
+
   const hasOrganizations = organizations.length > 0;
 
   return (
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
+      {/* LEFT SIDEBAR */}
       {!isLoading && !error && hasOrganizations && (
-        // Floating left-side control column layered over the canvas. Holds
-        // the search input on top and the tag filter panel below it so the
-        // two filtering affordances live together. `z-10` keeps it above
-        // the reagraph WebGL canvas, while `pointer-events-none` on the
-        // outer wrapper lets unclaimed regions pass clicks through to the
-        // graph for panning.
         <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
+          {/* SEARCH */}
           <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
             <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
+
             <input
               className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
               placeholder="Search"
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+
+                setSearch(value);
+
+                if (value.trim().length > 0) {
+                  activateGraph();
+                }
+              }}
             />
           </div>
 
+          {/* FILTERS */}
           <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
             <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
-                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" aria-hidden="true" />
+                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" />
+
                 <span>Filter by tag</span>
+
                 {selectedTagIds.size > 0 ? (
                   <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
                     {selectedTagIds.size}
                   </span>
                 ) : null}
               </div>
+
               {selectedTagIds.size > 0 ? (
                 <button
                   type="button"
@@ -647,6 +714,7 @@ export default function GraphPage() {
               <ul className="flex-1 overflow-y-auto py-1">
                 {availableTags.map((tag) => {
                   const isSelected = selectedTagIds.has(tag.id);
+
                   return (
                     <li key={tag.id}>
                       <label
@@ -660,9 +728,11 @@ export default function GraphPage() {
                           checked={isSelected}
                           onChange={() => toggleTag(tag.id)}
                         />
+
                         <span className="flex-1 truncate" title={tag.name}>
                           {tag.name}
                         </span>
+
                         <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
                       </label>
                     </li>
@@ -674,13 +744,15 @@ export default function GraphPage() {
         </div>
       )}
 
+      {/* LOADING */}
       {isLoading ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
           Loading organizations...
         </div>
       ) : error ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] flex-col items-center justify-center gap-3 p-6 text-center">
+        <div className="flex min-h-[calc(100vh-92px)] flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="text-sm text-slate-700">{error}</p>
+
           <button
             type="button"
             onClick={handleRetry}
@@ -689,36 +761,57 @@ export default function GraphPage() {
             Retry
           </button>
         </div>
+      ) : !showFunctionalGraph ? (
+        /* STATIC TREE LANDING PAGE */
+        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[280px] pr-6">
+          <button
+            type="button"
+            onClick={activateGraph}
+            className="relative h-[80vh] w-full max-w-5xl transition-transform duration-300 hover:scale-[1.01]"
+          >
+            <Image
+              src="/images/tree.svg"
+              alt="Static organization tree"
+              fill
+              priority
+              className="object-contain"
+            />
+          </button>
+        </div>
       ) : nodes.length === 0 ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[280px] text-sm text-slate-600">
           {hasActiveFilters
             ? "No organizations match the current filters."
             : "No organizations to display."}
         </div>
       ) : (
-        <GraphCanvas
-          ref={graphRef}
-          draggable
-          layoutType="forceDirected2d"
-          edgeArrowPosition="none"
-          nodes={nodes}
-          edges={edges}
-          onNodeDragged={handleNodeDragged}
-          onNodeClick={handleNodeClick}
-        />
+        /* FUNCTIONAL GRAPH */
+        <div className="h-[calc(100vh-92px)] w-full pl-[280px]">
+          <GraphCanvas
+            ref={graphRef}
+            draggable
+            layoutType="forceDirected2d"
+            edgeArrowPosition="none"
+            nodes={nodes}
+            edges={edges}
+            onNodeDragged={handleNodeDragged}
+            onNodeClick={handleNodeClick}
+          />
+        </div>
       )}
 
-      {/* Overlay card that fades in/out and sits above the canvas. Mirrors
-          the list view's profile card so the two surfaces behave the same. */}
+      {/* PROFILE CARD */}
       <div
-        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
+        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 transition-opacity duration-200 md:px-8 lg:px-10 ${
           isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
         }`}
       >
         {selectedOrgId ? (
           <div
             className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
-            style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
+            style={{
+              transform: isCardVisible ? "translateY(0)" : "translateY(8px)",
+            }}
           >
             {selectedCardProps ? (
               <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
@@ -730,20 +823,7 @@ export default function GraphPage() {
                   onClick={handleCloseCard}
                   className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  ✕
                 </button>
 
                 <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
@@ -751,14 +831,11 @@ export default function GraphPage() {
                 </h1>
 
                 {isDetailLoading ? (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                    Loading organization details...
-                  </p>
+                  <p className="mt-3 text-sm text-[#484848]">Loading organization details...</p>
                 ) : detailError ? (
                   <div className="mt-3 space-y-3">
-                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                      {detailError}
-                    </p>
+                    <p className="text-sm text-[#484848]">{detailError}</p>
+
                     <button
                       className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
                       type="button"
@@ -768,9 +845,7 @@ export default function GraphPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                    No organization details available.
-                  </p>
+                  <p className="mt-3 text-sm text-[#484848]">No organization details available.</p>
                 )}
               </section>
             )}
