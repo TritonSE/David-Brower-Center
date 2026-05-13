@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  FilterIcon,
+  ChevronRightIcon,
   LeafIcon,
   LocationIcon,
   MoneyIcon,
@@ -14,9 +14,9 @@ import {
 } from "./icons/AppIcons";
 import NpoProfileCard from "./NpoProfileCard";
 
+import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
-import type { APIResult } from "@/api/request";
 
 import {
   getOrganizationById,
@@ -70,6 +70,10 @@ const TREE_FAN_MIN_ANGLE = Math.PI * 0.12; // ~22°; lower bound of the root fan
 const TREE_FAN_MAX_ANGLE = Math.PI * 0.88; // ~158°; upper bound (fan points upward).
 const ANGLE_JITTER_RATIO = 0.18; // Jitter as a fraction of each node's own slice.
 const RADIUS_JITTER_RATIO = 0.08; // ±8% deterministic variation in radius per node.
+
+const FILTER_CATEGORIES = ["Focus Area", "Location", "Size", "Opportunity Type", "Budget"] as const;
+
+type GraphFilterCategory = (typeof FILTER_CATEGORIES)[number];
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -234,6 +238,7 @@ export default function GraphPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [expandedFilter, setExpandedFilter] = useState<GraphFilterCategory | null>(null);
   // Tag IDs the user has enabled in the filter panel. Using a Set makes
   // toggle-and-check operations O(1). When empty, no tag filter is applied
   // (i.e. all organizations pass the tag criterion).
@@ -336,6 +341,11 @@ export default function GraphPage() {
 
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
+  }, []);
+
+  const handleFilterToggle = useCallback((category: GraphFilterCategory) => {
+    if (category !== "Focus Area") return;
+    setExpandedFilter((previous) => (previous === category ? null : category));
   }, []);
 
   const fetchOrganizations = useCallback(async () => {
@@ -599,78 +609,111 @@ export default function GraphPage() {
   return (
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
       {!isLoading && !error && hasOrganizations && (
-        // Floating left-side control column layered over the canvas. Holds
-        // the search input on top and the tag filter panel below it so the
-        // two filtering affordances live together. `z-10` keeps it above
-        // the reagraph WebGL canvas, while `pointer-events-none` on the
-        // outer wrapper lets unclaimed regions pass clicks through to the
-        // graph for panning.
-        <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
-          <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
-            <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
-            <input
-              className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
-              placeholder="Search"
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+        // Floating left-side control panel layered over the canvas. The
+        // outer wrapper lets blank regions pass clicks through to the graph.
+        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[320px] max-w-[calc(100vw-2rem)]">
+          <section className="pointer-events-auto max-h-[calc(100vh-112px)] overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="px-8 pb-4 pt-6">
+              <h1 className="text-[15px] font-semibold leading-5 text-black">
+                Welcome to the DBC Database
+              </h1>
+              <p className="mt-3 text-[11px] leading-[15px] text-black">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
 
-          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
-                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" aria-hidden="true" />
-                <span>Filter by tag</span>
-                {selectedTagIds.size > 0 ? (
-                  <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
-                    {selectedTagIds.size}
-                  </span>
-                ) : null}
-              </div>
-              {selectedTagIds.size > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearTagFilter}
-                  className="text-xs font-semibold text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
-                >
-                  Clear
-                </button>
-              ) : null}
+              <label className="mt-6 flex h-[31px] items-center rounded-full border border-[#b4b4b4] bg-white px-3">
+                <span className="sr-only">Search organizations</span>
+                <SearchIcon className="pointer-events-none h-4 w-4 flex-shrink-0 text-[#6c6c6c]" />
+                <input
+                  className="min-w-0 flex-1 bg-transparent pl-3 text-[11px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
+                  placeholder="Search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
             </div>
 
-            {availableTags.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-[#6c6c6c]">
-                No tags are associated with the loaded organizations.
-              </p>
-            ) : (
-              <ul className="flex-1 overflow-y-auto py-1">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTagIds.has(tag.id);
+            <div className="border-t border-[#d9d9d9] px-8 pb-7 pt-5">
+              <div className="mb-3 flex min-h-4 items-center justify-between gap-2">
+                <p className="text-[11px] leading-4 text-[#6c6c6c]">Filters</p>
+                {selectedTagIds.size > 0 ? (
+                  <button
+                    type="button"
+                    onClick={clearTagFilter}
+                    className="text-[11px] font-semibold leading-4 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {FILTER_CATEGORIES.map((category) => {
+                  const isExpanded = expandedFilter === category;
+                  const isFocusArea = category === "Focus Area";
+
                   return (
-                    <li key={tag.id}>
-                      <label
-                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#f5f5f5] ${
-                          isSelected ? "bg-[#f0f8f8] text-[#2f7f7f]" : "text-[#333]"
-                        }`}
+                    <div key={category}>
+                      <button
+                        type="button"
+                        aria-expanded={isFocusArea ? isExpanded : undefined}
+                        onClick={() => handleFilterToggle(category)}
+                        className="flex h-[34px] w-full items-center justify-between rounded-[6px] border border-[#b4b4b4] bg-white px-3 text-left text-[11px] font-medium leading-4 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
-                          checked={isSelected}
-                          onChange={() => toggleTag(tag.id)}
-                        />
-                        <span className="flex-1 truncate" title={tag.name}>
-                          {tag.name}
+                        <span className="truncate">
+                          {category}
+                          {isFocusArea && selectedTagIds.size > 0
+                            ? ` (${selectedTagIds.size})`
+                            : ""}
                         </span>
-                        <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
-                      </label>
-                    </li>
+                        <ChevronRightIcon
+                          className={`h-4 w-4 flex-shrink-0 text-black transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isFocusArea && isExpanded ? (
+                        <div className="mt-2 max-h-40 overflow-y-auto rounded-[6px] border border-[#d9d9d9] bg-white py-1">
+                          {availableTags.length === 0 ? (
+                            <p className="px-3 py-2 text-[11px] leading-4 text-[#6c6c6c]">
+                              No focus areas available.
+                            </p>
+                          ) : (
+                            availableTags.map((tag) => {
+                              const isSelected = selectedTagIds.has(tag.id);
+                              return (
+                                <label
+                                  key={tag.id}
+                                  className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[11px] leading-4 transition-colors hover:bg-[#f5f5f5] ${
+                                    isSelected ? "text-[#2f7f7f]" : "text-black"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="h-3.5 w-3.5 flex-shrink-0 accent-[#3b9a9a]"
+                                    checked={isSelected}
+                                    onChange={() => toggleTag(tag.id)}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate" title={tag.name}>
+                                    {tag.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-[#6c6c6c]">{tag.count}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
-              </ul>
-            )}
-          </div>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
