@@ -117,7 +117,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
         </div>
 
         <div>
-          <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] py-3 text-sm font-semibold text-black">
+          <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
             <div className="relative flex items-center gap-2">
               <button
                 type="button"
@@ -150,7 +150,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                   key={row.id}
                   type="button"
                   onClick={() => onSelect?.(row)}
-                  className={`grid w-full cursor-pointer grid-cols-[1.5fr_1.2fr_0.6fr] items-center py-3 text-left text-sm transition-colors ${
+                  className={`grid w-full cursor-pointer grid-cols-[1.5fr_1.2fr_0.6fr] items-center px-4 py-3 text-left text-sm transition-colors ${
                     isActive
                       ? "bg-linear-to-r from-[#3b9a9a] via-[#3b9a9a]/70 to-white text-white"
                       : isEven

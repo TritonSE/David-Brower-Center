@@ -344,7 +344,7 @@ export default function ManagePage() {
               </button>
             </div>
 
-            <div className="border-b border-[#d9d9d9] py-3 text-sm font-semibold text-black">
+            <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
               <div className="flex items-center">
                 <div className="flex w-1/3 shrink-0 items-center gap-2">
                   <span className="inline-flex items-center justify-center">
@@ -377,7 +377,7 @@ export default function ManagePage() {
                         striped ? "bg-[#f2f9f8]" : "bg-white",
                       )}
                     >
-                      <div className="flex items-center">
+                      <div className="flex items-center px-4">
                         <div className="flex w-1/3 shrink-0 items-center gap-[10px]">
                           <label className="flex h-5 w-5 cursor-pointer items-center justify-center">
                             <input
