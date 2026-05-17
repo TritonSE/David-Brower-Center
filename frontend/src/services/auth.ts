@@ -14,10 +14,10 @@ export async function signIn({ email, password }: AuthParams) {
 
 export async function signUp({ email, password }: AuthParams) {
   // check if email is already in use
-  const result = await supabase.rpc("check_email_exists", {
+  const result = await supabase.rpc<boolean>("check_email_exists", {
     input_email: email,
   });
-  const userData = result.data as boolean | null;
+  const userData = result.data;
   const usersError = result.error;
   if (usersError) throw new Error("Unable to verify email");
   if (userData) throw new Error("Email already in use");

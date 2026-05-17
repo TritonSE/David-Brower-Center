@@ -14,6 +14,17 @@ type CreateTagBody = {
 const DEFAULT_TAG_COLOR = "#D9D9D9";
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tags = await prisma.tag.findMany({
+      orderBy: { name: "asc" },
+    });
+    return res.status(200).json({ tags });
+  } catch {
+    return next(createError(500, "Failed to fetch tags"));
+  }
+});
+
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as CreateTagBody;

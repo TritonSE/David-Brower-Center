@@ -520,7 +520,7 @@ export default function AdminProfile() {
     setIsPhotoModalOpen(false);
     setIsPhotoSuccessOpen(false);
     await signOut();
-    router.push("/sign-in");
+    router.push("/signIn");
   }
 
   function requestSignOut() {

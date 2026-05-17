@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { useAuth } from "../contexts/AuthContext";
+import { type AuthContextValue, useAuth } from "../contexts/AuthContext";
 
 import Navbar from "./Navbar";
 import ProfileButton from "./ProfileButton";
@@ -15,14 +15,15 @@ type LayoutProps = {
 };
 
 export default function Layout({ children }: LayoutProps) {
-  const { isSignedIn, user, signOut } = useAuth();
+  const auth: AuthContextValue = useAuth();
+  const { isSignedIn, user, signOut } = auth;
   const pathname = usePathname();
   const router = useRouter();
-  const showHeader = pathname !== "/sign-in";
+  const showHeader = pathname !== "/signIn";
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/sign-in");
+    router.push("/signIn");
   };
 
   const displayName = user?.email ?? "User";

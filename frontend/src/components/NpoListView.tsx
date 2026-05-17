@@ -44,12 +44,13 @@ type TagChipListProps = {
 };
 
 function TagChipList({ tags, isActive }: TagChipListProps) {
-  if (tags.length === 0) {
+  const safeTags = tags ?? [];
+  if (safeTags.length === 0) {
     return <span className={isActive ? "font-semibold" : "text-[#6c6c6c]"}>—</span>;
   }
 
-  const visibleTags = tags.slice(0, MAX_VISIBLE_TAGS);
-  const overflowTags = tags.slice(MAX_VISIBLE_TAGS);
+  const visibleTags = safeTags.slice(0, MAX_VISIBLE_TAGS);
+  const overflowTags = safeTags.slice(MAX_VISIBLE_TAGS);
   const overflowCount = overflowTags.length;
 
   return (
@@ -137,93 +138,99 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
         : "empty";
 
   return (
-    <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative flex w-full max-w-[400px] items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px]">
-          <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
-          <input
-            className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
-            placeholder="Search"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        <div className="relative">
-          <button
-            className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b4b4b4] bg-white"
-            type="button"
-            aria-label="Open filters"
-            onClick={() => setShowFilterMenu(!showFilterMenu)}
-          >
-            <FilterIcon
-              className={`h-5 w-5 ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
+    <section className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]">
+      <div className="flex flex-col gap-[36px]">
+        <div className="flex items-center gap-[8px] pr-[13px]">
+          <label className="relative block w-[240px] md:w-[363px]">
+            <span className="sr-only">Search NPO</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+              <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+            </span>
+            <input
+              type="search"
+              placeholder="Search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
             />
-          </button>
+          </label>
 
-          {showFilterMenu && (
-            <div className="absolute right-0 top-14 z-20">
-              <FilteringMenu
-                focusAreaOptions={focusAreaOptions}
-                focusAreaState={focusAreaState}
-                focusAreaErrorMessage={tagsError}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-[20px] border border-[#d9d9d9] bg-white">
-        <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
-          <div className="relative flex items-center gap-2">
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-2 focus:outline-none"
+              aria-label="Open filters"
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
             >
-              <SortArrowIcon
-                className={`h-3 w-3 ${showSortMenu ? "text-[#3b9a9a]" : "text-[#1f1f1f]"}`}
+              <FilterIcon
+                className={`h-[18px] w-[18px] ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
               />
-              <span>Name</span>
             </button>
 
-            {showSortMenu && (
-              <div className="absolute left-0 top-6 z-20 font-normal">
-                <SortMenuPopup />
+            {showFilterMenu && (
+              <div className="absolute right-0 top-14 z-20">
+                <FilteringMenu
+                  focusAreaOptions={focusAreaOptions}
+                  focusAreaState={focusAreaState}
+                  focusAreaErrorMessage={tagsError}
+                />
               </div>
             )}
           </div>
-          <span>Focus</span>
-          <span>Year</span>
         </div>
 
-        <div className="divide-y divide-[#d9d9d9]">
-          {filteredRows.map((row, index) => {
-            const isActive = selectedId === row.id;
-            const isEven = index % 2 === 1;
-
-            return (
+        <div>
+          <div className="grid grid-cols-[1.5fr_1.2fr_0.6fr] items-center border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
+            <div className="relative flex items-center gap-2">
               <button
-                key={row.id}
                 type="button"
-                onClick={() => onSelect?.(row)}
-                className={`grid w-full cursor-pointer grid-cols-[1.5fr_1.2fr_0.6fr] items-center px-4 py-3 text-left text-sm transition-colors ${
-                  isActive
-                    ? "bg-linear-to-r from-[#3b9a9a] via-[#3b9a9a]/70 to-white text-white"
-                    : isEven
-                      ? "bg-[#f2f9f8]"
-                      : "bg-white hover:bg-[#f7fbfa]"
-                }`}
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center gap-2 focus:outline-none"
               >
-                <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.name}</span>
-                <TagChipList tags={row.tags} isActive={isActive} />
-                <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.year}</span>
+                <SortArrowIcon
+                  className={`h-3 w-3 ${showSortMenu ? "text-[#3b9a9a]" : "text-[#1f1f1f]"}`}
+                />
+                <span>Name</span>
               </button>
-            );
-          })}
+
+              {showSortMenu && (
+                <div className="absolute left-0 top-6 z-20 font-normal">
+                  <SortMenuPopup />
+                </div>
+              )}
+            </div>
+            <span>Focus</span>
+            <span>Year</span>
+          </div>
+
+          <div className="divide-y divide-[#d9d9d9]">
+            {filteredRows.map((row, index) => {
+              const isActive = selectedId === row.id;
+              const isEven = index % 2 === 1;
+
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => onSelect?.(row)}
+                  className={`grid w-full cursor-pointer grid-cols-[1.5fr_1.2fr_0.6fr] items-center px-4 py-3 text-left text-sm transition-colors ${
+                    isActive
+                      ? "bg-linear-to-r from-[#3b9a9a] via-[#3b9a9a]/70 to-white text-white"
+                      : isEven
+                        ? "bg-[#f2f9f8]"
+                        : "bg-white hover:bg-[#f7fbfa]"
+                  }`}
+                >
+                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.name}</span>
+                  <TagChipList tags={row.tags} isActive={isActive} />
+                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.year}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { signIn, signUp } from "../../services/auth";
 
-import styles from "./Sign_In.module.css";
+import styles from "./SignIn.module.css";
 
 function GoogleIcon() {
   return (
