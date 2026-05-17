@@ -122,6 +122,46 @@ function parseTagName(value: unknown): string {
   throw new Error('[/tags] Missing required field "name" in response.');
 }
 
+export type TagMeta = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+const HEX_COLOR_PATTERN = /^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function parseTagColor(value: unknown): string {
+  if (typeof value !== "string") return DEFAULT_TAG_COLOR;
+  const trimmed = value.trim();
+  if (!HEX_COLOR_PATTERN.test(trimmed)) return DEFAULT_TAG_COLOR;
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+}
+
+function parseTagMeta(value: unknown): TagMeta | null {
+  if (!isRecord(value)) return null;
+  const id = toNonEmptyString(value.id);
+  const name = toNonEmptyString(value.name);
+  if (!id || !name) return null;
+  return { id, name, color: parseTagColor(value.color) };
+}
+
+export async function getTagsWithMeta(signal?: AbortSignal): Promise<TagMeta[]> {
+  const payload = await requestJson("/tags", signal);
+  const rawTags = parseTagsPayload(payload);
+
+  const tags: TagMeta[] = [];
+  const seenIds = new Set<string>();
+  for (const entry of rawTags) {
+    const tag = parseTagMeta(entry);
+    if (!tag) continue;
+    if (seenIds.has(tag.id)) continue;
+    seenIds.add(tag.id);
+    tags.push(tag);
+  }
+  return tags;
+}
+
 export async function getTags(signal?: AbortSignal): Promise<string[]> {
   const payload = await requestJson("/tags", signal);
   const rawTags = parseTagsPayload(payload);

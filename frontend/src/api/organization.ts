@@ -54,7 +54,18 @@ function getRequiredString(value: unknown, route: string, field: string): string
 export type OrganizationTag = {
   id: string;
   name: string;
+  color: string;
 };
+
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+const HEX_COLOR_PATTERN = /^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function parseTagColor(value: unknown): string {
+  if (typeof value !== "string") return DEFAULT_TAG_COLOR;
+  const trimmed = value.trim();
+  if (!HEX_COLOR_PATTERN.test(trimmed)) return DEFAULT_TAG_COLOR;
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+}
 
 export type OrganizationListItem = {
   id: string;
@@ -83,7 +94,7 @@ function parseOrganizationTag(value: unknown): OrganizationTag | null {
   const id = toOptionalString(value.id);
   const name = toOptionalString(value.name);
   if (!id || !name) return null;
-  return { id, name };
+  return { id, name, color: parseTagColor(value.color) };
 }
 
 function parseOrganizationTagList(value: unknown): OrganizationTag[] {

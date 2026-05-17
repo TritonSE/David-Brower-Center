@@ -27,17 +27,78 @@ const prisma = new PrismaClient({ adapter });
 const dataPath = path.join(cwd, "prisma", "data", "organizations.json");
 const organizationsData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
 
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+
+const TAG_COLORS: Record<string, string> = {
+  "Climate Change Solutions": "#C2E5C0",
+  "Community Resilience": "#F8DCC8",
+  Conservation: "#D5E5C8",
+  "Environmental Arts": "#D5C8F0",
+  "Environmental Education": "#BFD8FB",
+  "Environmental Justice": "#E2C8F0",
+  "Indigenous Communities": "#F8C7B8",
+  "International Initiatives": "#B6E5DC",
+  "Oceans and Water": "#C8E8F0",
+  "Pollution and Toxics": "#FCE8B2",
+  "Sustainable Agriculture and Food Systems": "#FAD2B6",
+  "Wildlife Protection": "#C8F0D8",
+  "Women's Environmental Leadership": "#F8C8DC",
+  "Youth Empowerment": "#FFE0B2",
+};
+
+const FALLBACK_PALETTE = [
+  "#BFD8FB",
+  "#FAD2B6",
+  "#E2C8F0",
+  "#C2E5C0",
+  "#F8C8DC",
+  "#FCE8B2",
+  "#B6E5DC",
+  "#F8C7B8",
+  "#D5C8F0",
+  "#C8F0D8",
+  "#C8E8F0",
+  "#F8DCC8",
+  "#D5E5C8",
+];
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function getColorFor(tagName: string): string {
+  const explicit = TAG_COLORS[tagName];
+  if (explicit) return explicit;
+  if (FALLBACK_PALETTE.length === 0) return DEFAULT_TAG_COLOR;
+  const palette = FALLBACK_PALETTE;
+  return palette[hashString(tagName) % palette.length] ?? DEFAULT_TAG_COLOR;
+}
+
 async function main(): Promise<void> {
   console.info("Cleaning up existing data...");
 
   await prisma.organizationTag.deleteMany({});
+  await prisma.organizationRelationship.deleteMany({});
   await prisma.organization.deleteMany({});
   await prisma.tag.deleteMany({});
 
   console.info("Seeding organizations and tags...");
 
+  const tagNamesSeen = new Set<string>();
+
   for (const org of organizationsData) {
-    const focusAreas = org.focus ? org.focus.split("|").map((s: string) => s.trim()) : [];
+    const focusAreas: string[] = org.focus
+      ? org.focus
+          .split("|")
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    focusAreas.forEach((tagName) => tagNamesSeen.add(tagName));
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -48,12 +109,12 @@ async function main(): Promise<void> {
           sizeCategory: org.sizeCategory,
           website: org.website,
           tags: {
-            deleteMany: {}, // Optional: clears old tags so you don't get duplicates
+            deleteMany: {},
             create: focusAreas.map((tagName: string) => ({
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName) },
                 },
               },
             })),
@@ -69,20 +130,34 @@ async function main(): Promise<void> {
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName) },
                 },
               },
             })),
           },
         },
       });
-      console.info(`✅ Seeded: ${org.name}`);
+      console.info(`Seeded: ${org.name}`);
     } catch (error) {
-      console.error(`❌ Failed to seed ${org.name}:`, error);
+      console.error(`Failed to seed ${org.name}:`, error);
     }
   }
 
   console.info(`Successfully seeded ${organizationsData.length} organizations.`);
+  console.info("Syncing tag colors with curated palette...");
+  await Promise.all(
+    [...tagNamesSeen].map(async (tagName) => {
+      try {
+        await prisma.tag.update({
+          where: { name: tagName },
+          data: { color: getColorFor(tagName) },
+        });
+      } catch (error) {
+        console.error(`Failed to update color for tag ${tagName}:`, error);
+      }
+    }),
+  );
+  console.info(`Synced ${tagNamesSeen.size} tag colors.`);
 }
 
 void main()

@@ -5,17 +5,15 @@ import { prisma } from "../lib/prisma";
 
 const router = Router();
 
-/** Request body shape for creating a tag */
 type CreateTagBody = {
   name: string;
   description?: string;
+  color?: string;
 };
 
-/**
- * POST /tags
- * Creates a new tag in the database.
- * Body: { name: string, description?: string }
- */
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as CreateTagBody;
@@ -36,8 +34,16 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           ? body.description.trim() || null
           : null;
 
+    let color: string = DEFAULT_TAG_COLOR;
+    if (body.color !== undefined && body.color !== null) {
+      if (typeof body.color !== "string" || !HEX_COLOR_PATTERN.test(body.color.trim())) {
+        return next(createError(400, "color must be a hex string like '#A8C5F2'"));
+      }
+      color = body.color.trim();
+    }
+
     const tag = await prisma.tag.create({
-      data: { name, description },
+      data: { name, description, color },
     });
 
     return res.status(201).json({ tag });
