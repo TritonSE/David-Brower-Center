@@ -33,7 +33,14 @@ export default function HomePage() {
     refetch: refetchOrganizations,
   } = useOrganizations();
   const rows: Row[] = useMemo(
-    () => organizations.map((o) => ({ id: o.id, name: o.name, focus: o.focus, year: o.year })),
+    () =>
+      organizations.map((o) => ({
+        id: o.id,
+        name: o.name,
+        focus: o.focus,
+        year: o.year,
+        tags: o.tags,
+      })),
     [organizations],
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);

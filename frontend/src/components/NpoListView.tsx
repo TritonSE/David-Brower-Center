@@ -4,6 +4,8 @@ import FilteringMenu from "./filteringmenu/FilteringMenu";
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import SortMenuPopup from "./SortMenuPopup";
 
+import type { OrganizationTag } from "@/api/organization";
+
 import { getTags } from "@/api/tags";
 
 export type Row = {
@@ -11,7 +13,68 @@ export type Row = {
   name: string;
   focus: string;
   year: string;
+  tags: OrganizationTag[];
 };
+
+const MAX_VISIBLE_TAGS = 3;
+
+function getReadableTextColor(hex: string): string {
+  const normalized = hex.startsWith("#") ? hex.slice(1) : hex;
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return "#1f1f1f";
+
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return "#1f1f1f";
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#1f1f1f" : "#ffffff";
+}
+
+type TagChipListProps = {
+  tags: OrganizationTag[];
+  isActive: boolean;
+};
+
+function TagChipList({ tags, isActive }: TagChipListProps) {
+  const safeTags = tags ?? [];
+  if (safeTags.length === 0) {
+    return <span className={isActive ? "font-semibold" : "text-[#6c6c6c]"}>—</span>;
+  }
+
+  const visibleTags = safeTags.slice(0, MAX_VISIBLE_TAGS);
+  const overflowTags = safeTags.slice(MAX_VISIBLE_TAGS);
+  const overflowCount = overflowTags.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {visibleTags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
+          style={{ backgroundColor: tag.color, color: getReadableTextColor(tag.color) }}
+        >
+          {tag.name}
+        </span>
+      ))}
+      {overflowCount > 0 && (
+        <span
+          className="inline-flex items-center rounded-full border border-[#d9d9d9] bg-white px-2 py-0.5 text-xs font-medium text-[#6c6c6c]"
+          title={overflowTags.map((tag) => tag.name).join(", ")}
+        >
+          +{overflowCount}
+        </span>
+      )}
+    </div>
+  );
+}
 
 type NpoListViewProps = {
   rows: Row[];
@@ -159,7 +222,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                   }`}
                 >
                   <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.name}</span>
-                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.focus}</span>
+                  <TagChipList tags={row.tags} isActive={isActive} />
                   <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.year}</span>
                 </button>
               );
