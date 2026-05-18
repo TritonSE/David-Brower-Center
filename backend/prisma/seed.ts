@@ -68,7 +68,7 @@ async function main(): Promise<void> {
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: "#5A8FBB", visibility: "PUBLIC" },
                 },
               },
             })),
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: "#5A8FBB", visibility: "PUBLIC" },
                 },
               },
             })),

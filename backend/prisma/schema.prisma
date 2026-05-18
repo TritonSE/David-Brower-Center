@@ -21,6 +21,13 @@ enum RelationshipTier {
   @@schema("public")
 }
 
+enum TagVisibility {
+  PUBLIC
+  PRIVATE
+
+  @@schema("public")
+}
+
 model Organization {
   id                  String                     @id @default(uuid()) @db.Uuid
   projectId           String                     @unique
@@ -59,6 +66,8 @@ model Tag {
   id            String            @id @default(uuid()) @db.Uuid
   name          String            @unique
   description   String?
+  color         String
+  visibility    TagVisibility     @default(PUBLIC)
   organizations OrganizationTag[]
 
   @@map("tags")
