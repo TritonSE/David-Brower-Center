@@ -88,7 +88,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           : null;
 
     const tag = await prisma.tag.create({
-      data: { name, description, color, visibility } as Prisma.TagCreateInput,
+      data: { name, description, color, visibility },
     });
 
     return res.status(201).json({ tag });
