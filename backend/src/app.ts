@@ -5,6 +5,7 @@ import { FRONTEND_ORIGIN, PORT } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 import organizationsRouter from "./routes/organizations";
+import relationshipsRouter from "./routes/relationships";
 import tagsRouter from "./routes/tags";
 import usersRouter from "./routes/users";
 import whoamiRouter from "./routes/whoami";
@@ -42,6 +43,7 @@ app.get("/", (req, res) => {
 app.use("/api/whoami", whoamiRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/organizations", organizationsRouter);
+app.use("/api/relationships", relationshipsRouter);
 app.use("/api/tags", tagsRouter);
 
 app.use(errorHandler);

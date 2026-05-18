@@ -17,16 +17,34 @@ import NpoProfileCard from "./NpoProfileCard";
 
 import type { APIResult } from "@/api/request";
 import type React from "react";
-import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
+import type { GraphCanvasProps } from "reagraph";
 
 import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 
-const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
-  ssr: false,
-}) as unknown as React.ForwardRefExoticComponent<
-  GraphCanvasProps & React.RefAttributes<GraphCanvasRef>
->;
+type GraphCanvasHandle = {
+  fitNodesInView: (nodeIds?: string[], options?: { animated?: boolean }) => void;
+};
+
+type GraphNodeEvent = {
+  id: string;
+  position: { x: number; y: number };
+};
+
+type ReagraphModule = {
+  GraphCanvas: React.ForwardRefExoticComponent<
+    GraphCanvasProps & React.RefAttributes<GraphCanvasHandle>
+  >;
+};
+
+const loadGraphCanvas = async (): Promise<
+  React.ForwardRefExoticComponent<GraphCanvasProps & React.RefAttributes<GraphCanvasHandle>>
+> => {
+  const mod = (await import("reagraph")) as ReagraphModule;
+  return mod.GraphCanvas;
+};
+
+const GraphCanvas = dynamic(loadGraphCanvas, { ssr: false });
 
 type GraphNode = {
   id: string;
@@ -234,7 +252,7 @@ export default function GraphPage() {
 
   const detailRequestIdRef = useRef(0);
 
-  const graphRef = useRef<GraphCanvasRef | null>(null);
+  const graphRef = useRef<GraphCanvasHandle | null>(null);
 
   // ACTIVATE GRAPH
   const activateGraph = useCallback(() => {
@@ -480,7 +498,7 @@ export default function GraphPage() {
   }, [visibleNodeIdsKey, showFunctionalGraph]);
 
   const handleNodeDragged = useCallback(
-    (node: InternalGraphNode) => {
+    (node: GraphNodeEvent) => {
       setPositions((previousPositions) => {
         const previous = previousPositions.get(node.id);
 
@@ -520,7 +538,7 @@ export default function GraphPage() {
   }, [refetchOrganizations]);
 
   const handleNodeClick = useCallback(
-    (node: InternalGraphNode) => {
+    (node: GraphNodeEvent) => {
       activateGraph();
 
       if (selectedOrgId === node.id && isCardVisible) {
