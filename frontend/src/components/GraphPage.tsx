@@ -92,6 +92,8 @@ export default function GraphPage() {
 
   const graphContainerRef = useRef<HTMLDivElement | null>(null);
 
+  const popupCardRef = useRef<HTMLDivElement | null>(null);
+
   // ACTIVATE GRAPH
   const activateGraph = useCallback(() => {
     setShowFunctionalGraph(true);
@@ -409,6 +411,24 @@ export default function GraphPage() {
     void fetchOrganizationDetail(selectedOrgId);
   }, [fetchOrganizationDetail, selectedOrgId]);
 
+  // Close the popup when the user clicks anywhere outside it.
+  useEffect(() => {
+    if (!isCardVisible) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && popupCardRef.current?.contains(target)) {
+        return;
+      }
+      handleCloseCard();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [handleCloseCard, isCardVisible]);
+
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
 
@@ -630,6 +650,7 @@ export default function GraphPage() {
       >
         {selectedOrgId ? (
           <div
+            ref={popupCardRef}
             className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
             style={{
               transform: isCardVisible ? "translateY(0)" : "translateY(8px)",
