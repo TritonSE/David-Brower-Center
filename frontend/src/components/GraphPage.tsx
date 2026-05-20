@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  FilterIcon,
+  ChevronRightIcon,
   LeafIcon,
   LocationIcon,
   MoneyIcon,
@@ -49,6 +49,10 @@ const TREE_FAN_MIN_ANGLE = Math.PI * 0.12;
 const TREE_FAN_MAX_ANGLE = Math.PI * 0.88;
 const ANGLE_JITTER_RATIO = 0.18;
 const RADIUS_JITTER_RATIO = 0.08;
+
+const FILTER_CATEGORIES = ["Focus Area", "Location", "Size", "Opportunity Type", "Budget"] as const;
+
+type GraphFilterCategory = (typeof FILTER_CATEGORIES)[number];
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -215,7 +219,7 @@ export default function GraphPage() {
   const { organizations, isLoading, error, refetch: refetchOrganizations } = useOrganizations();
 
   const [search, setSearch] = useState("");
-
+  const [expandedFilter, setExpandedFilter] = useState<GraphFilterCategory | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
 
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
@@ -341,6 +345,11 @@ export default function GraphPage() {
 
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
+  }, []);
+
+  const handleFilterToggle = useCallback((category: GraphFilterCategory) => {
+    if (category !== "Focus Area") return;
+    setExpandedFilter((previous) => (previous === category ? null : category));
   }, []);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
@@ -591,89 +600,115 @@ export default function GraphPage() {
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
       {/* LEFT SIDEBAR */}
       {!isLoading && !error && hasOrganizations && (
-        <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
-          {/* SEARCH */}
-          <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
-            <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
+        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[400px] max-w-[calc(100vw-2rem)]">
+          <section className="pointer-events-auto flex h-[calc(100vh-120px)] flex-col overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="px-10 pb-6 pt-9">
+              <h1 className="text-[20px] font-semibold leading-7 text-black">
+                Welcome to the DBC Database
+              </h1>
+              <p className="mt-4 text-[14px] leading-[20px] text-black">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
 
-            <input
-              className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
-              placeholder="Search"
-              type="search"
-              value={search}
-              onChange={(event) => {
-                const value = event.target.value;
+              <label className="mt-8 flex h-[44px] items-center rounded-full border border-[#b4b4b4] bg-white px-4">
+                <span className="sr-only">Search organizations</span>
+                <SearchIcon className="pointer-events-none h-5 w-5 flex-shrink-0 text-[#6c6c6c]" />
+                <input
+                  className="min-w-0 flex-1 bg-transparent pl-3 text-[14px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
+                  placeholder="Search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearch(value);
+                    if (value.trim().length > 0) {
+                      activateGraph();
+                    }
+                  }}
+                />
+              </label>
+            </div>
 
-                setSearch(value);
-
-                if (value.trim().length > 0) {
-                  activateGraph();
-                }
-              }}
-            />
-          </div>
-
-          {/* FILTERS */}
-          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
-                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" />
-
-                <span>Filter by tag</span>
-
+            <div className="flex flex-1 flex-col border-t border-[#d9d9d9] px-10 pb-9 pt-7">
+              <div className="mb-4 flex min-h-5 items-center justify-between gap-2">
+                <p className="text-[13px] leading-5 text-[#6c6c6c]">Filters</p>
                 {selectedTagIds.size > 0 ? (
-                  <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
-                    {selectedTagIds.size}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={clearTagFilter}
+                    className="text-[13px] font-semibold leading-5 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                  >
+                    Clear
+                  </button>
                 ) : null}
               </div>
 
-              {selectedTagIds.size > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearTagFilter}
-                  className="text-xs font-semibold text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
-                >
-                  Clear
-                </button>
-              ) : null}
-            </div>
-
-            {availableTags.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-[#6c6c6c]">
-                No tags are associated with the loaded organizations.
-              </p>
-            ) : (
-              <ul className="flex-1 overflow-y-auto py-1">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTagIds.has(tag.id);
+              <div className="flex flex-col gap-4">
+                {FILTER_CATEGORIES.map((category) => {
+                  const isExpanded = expandedFilter === category;
+                  const isFocusArea = category === "Focus Area";
 
                   return (
-                    <li key={tag.id}>
-                      <label
-                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#f5f5f5] ${
-                          isSelected ? "bg-[#f0f8f8] text-[#2f7f7f]" : "text-[#333]"
-                        }`}
+                    <div key={category}>
+                      <button
+                        type="button"
+                        aria-expanded={isFocusArea ? isExpanded : undefined}
+                        onClick={() => handleFilterToggle(category)}
+                        className="flex h-[44px] w-full items-center justify-between rounded-[8px] border border-[#b4b4b4] bg-white px-4 text-left text-[14px] font-medium leading-5 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
-                          checked={isSelected}
-                          onChange={() => toggleTag(tag.id)}
-                        />
-
-                        <span className="flex-1 truncate" title={tag.name}>
-                          {tag.name}
+                        <span className="truncate">
+                          {category}
+                          {isFocusArea && selectedTagIds.size > 0
+                            ? ` (${selectedTagIds.size})`
+                            : ""}
                         </span>
+                        <ChevronRightIcon
+                          className={`h-5 w-5 flex-shrink-0 text-black transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
 
-                        <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
-                      </label>
-                    </li>
+                      {isFocusArea && isExpanded ? (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-[8px] border border-[#d9d9d9] bg-white py-1">
+                          {availableTags.length === 0 ? (
+                            <p className="px-4 py-2.5 text-[13px] leading-5 text-[#6c6c6c]">
+                              No focus areas available.
+                            </p>
+                          ) : (
+                            availableTags.map((tag) => {
+                              const isSelected = selectedTagIds.has(tag.id);
+                              return (
+                                <label
+                                  key={tag.id}
+                                  className={`flex cursor-pointer items-center gap-2.5 px-4 py-2.5 text-[13px] leading-5 transition-colors hover:bg-[#f5f5f5] ${
+                                    isSelected ? "text-[#2f7f7f]" : "text-black"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
+                                    checked={isSelected}
+                                    onChange={() => toggleTag(tag.id)}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate" title={tag.name}>
+                                    {tag.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-[#6c6c6c]">{tag.count}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
-              </ul>
-            )}
-          </div>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
@@ -696,7 +731,7 @@ export default function GraphPage() {
         </div>
       ) : !showFunctionalGraph ? (
         /* STATIC TREE LANDING PAGE */
-        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[280px] pr-6">
+        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[420px] pr-6">
           <button
             type="button"
             onClick={activateGraph}
@@ -712,14 +747,14 @@ export default function GraphPage() {
           </button>
         </div>
       ) : nodes.length === 0 ? (
-        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[280px] text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[420px] text-sm text-slate-600">
           {hasActiveFilters
             ? "No organizations match the current filters."
             : "No organizations to display."}
         </div>
       ) : (
         /* FUNCTIONAL GRAPH */
-        <div className="h-[calc(100vh-92px)] w-full pl-[280px]">
+        <div className="h-[calc(100vh-92px)] w-full pl-[420px]">
           <GraphCanvas
             ref={graphRef}
             draggable
