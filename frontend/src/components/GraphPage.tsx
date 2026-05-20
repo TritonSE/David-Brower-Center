@@ -90,6 +90,8 @@ export default function GraphPage() {
 
   const graphRef = useRef<GraphCanvasRef | null>(null);
 
+  const graphContainerRef = useRef<HTMLDivElement | null>(null);
+
   // ACTIVATE GRAPH
   const activateGraph = useCallback(() => {
     setShowFunctionalGraph(true);
@@ -304,26 +306,73 @@ export default function GraphPage() {
     [isCardVisible, selectedOrgId],
   );
 
+  // Left sidebar is `absolute left-4 w-[400px]`, so its right edge sits at 416px.
+  // Round up slightly so content has breathing room from the sidebar.
+  const SIDEBAR_RIGHT_PX = 420;
+
+  const fitWithSidebarOffset = useCallback((nodeIds?: string[]) => {
+    const ref = graphRef.current;
+    if (!ref) return;
+
+    ref.fitNodesInView(nodeIds, { animated: true });
+
+    // After fit, compensate when the WebGL canvas extends behind the floating
+    // sidebar so the visible center of the content sits to the right of it.
+    const controls = ref.getControls() as unknown as {
+      camera?: { fov?: number; position: { length: () => number } };
+      distance?: number;
+      truck: (x: number, y: number, enableTransition?: boolean) => void;
+      dolly: (distance: number, enableTransition?: boolean) => void;
+    } | null;
+    const container = graphContainerRef.current;
+    if (!controls || !container) return;
+
+    const camera = controls.camera;
+    if (!camera || typeof camera.fov !== "number") return;
+
+    const rect = container.getBoundingClientRect();
+    if (rect.height === 0) return;
+
+    // If the container already starts at or past the sidebar's right edge, fit
+    // is already centered in the visible area — no shift needed.
+    const overlapPx = SIDEBAR_RIGHT_PX - rect.left;
+    if (overlapPx <= 0) return;
+
+    // Convert the half-overlap from CSS pixels to world units using the
+    // perspective camera's visible height at the current target distance.
+    const distance = controls.distance ?? camera.position.length();
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovRad / 2) * distance;
+    const worldPerPixel = visibleHeight / rect.height;
+    const offsetWorld = (overlapPx / 2) * worldPerPixel;
+
+    // Trucking the camera left shifts visible content rightward, clearing the
+    // sidebar. Dolly out by the same magnitude so nothing falls off the right.
+    controls.truck(-offsetWorld, 0, true);
+    controls.dolly(-offsetWorld, true);
+  }, []);
+
   useEffect(() => {
     if (visibleNodeIdsKey.length === 0 || !showFunctionalGraph) {
       return;
     }
 
-    let cancelled = false;
+    // Force-directed layout needs time to settle after nodes change; refit a few
+    // times across the simulation window so the camera tracks it as it converges.
+    const refitDelaysMs = [50, 350, 800, 1400];
 
-    const rafId = requestAnimationFrame(() => {
-      if (cancelled) return;
-
-      graphRef.current?.fitNodesInView(undefined, {
-        animated: true,
-      });
-    });
+    const timeoutIds = refitDelaysMs.map((delay) =>
+      window.setTimeout(() => {
+        fitWithSidebarOffset();
+      }, delay),
+    );
 
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
+      for (const id of timeoutIds) {
+        window.clearTimeout(id);
+      }
     };
-  }, [visibleNodeIdsKey, showFunctionalGraph]);
+  }, [visibleNodeIdsKey, showFunctionalGraph, fitWithSidebarOffset]);
 
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
@@ -342,11 +391,11 @@ export default function GraphPage() {
       setSelectedOrgId(node.id);
       setIsCardVisible(true);
 
-      graphRef.current?.fitNodesInView([node.id], { animated: true });
+      fitWithSidebarOffset([node.id]);
 
       void fetchOrganizationDetail(node.id);
     },
-    [activateGraph, fetchOrganizationDetail, isCardVisible, selectedOrgId],
+    [activateGraph, fetchOrganizationDetail, fitWithSidebarOffset, isCardVisible, selectedOrgId],
   );
 
   const handleCloseCard = useCallback(() => {
@@ -557,7 +606,7 @@ export default function GraphPage() {
         </div>
       ) : (
         /* FUNCTIONAL GRAPH */
-        <div className="h-[calc(100vh-92px)] w-full pl-[420px]">
+        <div ref={graphContainerRef} className="h-[calc(100vh-92px)] w-full pl-[420px]">
           <GraphCanvas
             ref={graphRef}
             draggable
