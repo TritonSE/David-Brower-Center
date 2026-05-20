@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
 
 import { PrismaClient } from "../src/generated/prisma/client.js";
+import { getColorFor } from "../src/lib/tagColors.js";
 
 const cwd = process.cwd();
 const envPath = path.join(cwd, ".env");
@@ -51,8 +52,17 @@ async function main(): Promise<void> {
 
   console.info("Seeding organizations and tags...");
 
+  const tagNamesSeen = new Set<string>();
+
   for (const org of organizationsData) {
-    const focusAreas = org.focus ? org.focus.split("|").map((s: string) => s.trim()) : [];
+    const focusAreas: string[] = org.focus
+      ? org.focus
+          .split("|")
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    focusAreas.forEach((tagName) => tagNamesSeen.add(tagName));
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -68,7 +78,7 @@ async function main(): Promise<void> {
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName) },
                 },
               },
             })),
@@ -84,16 +94,16 @@ async function main(): Promise<void> {
               tag: {
                 connectOrCreate: {
                   where: { name: tagName },
-                  create: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName) },
                 },
               },
             })),
           },
         },
       });
-      console.info(`✅ Seeded: ${org.name}`);
+      console.info(`Seeded: ${org.name}`);
     } catch (error) {
-      console.error(`❌ Failed to seed ${org.name}:`, error);
+      console.error(`Failed to seed ${org.name}:`, error);
     }
   }
 
@@ -163,6 +173,20 @@ async function main(): Promise<void> {
   console.info(
     `Successfully seeded ${relationshipsCreated} relationships (${relationshipsFailed} failed).`,
   );
+  console.info("Syncing tag colors with curated palette...");
+  await Promise.all(
+    [...tagNamesSeen].map(async (tagName) => {
+      try {
+        await prisma.tag.update({
+          where: { name: tagName },
+          data: { color: getColorFor(tagName) },
+        });
+      } catch (error) {
+        console.error(`Failed to update color for tag ${tagName}:`, error);
+      }
+    }),
+  );
+  console.info(`Synced ${tagNamesSeen.size} tag colors.`);
 }
 
 void main()

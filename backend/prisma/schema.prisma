@@ -59,6 +59,7 @@ model Tag {
   id            String            @id @default(uuid()) @db.Uuid
   name          String            @unique
   description   String?
+  color         String            @default("#D9D9D9")
   organizations OrganizationTag[]
 
   @@map("tags")
