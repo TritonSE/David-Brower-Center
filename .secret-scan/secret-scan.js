@@ -263,12 +263,18 @@ function checkGitVersion() {
 
 /** @returns {string} */
 function getRepoRoot() {
-  const repoRoot = runCommand(["git", "rev-parse", "--show-toplevel"]).replace(EOL, "");
+  // The .secret-scan directory lives at the repo root, so its parent is always
+  // the repo root — even in git worktrees where `git rev-parse --show-toplevel`
+  // may return the cwd when GIT_DIR is set but GIT_WORK_TREE is not.
+  const repoRoot = path.resolve(__dirname, "..");
 
   // Make sure we don't get "file not found" later and assume the file was
   // deleted from the working tree, when the actual cause is having an incorrect
   // path for the repo root. Don't ask me how I know...
-  if (!fs.statSync(path.join(repoRoot, ".git"), { throwIfNoEntry: false })?.isDirectory()) {
+  // Note: in a git worktree, .git is a file (not a directory), so we accept
+  // either a directory (normal repo) or a file (worktree/submodule).
+  const gitStat = fs.statSync(path.join(repoRoot, ".git"), { throwIfNoEntry: false });
+  if (!gitStat || (!gitStat.isDirectory() && !gitStat.isFile())) {
     throw new Error(
       `Could not determine repo root: got ${JSON.stringify(repoRoot)}, but this is incorrect?`
     );
