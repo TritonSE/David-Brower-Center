@@ -31,8 +31,6 @@ const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagrap
 type GraphNode = {
   id: string;
   label: string;
-  fx?: number;
-  fy?: number;
 };
 
 type GraphEdge = {
@@ -42,13 +40,7 @@ type GraphEdge = {
   label?: string;
 };
 
-const DUMMY_TREE_BRANCHING_FACTOR = 3;
 const POPUP_FADE_DURATION_MS = 200;
-const RADIUS_STEP = 140;
-const TREE_FAN_MIN_ANGLE = Math.PI * 0.12;
-const TREE_FAN_MAX_ANGLE = Math.PI * 0.88;
-const ANGLE_JITTER_RATIO = 0.18;
-const RADIUS_JITTER_RATIO = 0.08;
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -62,163 +54,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
-  if (nodes.length < 2) return [];
-
-  const edges: GraphEdge[] = [];
-  const branchingFactor = Math.max(1, DUMMY_TREE_BRANCHING_FACTOR);
-
-  for (let i = 1; i < nodes.length; i++) {
-    const parentIndex = Math.floor((i - 1) / branchingFactor);
-
-    const source = nodes[parentIndex];
-    const target = nodes[i];
-
-    edges.push({
-      id: `${source.id}->${target.id}`,
-      source: source.id,
-      target: target.id,
-      label: "Related",
-    });
-  }
-
-  return edges;
-}
-
-function hashToUnitInterval(value: string): number {
-  let hash = 0;
-
-  for (let i = 0; i < value.length; i++) {
-    hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
-  }
-
-  return (hash >>> 0) / 0x100000000;
-}
-
-function computeTreePositions(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  if (nodes.length === 0) return positions;
-
-  const childrenByParent = new Map<string, string[]>();
-
-  for (const edge of edges) {
-    const list = childrenByParent.get(edge.source) ?? [];
-    list.push(edge.target);
-    childrenByParent.set(edge.source, list);
-  }
-
-  const rootId = nodes[0].id;
-
-  positions.set(rootId, { x: 0, y: 0 });
-
-  const leafCountById = new Map<string, number>();
-
-  const computeLeafCount = (id: string): number => {
-    const children = childrenByParent.get(id);
-
-    if (!children || children.length === 0) {
-      leafCountById.set(id, 1);
-      return 1;
-    }
-
-    let total = 0;
-
-    for (const childId of children) {
-      total += computeLeafCount(childId);
-    }
-
-    leafCountById.set(id, total);
-
-    return total;
-  };
-
-  computeLeafCount(rootId);
-
-  const placeSubtree = (
-    nodeId: string,
-    depth: number,
-    sliceStart: number,
-    sliceEnd: number,
-  ): void => {
-    const children = childrenByParent.get(nodeId);
-
-    if (!children || children.length === 0) return;
-
-    const parentLeafCount = leafCountById.get(nodeId) ?? 1;
-    const sliceWidth = sliceEnd - sliceStart;
-    const childRadius = (depth + 1) * RADIUS_STEP;
-
-    let cursor = sliceStart;
-
-    for (const childId of children) {
-      const childLeafCount = leafCountById.get(childId) ?? 1;
-
-      const childSliceWidth = sliceWidth * (childLeafCount / parentLeafCount);
-
-      const childSliceStart = cursor;
-      const childSliceEnd = cursor + childSliceWidth;
-
-      const childSliceCenter = (childSliceStart + childSliceEnd) / 2;
-
-      const rand = hashToUnitInterval(childId);
-
-      const angleJitter = (rand - 0.5) * 2 * ANGLE_JITTER_RATIO * childSliceWidth;
-
-      const radiusJitter = 1 + (rand - 0.5) * 2 * RADIUS_JITTER_RATIO;
-
-      const finalAngle = childSliceCenter + angleJitter;
-      const finalRadius = childRadius * radiusJitter;
-
-      positions.set(childId, {
-        x: finalRadius * Math.cos(finalAngle),
-        y: finalRadius * Math.sin(finalAngle),
-      });
-
-      placeSubtree(childId, depth + 1, childSliceStart, childSliceEnd);
-
-      cursor = childSliceEnd;
-    }
-  };
-
-  placeSubtree(rootId, 0, TREE_FAN_MIN_ANGLE, TREE_FAN_MAX_ANGLE);
-
-  return positions;
-}
-
-function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[]>): Set<string> {
-  const visited = new Set<string>();
-  const stack: string[] = [rootId];
-
-  while (stack.length > 0) {
-    const current = stack.pop();
-
-    if (current === undefined || visited.has(current)) continue;
-
-    visited.add(current);
-
-    const children = childrenByParent.get(current);
-
-    if (children) stack.push(...children);
-  }
-
-  return visited;
-}
-
 export default function GraphPage() {
   // LANDING STATE: static tree until user explicitly opens the interactive graph
   const [showFunctionalGraph, setShowFunctionalGraph] = useState(false);
 
-  const { organizations, isLoading, error, refetch: refetchOrganizations } = useOrganizations();
+  const {
+    organizations,
+    relationships,
+    isLoading,
+    error,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
 
   const [search, setSearch] = useState("");
 
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
-
-  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
@@ -404,58 +254,45 @@ export default function GraphPage() {
     return undefined;
   }, [isCardVisible, selectedOrgId]);
 
-  const { baseNodes, edges, childrenByParent } = useMemo(() => {
-    const nextBaseNodes: GraphNode[] = filteredOrganizations.map((org) => ({
-      id: org.id,
-      label: org.name,
-    }));
-
-    const nextEdges = buildDummyTreeEdges(nextBaseNodes);
-
-    const nextChildrenByParent = new Map<string, string[]>();
-
-    for (const edge of nextEdges) {
-      const list = nextChildrenByParent.get(edge.source) ?? [];
-
-      list.push(edge.target);
-
-      nextChildrenByParent.set(edge.source, list);
-    }
-
-    return {
-      baseNodes: nextBaseNodes,
-      edges: nextEdges,
-      childrenByParent: nextChildrenByParent,
-    };
-  }, [filteredOrganizations]);
-
-  useEffect(() => {
-    setPositions(computeTreePositions(baseNodes, edges));
-  }, [baseNodes, edges]);
-
   const nodes = useMemo<GraphNode[]>(
     () =>
-      baseNodes.map((node) => {
-        const position = positions.get(node.id);
-
-        if (!position) return node;
-
-        return {
-          ...node,
-          fx: position.x,
-          fy: position.y,
-        };
-      }),
-    [baseNodes, positions],
+      filteredOrganizations.map((org) => ({
+        id: org.id,
+        label: org.name,
+      })),
+    [filteredOrganizations],
   );
+
+  const edges = useMemo<GraphEdge[]>(() => {
+    const visibleNodeIds = new Set(nodes.map((node) => node.id));
+
+    return relationships
+      .filter(
+        (rel) =>
+          rel.relationshipTier === "PRIMARY" &&
+          visibleNodeIds.has(rel.npo1Id) &&
+          visibleNodeIds.has(rel.npo2Id),
+      )
+      .map((rel) => ({
+        id: rel.id,
+        source: rel.npo1Id,
+        target: rel.npo2Id,
+        ...(rel.relationshipType ? { label: rel.relationshipType } : {}),
+      }));
+  }, [nodes, relationships]);
 
   const visibleNodeIdsKey = useMemo(
     () =>
-      baseNodes
+      nodes
         .map((node) => node.id)
         .sort()
         .join("|"),
-    [baseNodes],
+    [nodes],
+  );
+
+  const selections = useMemo<string[]>(
+    () => (isCardVisible && selectedOrgId ? [selectedOrgId] : []),
+    [isCardVisible, selectedOrgId],
   );
 
   useEffect(() => {
@@ -479,42 +316,6 @@ export default function GraphPage() {
     };
   }, [visibleNodeIdsKey, showFunctionalGraph]);
 
-  const handleNodeDragged = useCallback(
-    (node: InternalGraphNode) => {
-      setPositions((previousPositions) => {
-        const previous = previousPositions.get(node.id);
-
-        if (!previous) return previousPositions;
-
-        const deltaX = node.position.x - previous.x;
-
-        const deltaY = node.position.y - previous.y;
-
-        if (deltaX === 0 && deltaY === 0) {
-          return previousPositions;
-        }
-
-        const subtreeIds = collectSubtreeIds(node.id, childrenByParent);
-
-        const nextPositions = new Map(previousPositions);
-
-        for (const id of subtreeIds) {
-          const current = nextPositions.get(id);
-
-          if (!current) continue;
-
-          nextPositions.set(id, {
-            x: current.x + deltaX,
-            y: current.y + deltaY,
-          });
-        }
-
-        return nextPositions;
-      });
-    },
-    [childrenByParent],
-  );
-
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
   }, [refetchOrganizations]);
@@ -531,6 +332,8 @@ export default function GraphPage() {
 
       setSelectedOrgId(node.id);
       setIsCardVisible(true);
+
+      graphRef.current?.fitNodesInView([node.id], { animated: true });
 
       void fetchOrganizationDetail(node.id);
     },
@@ -724,10 +527,12 @@ export default function GraphPage() {
             ref={graphRef}
             draggable
             layoutType="forceDirected2d"
+            layoutOverrides={{ nodeStrength: -800, linkDistance: 180 }}
+            labelType="nodes"
             edgeArrowPosition="none"
             nodes={nodes}
             edges={edges}
-            onNodeDragged={handleNodeDragged}
+            selections={selections}
             onNodeClick={handleNodeClick}
           />
         </div>
