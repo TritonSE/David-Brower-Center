@@ -49,6 +49,25 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+/** GET /api/organizations/relationships */
+router.get("/relationships", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const relationships = await prisma.organizationRelationship.findMany({
+      select: {
+        id: true,
+        npo1Id: true,
+        npo2Id: true,
+        relationshipTier: true,
+        relationshipType: true,
+      },
+    });
+    res.status(200).json({ relationships });
+  } catch {
+    next(createError(500, "Failed to fetch organization relationships"));
+  }
+});
+
+/** GET /api/organizations/:id */
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   const rawId: unknown = req.params.id;
   if (typeof rawId !== "string" || rawId.length === 0) {

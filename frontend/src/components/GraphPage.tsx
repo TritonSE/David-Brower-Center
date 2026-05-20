@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  FilterIcon,
+  ChevronRightIcon,
   LeafIcon,
   LocationIcon,
   MoneyIcon,
@@ -31,8 +31,6 @@ const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagrap
 type GraphNode = {
   id: string;
   label: string;
-  fx?: number;
-  fy?: number;
 };
 
 type GraphEdge = {
@@ -42,13 +40,11 @@ type GraphEdge = {
   label?: string;
 };
 
-const DUMMY_TREE_BRANCHING_FACTOR = 3;
 const POPUP_FADE_DURATION_MS = 200;
-const RADIUS_STEP = 140;
-const TREE_FAN_MIN_ANGLE = Math.PI * 0.12;
-const TREE_FAN_MAX_ANGLE = Math.PI * 0.88;
-const ANGLE_JITTER_RATIO = 0.18;
-const RADIUS_JITTER_RATIO = 0.08;
+
+const FILTER_CATEGORIES = ["Focus Area", "Location", "Size", "Opportunity Type", "Budget"] as const;
+
+type GraphFilterCategory = (typeof FILTER_CATEGORIES)[number];
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -62,163 +58,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
-  if (nodes.length < 2) return [];
-
-  const edges: GraphEdge[] = [];
-  const branchingFactor = Math.max(1, DUMMY_TREE_BRANCHING_FACTOR);
-
-  for (let i = 1; i < nodes.length; i++) {
-    const parentIndex = Math.floor((i - 1) / branchingFactor);
-
-    const source = nodes[parentIndex];
-    const target = nodes[i];
-
-    edges.push({
-      id: `${source.id}->${target.id}`,
-      source: source.id,
-      target: target.id,
-      label: "Related",
-    });
-  }
-
-  return edges;
-}
-
-function hashToUnitInterval(value: string): number {
-  let hash = 0;
-
-  for (let i = 0; i < value.length; i++) {
-    hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
-  }
-
-  return (hash >>> 0) / 0x100000000;
-}
-
-function computeTreePositions(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  if (nodes.length === 0) return positions;
-
-  const childrenByParent = new Map<string, string[]>();
-
-  for (const edge of edges) {
-    const list = childrenByParent.get(edge.source) ?? [];
-    list.push(edge.target);
-    childrenByParent.set(edge.source, list);
-  }
-
-  const rootId = nodes[0].id;
-
-  positions.set(rootId, { x: 0, y: 0 });
-
-  const leafCountById = new Map<string, number>();
-
-  const computeLeafCount = (id: string): number => {
-    const children = childrenByParent.get(id);
-
-    if (!children || children.length === 0) {
-      leafCountById.set(id, 1);
-      return 1;
-    }
-
-    let total = 0;
-
-    for (const childId of children) {
-      total += computeLeafCount(childId);
-    }
-
-    leafCountById.set(id, total);
-
-    return total;
-  };
-
-  computeLeafCount(rootId);
-
-  const placeSubtree = (
-    nodeId: string,
-    depth: number,
-    sliceStart: number,
-    sliceEnd: number,
-  ): void => {
-    const children = childrenByParent.get(nodeId);
-
-    if (!children || children.length === 0) return;
-
-    const parentLeafCount = leafCountById.get(nodeId) ?? 1;
-    const sliceWidth = sliceEnd - sliceStart;
-    const childRadius = (depth + 1) * RADIUS_STEP;
-
-    let cursor = sliceStart;
-
-    for (const childId of children) {
-      const childLeafCount = leafCountById.get(childId) ?? 1;
-
-      const childSliceWidth = sliceWidth * (childLeafCount / parentLeafCount);
-
-      const childSliceStart = cursor;
-      const childSliceEnd = cursor + childSliceWidth;
-
-      const childSliceCenter = (childSliceStart + childSliceEnd) / 2;
-
-      const rand = hashToUnitInterval(childId);
-
-      const angleJitter = (rand - 0.5) * 2 * ANGLE_JITTER_RATIO * childSliceWidth;
-
-      const radiusJitter = 1 + (rand - 0.5) * 2 * RADIUS_JITTER_RATIO;
-
-      const finalAngle = childSliceCenter + angleJitter;
-      const finalRadius = childRadius * radiusJitter;
-
-      positions.set(childId, {
-        x: finalRadius * Math.cos(finalAngle),
-        y: finalRadius * Math.sin(finalAngle),
-      });
-
-      placeSubtree(childId, depth + 1, childSliceStart, childSliceEnd);
-
-      cursor = childSliceEnd;
-    }
-  };
-
-  placeSubtree(rootId, 0, TREE_FAN_MIN_ANGLE, TREE_FAN_MAX_ANGLE);
-
-  return positions;
-}
-
-function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[]>): Set<string> {
-  const visited = new Set<string>();
-  const stack: string[] = [rootId];
-
-  while (stack.length > 0) {
-    const current = stack.pop();
-
-    if (current === undefined || visited.has(current)) continue;
-
-    visited.add(current);
-
-    const children = childrenByParent.get(current);
-
-    if (children) stack.push(...children);
-  }
-
-  return visited;
-}
-
 export default function GraphPage() {
   // LANDING STATE: static tree until user explicitly opens the interactive graph
   const [showFunctionalGraph, setShowFunctionalGraph] = useState(false);
 
-  const { organizations, isLoading, error, refetch: refetchOrganizations } = useOrganizations();
+  const {
+    organizations,
+    relationships,
+    isLoading,
+    error,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
 
   const [search, setSearch] = useState("");
-
+  const [expandedFilter, setExpandedFilter] = useState<GraphFilterCategory | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
-
-  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
@@ -235,6 +89,10 @@ export default function GraphPage() {
   const detailRequestIdRef = useRef(0);
 
   const graphRef = useRef<GraphCanvasRef | null>(null);
+
+  const graphContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const popupCardRef = useRef<HTMLDivElement | null>(null);
 
   // ACTIVATE GRAPH
   const activateGraph = useCallback(() => {
@@ -343,6 +201,11 @@ export default function GraphPage() {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
   }, []);
 
+  const handleFilterToggle = useCallback((category: GraphFilterCategory) => {
+    if (category !== "Focus Area") return;
+    setExpandedFilter((previous) => (previous === category ? null : category));
+  }, []);
+
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
 
@@ -404,116 +267,114 @@ export default function GraphPage() {
     return undefined;
   }, [isCardVisible, selectedOrgId]);
 
-  const { baseNodes, edges, childrenByParent } = useMemo(() => {
-    const nextBaseNodes: GraphNode[] = filteredOrganizations.map((org) => ({
-      id: org.id,
-      label: org.name,
-    }));
-
-    const nextEdges = buildDummyTreeEdges(nextBaseNodes);
-
-    const nextChildrenByParent = new Map<string, string[]>();
-
-    for (const edge of nextEdges) {
-      const list = nextChildrenByParent.get(edge.source) ?? [];
-
-      list.push(edge.target);
-
-      nextChildrenByParent.set(edge.source, list);
-    }
-
-    return {
-      baseNodes: nextBaseNodes,
-      edges: nextEdges,
-      childrenByParent: nextChildrenByParent,
-    };
-  }, [filteredOrganizations]);
-
-  useEffect(() => {
-    setPositions(computeTreePositions(baseNodes, edges));
-  }, [baseNodes, edges]);
-
   const nodes = useMemo<GraphNode[]>(
     () =>
-      baseNodes.map((node) => {
-        const position = positions.get(node.id);
-
-        if (!position) return node;
-
-        return {
-          ...node,
-          fx: position.x,
-          fy: position.y,
-        };
-      }),
-    [baseNodes, positions],
+      filteredOrganizations.map((org) => ({
+        id: org.id,
+        label: org.name,
+      })),
+    [filteredOrganizations],
   );
+
+  const edges = useMemo<GraphEdge[]>(() => {
+    const visibleNodeIds = new Set(nodes.map((node) => node.id));
+
+    return relationships
+      .filter(
+        (rel) =>
+          rel.relationshipTier === "PRIMARY" &&
+          visibleNodeIds.has(rel.npo1Id) &&
+          visibleNodeIds.has(rel.npo2Id),
+      )
+      .map((rel) => ({
+        id: rel.id,
+        source: rel.npo1Id,
+        target: rel.npo2Id,
+        ...(rel.relationshipType ? { label: rel.relationshipType } : {}),
+      }));
+  }, [nodes, relationships]);
 
   const visibleNodeIdsKey = useMemo(
     () =>
-      baseNodes
+      nodes
         .map((node) => node.id)
         .sort()
         .join("|"),
-    [baseNodes],
+    [nodes],
   );
+
+  const selections = useMemo<string[]>(
+    () => (isCardVisible && selectedOrgId ? [selectedOrgId] : []),
+    [isCardVisible, selectedOrgId],
+  );
+
+  // Left sidebar is `absolute left-4 w-[400px]`, so its right edge sits at 416px.
+  // Round up slightly so content has breathing room from the sidebar.
+  const SIDEBAR_RIGHT_PX = 420;
+
+  const fitWithSidebarOffset = useCallback((nodeIds?: string[]) => {
+    const ref = graphRef.current;
+    if (!ref) return;
+
+    ref.fitNodesInView(nodeIds, { animated: true });
+
+    // After fit, compensate when the WebGL canvas extends behind the floating
+    // sidebar so the visible center of the content sits to the right of it.
+    const controls = ref.getControls() as unknown as {
+      camera?: { fov?: number; position: { length: () => number } };
+      distance?: number;
+      truck: (x: number, y: number, enableTransition?: boolean) => void;
+      dolly: (distance: number, enableTransition?: boolean) => void;
+    } | null;
+    const container = graphContainerRef.current;
+    if (!controls || !container) return;
+
+    const camera = controls.camera;
+    if (!camera || typeof camera.fov !== "number") return;
+
+    const rect = container.getBoundingClientRect();
+    if (rect.height === 0) return;
+
+    // If the container already starts at or past the sidebar's right edge, fit
+    // is already centered in the visible area — no shift needed.
+    const overlapPx = SIDEBAR_RIGHT_PX - rect.left;
+    if (overlapPx <= 0) return;
+
+    // Convert the half-overlap from CSS pixels to world units using the
+    // perspective camera's visible height at the current target distance.
+    const distance = controls.distance ?? camera.position.length();
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovRad / 2) * distance;
+    const worldPerPixel = visibleHeight / rect.height;
+    const offsetWorld = (overlapPx / 2) * worldPerPixel;
+
+    // Trucking the camera left shifts visible content rightward, clearing the
+    // sidebar. Dolly out by the same magnitude so nothing falls off the right.
+    controls.truck(-offsetWorld, 0, true);
+    controls.dolly(-offsetWorld, true);
+  }, []);
 
   useEffect(() => {
     if (visibleNodeIdsKey.length === 0 || !showFunctionalGraph) {
       return;
     }
 
-    let cancelled = false;
+    // Force-directed layout needs time to settle after nodes change; refit a few
+    // times across the simulation window so the camera tracks it as it converges.
+    const refitDelaysMs = [50, 350, 800, 1400];
 
-    const rafId = requestAnimationFrame(() => {
-      if (cancelled) return;
-
-      graphRef.current?.fitNodesInView(undefined, {
-        animated: true,
-      });
-    });
+    const timeoutIds = refitDelaysMs.map((delay) =>
+      window.setTimeout(() => {
+        fitWithSidebarOffset();
+      }, delay),
+    );
 
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
+      for (const id of timeoutIds) {
+        window.clearTimeout(id);
+      }
     };
-  }, [visibleNodeIdsKey, showFunctionalGraph]);
-
-  const handleNodeDragged = useCallback(
-    (node: InternalGraphNode) => {
-      setPositions((previousPositions) => {
-        const previous = previousPositions.get(node.id);
-
-        if (!previous) return previousPositions;
-
-        const deltaX = node.position.x - previous.x;
-
-        const deltaY = node.position.y - previous.y;
-
-        if (deltaX === 0 && deltaY === 0) {
-          return previousPositions;
-        }
-
-        const subtreeIds = collectSubtreeIds(node.id, childrenByParent);
-
-        const nextPositions = new Map(previousPositions);
-
-        for (const id of subtreeIds) {
-          const current = nextPositions.get(id);
-
-          if (!current) continue;
-
-          nextPositions.set(id, {
-            x: current.x + deltaX,
-            y: current.y + deltaY,
-          });
-        }
-
-        return nextPositions;
-      });
-    },
-    [childrenByParent],
-  );
+  }, [visibleNodeIdsKey, showFunctionalGraph, fitWithSidebarOffset]);
 
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
@@ -532,9 +393,11 @@ export default function GraphPage() {
       setSelectedOrgId(node.id);
       setIsCardVisible(true);
 
+      fitWithSidebarOffset([node.id]);
+
       void fetchOrganizationDetail(node.id);
     },
-    [activateGraph, fetchOrganizationDetail, isCardVisible, selectedOrgId],
+    [activateGraph, fetchOrganizationDetail, fitWithSidebarOffset, isCardVisible, selectedOrgId],
   );
 
   const handleCloseCard = useCallback(() => {
@@ -547,6 +410,24 @@ export default function GraphPage() {
 
     void fetchOrganizationDetail(selectedOrgId);
   }, [fetchOrganizationDetail, selectedOrgId]);
+
+  // Close the popup when the user clicks anywhere outside it.
+  useEffect(() => {
+    if (!isCardVisible) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && popupCardRef.current?.contains(target)) {
+        return;
+      }
+      handleCloseCard();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [handleCloseCard, isCardVisible]);
 
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
@@ -591,89 +472,115 @@ export default function GraphPage() {
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
       {/* LEFT SIDEBAR */}
       {!isLoading && !error && hasOrganizations && (
-        <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
-          {/* SEARCH */}
-          <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
-            <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
+        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[400px] max-w-[calc(100vw-2rem)]">
+          <section className="pointer-events-auto flex h-[calc(100vh-120px)] flex-col overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="px-10 pb-6 pt-9">
+              <h1 className="text-[20px] font-semibold leading-7 text-black">
+                Welcome to the DBC Database
+              </h1>
+              <p className="mt-4 text-[14px] leading-[20px] text-black">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
 
-            <input
-              className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
-              placeholder="Search"
-              type="search"
-              value={search}
-              onChange={(event) => {
-                const value = event.target.value;
+              <label className="mt-8 flex h-[44px] items-center rounded-full border border-[#b4b4b4] bg-white px-4">
+                <span className="sr-only">Search organizations</span>
+                <SearchIcon className="pointer-events-none h-5 w-5 flex-shrink-0 text-[#6c6c6c]" />
+                <input
+                  className="min-w-0 flex-1 bg-transparent pl-3 text-[14px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
+                  placeholder="Search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearch(value);
+                    if (value.trim().length > 0) {
+                      activateGraph();
+                    }
+                  }}
+                />
+              </label>
+            </div>
 
-                setSearch(value);
-
-                if (value.trim().length > 0) {
-                  activateGraph();
-                }
-              }}
-            />
-          </div>
-
-          {/* FILTERS */}
-          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
-                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" />
-
-                <span>Filter by tag</span>
-
+            <div className="flex flex-1 flex-col border-t border-[#d9d9d9] px-10 pb-9 pt-7">
+              <div className="mb-4 flex min-h-5 items-center justify-between gap-2">
+                <p className="text-[13px] leading-5 text-[#6c6c6c]">Filters</p>
                 {selectedTagIds.size > 0 ? (
-                  <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
-                    {selectedTagIds.size}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={clearTagFilter}
+                    className="text-[13px] font-semibold leading-5 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                  >
+                    Clear
+                  </button>
                 ) : null}
               </div>
 
-              {selectedTagIds.size > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearTagFilter}
-                  className="text-xs font-semibold text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
-                >
-                  Clear
-                </button>
-              ) : null}
-            </div>
-
-            {availableTags.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-[#6c6c6c]">
-                No tags are associated with the loaded organizations.
-              </p>
-            ) : (
-              <ul className="flex-1 overflow-y-auto py-1">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTagIds.has(tag.id);
+              <div className="flex flex-col gap-4">
+                {FILTER_CATEGORIES.map((category) => {
+                  const isExpanded = expandedFilter === category;
+                  const isFocusArea = category === "Focus Area";
 
                   return (
-                    <li key={tag.id}>
-                      <label
-                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#f5f5f5] ${
-                          isSelected ? "bg-[#f0f8f8] text-[#2f7f7f]" : "text-[#333]"
-                        }`}
+                    <div key={category}>
+                      <button
+                        type="button"
+                        aria-expanded={isFocusArea ? isExpanded : undefined}
+                        onClick={() => handleFilterToggle(category)}
+                        className="flex h-[44px] w-full items-center justify-between rounded-[8px] border border-[#b4b4b4] bg-white px-4 text-left text-[14px] font-medium leading-5 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
-                          checked={isSelected}
-                          onChange={() => toggleTag(tag.id)}
-                        />
-
-                        <span className="flex-1 truncate" title={tag.name}>
-                          {tag.name}
+                        <span className="truncate">
+                          {category}
+                          {isFocusArea && selectedTagIds.size > 0
+                            ? ` (${selectedTagIds.size})`
+                            : ""}
                         </span>
+                        <ChevronRightIcon
+                          className={`h-5 w-5 flex-shrink-0 text-black transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
 
-                        <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
-                      </label>
-                    </li>
+                      {isFocusArea && isExpanded ? (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-[8px] border border-[#d9d9d9] bg-white py-1">
+                          {availableTags.length === 0 ? (
+                            <p className="px-4 py-2.5 text-[13px] leading-5 text-[#6c6c6c]">
+                              No focus areas available.
+                            </p>
+                          ) : (
+                            availableTags.map((tag) => {
+                              const isSelected = selectedTagIds.has(tag.id);
+                              return (
+                                <label
+                                  key={tag.id}
+                                  className={`flex cursor-pointer items-center gap-2.5 px-4 py-2.5 text-[13px] leading-5 transition-colors hover:bg-[#f5f5f5] ${
+                                    isSelected ? "text-[#2f7f7f]" : "text-black"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
+                                    checked={isSelected}
+                                    onChange={() => toggleTag(tag.id)}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate" title={tag.name}>
+                                    {tag.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-[#6c6c6c]">{tag.count}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
-              </ul>
-            )}
-          </div>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
@@ -696,7 +603,7 @@ export default function GraphPage() {
         </div>
       ) : !showFunctionalGraph ? (
         /* STATIC TREE LANDING PAGE */
-        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[280px] pr-6">
+        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[420px] pr-6">
           <button
             type="button"
             onClick={activateGraph}
@@ -712,22 +619,24 @@ export default function GraphPage() {
           </button>
         </div>
       ) : nodes.length === 0 ? (
-        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[280px] text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[420px] text-sm text-slate-600">
           {hasActiveFilters
             ? "No organizations match the current filters."
             : "No organizations to display."}
         </div>
       ) : (
         /* FUNCTIONAL GRAPH */
-        <div className="h-[calc(100vh-92px)] w-full pl-[280px]">
+        <div ref={graphContainerRef} className="h-[calc(100vh-92px)] w-full pl-[420px]">
           <GraphCanvas
             ref={graphRef}
             draggable
             layoutType="forceDirected2d"
+            layoutOverrides={{ nodeStrength: -800, linkDistance: 180 }}
+            labelType="nodes"
             edgeArrowPosition="none"
             nodes={nodes}
             edges={edges}
-            onNodeDragged={handleNodeDragged}
+            selections={selections}
             onNodeClick={handleNodeClick}
           />
         </div>
@@ -741,6 +650,7 @@ export default function GraphPage() {
       >
         {selectedOrgId ? (
           <div
+            ref={popupCardRef}
             className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
             style={{
               transform: isCardVisible ? "translateY(0)" : "translateY(8px)",

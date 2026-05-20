@@ -33,6 +33,16 @@ function parseOrganizationsPayload(payload: unknown): unknown[] {
   throw new Error("[/api/organizations] Unexpected response shape.");
 }
 
+function parseRelationshipsPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  if (isRecord(payload) && Array.isArray(payload.relationships)) {
+    return payload.relationships;
+  }
+
+  throw new Error("[/api/organizations/relationships] Unexpected response shape.");
+}
+
 function parseOrganizationPayload(payload: unknown): unknown {
   if (isRecord(payload)) {
     if (isRecord(payload.organization)) return payload.organization;
@@ -74,6 +84,16 @@ export type OrganizationListItem = {
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
+};
+
+export type OrganizationRelationshipTier = "PRIMARY" | "SECONDARY" | "TERTIARY";
+
+export type OrganizationRelationship = {
+  id: string;
+  npo1Id: string;
+  npo2Id: string;
+  relationshipTier: OrganizationRelationshipTier;
+  relationshipType: string | null;
 };
 
 export type OrganizationDetail = {
@@ -149,6 +169,53 @@ export async function getOrganizations(
     const payload: unknown = await response.json();
     const organizations = parseOrganizationsPayload(payload);
     return { success: true, data: organizations.map(parseOrganizationListItem) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+function parseRelationshipTier(value: unknown): OrganizationRelationshipTier | null {
+  if (value === "PRIMARY" || value === "SECONDARY" || value === "TERTIARY") {
+    return value;
+  }
+  return null;
+}
+
+function parseOrganizationRelationship(value: unknown): OrganizationRelationship | null {
+  if (!isRecord(value)) return null;
+
+  const id = toOptionalString(value.id);
+  const npo1Id = toOptionalString(value.npo1Id);
+  const npo2Id = toOptionalString(value.npo2Id);
+  const tier = parseRelationshipTier(value.relationshipTier);
+
+  if (!id || !npo1Id || !npo2Id || !tier) return null;
+
+  return {
+    id,
+    npo1Id,
+    npo2Id,
+    relationshipTier: tier,
+    relationshipType: toOptionalString(value.relationshipType),
+  };
+}
+
+export async function getOrganizationRelationships(
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationRelationship[]>> {
+  try {
+    const response = await get("/api/organizations/relationships", {}, signal);
+    const payload: unknown = await response.json();
+    const raw = parseRelationshipsPayload(payload);
+    const relationships: OrganizationRelationship[] = [];
+    for (const entry of raw) {
+      const relationship = parseOrganizationRelationship(entry);
+      if (relationship) relationships.push(relationship);
+    }
+    return { success: true, data: relationships };
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
