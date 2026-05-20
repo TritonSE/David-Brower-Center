@@ -611,23 +611,23 @@ export default function GraphPage() {
       {!isLoading && !error && hasOrganizations && (
         // Floating left-side control panel layered over the canvas. The
         // outer wrapper lets blank regions pass clicks through to the graph.
-        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[320px] max-w-[calc(100vw-2rem)]">
-          <section className="pointer-events-auto max-h-[calc(100vh-112px)] overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-            <div className="px-8 pb-4 pt-6">
-              <h1 className="text-[15px] font-semibold leading-5 text-black">
+        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[400px] max-w-[calc(100vw-2rem)]">
+          <section className="pointer-events-auto flex h-[calc(100vh-120px)] flex-col overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="px-10 pb-6 pt-9">
+              <h1 className="text-[20px] font-semibold leading-7 text-black">
                 Welcome to the DBC Database
               </h1>
-              <p className="mt-3 text-[11px] leading-[15px] text-black">
+              <p className="mt-4 text-[14px] leading-[20px] text-black">
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
                 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
                 exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
               </p>
 
-              <label className="mt-6 flex h-[31px] items-center rounded-full border border-[#b4b4b4] bg-white px-3">
+              <label className="mt-8 flex h-[44px] items-center rounded-full border border-[#b4b4b4] bg-white px-4">
                 <span className="sr-only">Search organizations</span>
-                <SearchIcon className="pointer-events-none h-4 w-4 flex-shrink-0 text-[#6c6c6c]" />
+                <SearchIcon className="pointer-events-none h-5 w-5 flex-shrink-0 text-[#6c6c6c]" />
                 <input
-                  className="min-w-0 flex-1 bg-transparent pl-3 text-[11px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent pl-3 text-[14px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
                   placeholder="Search"
                   type="search"
                   value={search}
@@ -636,21 +636,21 @@ export default function GraphPage() {
               </label>
             </div>
 
-            <div className="border-t border-[#d9d9d9] px-8 pb-7 pt-5">
-              <div className="mb-3 flex min-h-4 items-center justify-between gap-2">
-                <p className="text-[11px] leading-4 text-[#6c6c6c]">Filters</p>
+            <div className="flex flex-1 flex-col border-t border-[#d9d9d9] px-10 pb-9 pt-7">
+              <div className="mb-4 flex min-h-5 items-center justify-between gap-2">
+                <p className="text-[13px] leading-5 text-[#6c6c6c]">Filters</p>
                 {selectedTagIds.size > 0 ? (
                   <button
                     type="button"
                     onClick={clearTagFilter}
-                    className="text-[11px] font-semibold leading-4 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                    className="text-[13px] font-semibold leading-5 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
                   >
                     Clear
                   </button>
                 ) : null}
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 {FILTER_CATEGORIES.map((category) => {
                   const isExpanded = expandedFilter === category;
                   const isFocusArea = category === "Focus Area";
@@ -661,7 +661,7 @@ export default function GraphPage() {
                         type="button"
                         aria-expanded={isFocusArea ? isExpanded : undefined}
                         onClick={() => handleFilterToggle(category)}
-                        className="flex h-[34px] w-full items-center justify-between rounded-[6px] border border-[#b4b4b4] bg-white px-3 text-left text-[11px] font-medium leading-4 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
+                        className="flex h-[44px] w-full items-center justify-between rounded-[8px] border border-[#b4b4b4] bg-white px-4 text-left text-[14px] font-medium leading-5 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
                       >
                         <span className="truncate">
                           {category}
@@ -670,16 +670,16 @@ export default function GraphPage() {
                             : ""}
                         </span>
                         <ChevronRightIcon
-                          className={`h-4 w-4 flex-shrink-0 text-black transition-transform ${
+                          className={`h-5 w-5 flex-shrink-0 text-black transition-transform ${
                             isExpanded ? "rotate-90" : ""
                           }`}
                         />
                       </button>
 
                       {isFocusArea && isExpanded ? (
-                        <div className="mt-2 max-h-40 overflow-y-auto rounded-[6px] border border-[#d9d9d9] bg-white py-1">
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-[8px] border border-[#d9d9d9] bg-white py-1">
                           {availableTags.length === 0 ? (
-                            <p className="px-3 py-2 text-[11px] leading-4 text-[#6c6c6c]">
+                            <p className="px-4 py-2.5 text-[13px] leading-5 text-[#6c6c6c]">
                               No focus areas available.
                             </p>
                           ) : (
@@ -688,13 +688,13 @@ export default function GraphPage() {
                               return (
                                 <label
                                   key={tag.id}
-                                  className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[11px] leading-4 transition-colors hover:bg-[#f5f5f5] ${
+                                  className={`flex cursor-pointer items-center gap-2.5 px-4 py-2.5 text-[13px] leading-5 transition-colors hover:bg-[#f5f5f5] ${
                                     isSelected ? "text-[#2f7f7f]" : "text-black"
                                   }`}
                                 >
                                   <input
                                     type="checkbox"
-                                    className="h-3.5 w-3.5 flex-shrink-0 accent-[#3b9a9a]"
+                                    className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
                                     checked={isSelected}
                                     onChange={() => toggleTag(tag.id)}
                                   />
