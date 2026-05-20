@@ -2,6 +2,7 @@ import { type NextFunction, type Request, type Response, Router } from "express"
 import createError from "http-errors";
 
 import { prisma } from "../lib/prisma";
+import { getColorFor } from "../lib/tagColors";
 
 const router = Router();
 
@@ -11,7 +12,6 @@ type CreateTagBody = {
   color?: string;
 };
 
-const DEFAULT_TAG_COLOR = "#D9D9D9";
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
@@ -45,7 +45,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
           ? body.description.trim() || null
           : null;
 
-    let color: string = DEFAULT_TAG_COLOR;
+    let color: string = getColorFor(name);
     if (body.color !== undefined && body.color !== null) {
       if (typeof body.color !== "string" || !HEX_COLOR_PATTERN.test(body.color.trim())) {
         return next(createError(400, "color must be a hex string like '#A8C5F2'"));
