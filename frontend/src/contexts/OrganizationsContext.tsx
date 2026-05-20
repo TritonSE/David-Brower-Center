@@ -10,11 +10,11 @@ import {
   useState,
 } from "react";
 
-import type { OrganizationListItem } from "@/api/organization";
+import type { OrganizationListItem, OrganizationRelationship } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 import type { ReactNode } from "react";
 
-import { getOrganizations } from "@/api/organization";
+import { getOrganizationRelationships, getOrganizations } from "@/api/organization";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -29,6 +29,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export type OrganizationsContextValue = {
   organizations: OrganizationListItem[];
+  relationships: OrganizationRelationship[];
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -38,6 +39,7 @@ const OrganizationsContext = createContext<OrganizationsContextValue | null>(nul
 
 export function OrganizationsProvider({ children }: { children: ReactNode }) {
   const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
+  const [relationships, setRelationships] = useState<OrganizationRelationship[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -54,19 +56,35 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
-        abortController.signal,
-      );
+      const [orgResult, relResult]: [
+        APIResult<OrganizationListItem[]>,
+        APIResult<OrganizationRelationship[]>,
+      ] = await Promise.all([
+        getOrganizations(abortController.signal),
+        getOrganizationRelationships(abortController.signal),
+      ]);
       if (requestIdRef.current !== requestId) return;
-      if (result.success) {
-        setOrganizations(result.data);
+
+      if (!orgResult.success) {
+        setOrganizations([]);
+        setRelationships([]);
+        setError(orgResult.error || "Unable to load organizations.");
         return;
       }
-      setOrganizations([]);
-      setError(result.error || "Unable to load organizations.");
+
+      if (!relResult.success) {
+        setOrganizations([]);
+        setRelationships([]);
+        setError(relResult.error || "Unable to load organization relationships.");
+        return;
+      }
+
+      setOrganizations(orgResult.data);
+      setRelationships(relResult.data);
     } catch (caughtError) {
       if (isAbortError(caughtError) || requestIdRef.current !== requestId) return;
       setOrganizations([]);
+      setRelationships([]);
       setError(getErrorMessage(caughtError, "Unable to load organizations."));
     } finally {
       if (abortRef.current === abortController && requestIdRef.current === requestId) {
@@ -83,11 +101,12 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<OrganizationsContextValue>(
     () => ({
       organizations,
+      relationships,
       isLoading,
       error,
       refetch: load,
     }),
-    [organizations, error, isLoading, load],
+    [organizations, relationships, error, isLoading, load],
   );
 
   return <OrganizationsContext.Provider value={value}>{children}</OrganizationsContext.Provider>;
