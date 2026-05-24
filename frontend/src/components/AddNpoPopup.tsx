@@ -62,6 +62,7 @@ export default function AddNpoPopup({
   const focusId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const focusComboboxRef = useRef<HTMLDivElement | null>(null);
   const mediaFilesRef = useRef<MediaPreview[]>([]);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
@@ -197,12 +198,30 @@ export default function AddNpoPopup({
         setIsExitConfirmOpen(false);
         return;
       }
+      if (isFocusAreaOpen) {
+        setIsFocusAreaOpen(false);
+        return;
+      }
       handleRequestClose();
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleRequestClose, isExitConfirmOpen, open]);
+  }, [handleRequestClose, isExitConfirmOpen, isFocusAreaOpen, open]);
+
+  // Close focus area dropdown when clicking outside of it
+  useEffect(() => {
+    if (!isFocusAreaOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (focusComboboxRef.current?.contains(target)) return;
+      setIsFocusAreaOpen(false);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [isFocusAreaOpen]);
 
   const selectedFocusNames = useMemo(
     () => new Set(selectedFocusAreas.map((tag) => tag.name.toLowerCase())),
@@ -488,7 +507,7 @@ export default function AddNpoPopup({
             <label className={styles.caption} htmlFor={focusId}>
               Focus Area
             </label>
-            <div className={styles.focusCombobox}>
+            <div className={styles.focusCombobox} ref={focusComboboxRef}>
               <div className={styles.focusInputWrap}>
                 <div className={styles.focusPills}>
                   {selectedFocusAreas.map((tag) => (
