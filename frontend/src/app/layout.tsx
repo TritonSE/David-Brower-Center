@@ -2,6 +2,7 @@ import { Geist, Geist_Mono, Rubik } from "next/font/google";
 
 import Layout from "../components/Layout";
 import { AuthProvider } from "../contexts/AuthContext";
+import { OrganizationsProvider } from "../contexts/OrganizationsContext";
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -36,7 +37,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable} antialiased`}>
         <AuthProvider>
-          <Layout>{children}</Layout>
+          <OrganizationsProvider>
+            <Layout>{children}</Layout>
+          </OrganizationsProvider>
         </AuthProvider>
       </body>
     </html>

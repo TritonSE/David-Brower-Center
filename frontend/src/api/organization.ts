@@ -1,6 +1,7 @@
 import { get, handleAPIError, isAbortError, post } from "./request";
 
 import type { APIResult } from "./request";
+import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/services/supabase";
 
@@ -36,7 +37,17 @@ function parseOrganizationsPayload(payload: unknown): unknown[] {
     }
   }
 
-  throw new Error("[/organizations] Unexpected response shape.");
+  throw new Error("[/api/organizations] Unexpected response shape.");
+}
+
+function parseRelationshipsPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  if (isRecord(payload) && Array.isArray(payload.relationships)) {
+    return payload.relationships;
+  }
+
+  throw new Error("[/api/organizations/relationships] Unexpected response shape.");
 }
 
 function parseOrganizationPayload(payload: unknown): unknown {
@@ -46,7 +57,7 @@ function parseOrganizationPayload(payload: unknown): unknown {
     return payload;
   }
 
-  throw new Error("[/organizations/:id] Unexpected response shape.");
+  throw new Error("[/api/organizations/:id] Unexpected response shape.");
 }
 
 function getRequiredString(value: unknown, route: string, field: string): string {
@@ -60,7 +71,18 @@ function getRequiredString(value: unknown, route: string, field: string): string
 export type OrganizationTag = {
   id: string;
   name: string;
+  color: string;
 };
+
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+const HEX_COLOR_PATTERN = /^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function parseTagColor(value: unknown): string {
+  if (typeof value !== "string") return DEFAULT_TAG_COLOR;
+  const trimmed = value.trim();
+  if (!HEX_COLOR_PATTERN.test(trimmed)) return DEFAULT_TAG_COLOR;
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+}
 
 export type OrganizationListItem = {
   id: string;
@@ -69,6 +91,16 @@ export type OrganizationListItem = {
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
+};
+
+export type OrganizationRelationshipTier = "PRIMARY" | "SECONDARY" | "TERTIARY";
+
+export type OrganizationRelationship = {
+  id: string;
+  npo1Id: string;
+  npo2Id: string;
+  relationshipTier: OrganizationRelationshipTier;
+  relationshipType: string | null;
 };
 
 export type OrganizationDetail = {
@@ -99,7 +131,7 @@ function parseOrganizationTag(value: unknown): OrganizationTag | null {
   const id = toOptionalString(value.id);
   const name = toOptionalString(value.name);
   if (!id || !name) return null;
-  return { id, name };
+  return { id, name, color: parseTagColor(value.color) };
 }
 
 function parseOrganizationTagList(value: unknown): OrganizationTag[] {
@@ -114,15 +146,15 @@ function parseOrganizationTagList(value: unknown): OrganizationTag[] {
 
 function parseOrganizationListItem(value: unknown): OrganizationListItem {
   if (!isRecord(value)) {
-    throw new Error("[/organizations] Expected each organization item to be an object.");
+    throw new Error("[/api/organizations] Expected each organization item to be an object.");
   }
 
   const tags = parseOrganizationTagList(value.tags);
   const focus = toFallbackString(value.focus);
 
   return {
-    id: getRequiredString(value.id, "/organizations", "id"),
-    name: getRequiredString(value.name, "/organizations", "name"),
+    id: getRequiredString(value.id, "/api/organizations", "id"),
+    name: getRequiredString(value.name, "/api/organizations", "name"),
     focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
@@ -132,15 +164,15 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
 
 function parseOrganizationDetail(value: unknown): OrganizationDetail {
   if (!isRecord(value)) {
-    throw new Error("[/organizations/:id] Expected organization detail to be an object.");
+    throw new Error("[/api/organizations/:id] Expected organization detail to be an object.");
   }
 
   const tags = parseOrganizationTagList(value.tags);
   const focus = toFallbackString(value.focus);
 
   return {
-    id: getRequiredString(value.id, "/organizations/:id", "id"),
-    name: getRequiredString(value.name, "/organizations/:id", "name"),
+    id: getRequiredString(value.id, "/api/organizations/:id", "id"),
+    name: getRequiredString(value.name, "/api/organizations/:id", "name"),
     focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
     year: toFallbackString(value.year),
     size: toFallbackString(value.size ?? value.sizeCategory),
@@ -158,8 +190,9 @@ async function getAccessToken(): Promise<string> {
     throw new Error(error.message);
   }
 
-  const token = data.session?.access_token;
-  if (!token) {
+  const session = data.session as Session | null;
+  const token = session?.access_token;
+  if (typeof token !== "string" || token.length === 0) {
     throw new Error("You must be signed in to create an organization.");
   }
 
@@ -170,10 +203,57 @@ export async function getOrganizations(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationListItem[]>> {
   try {
-    const response = await get("/organizations", {}, signal);
+    const response = await get("/api/organizations", {}, signal);
     const payload: unknown = await response.json();
     const organizations = parseOrganizationsPayload(payload);
     return { success: true, data: organizations.map(parseOrganizationListItem) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+function parseRelationshipTier(value: unknown): OrganizationRelationshipTier | null {
+  if (value === "PRIMARY" || value === "SECONDARY" || value === "TERTIARY") {
+    return value;
+  }
+  return null;
+}
+
+function parseOrganizationRelationship(value: unknown): OrganizationRelationship | null {
+  if (!isRecord(value)) return null;
+
+  const id = toOptionalString(value.id);
+  const npo1Id = toOptionalString(value.npo1Id);
+  const npo2Id = toOptionalString(value.npo2Id);
+  const tier = parseRelationshipTier(value.relationshipTier);
+
+  if (!id || !npo1Id || !npo2Id || !tier) return null;
+
+  return {
+    id,
+    npo1Id,
+    npo2Id,
+    relationshipTier: tier,
+    relationshipType: toOptionalString(value.relationshipType),
+  };
+}
+
+export async function getOrganizationRelationships(
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationRelationship[]>> {
+  try {
+    const response = await get("/api/organizations/relationships", {}, signal);
+    const payload: unknown = await response.json();
+    const raw = parseRelationshipsPayload(payload);
+    const relationships: OrganizationRelationship[] = [];
+    for (const entry of raw) {
+      const relationship = parseOrganizationRelationship(entry);
+      if (relationship) relationships.push(relationship);
+    }
+    return { success: true, data: relationships };
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
@@ -187,7 +267,7 @@ export async function getOrganizationById(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationDetail>> {
   try {
-    const response = await get(`/organizations/${encodeURIComponent(id)}`, {}, signal);
+    const response = await get(`/api/organizations/${encodeURIComponent(id)}`, {}, signal);
     const payload: unknown = await response.json();
     const organization = parseOrganizationPayload(payload);
     return { success: true, data: parseOrganizationDetail(organization) };
@@ -206,7 +286,7 @@ export async function createOrganization(
   try {
     const token = await getAccessToken();
     const response = await post(
-      "/organizations",
+      "/api/organizations",
       {
         name: input.name,
         projectId: input.projectId,
