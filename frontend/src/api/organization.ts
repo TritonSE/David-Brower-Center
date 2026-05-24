@@ -1,4 +1,4 @@
-import { get, handleAPIError, isAbortError, post } from "./request";
+import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
 import type { Session } from "@supabase/supabase-js";
@@ -290,6 +290,48 @@ export async function createOrganization(
       {
         name: input.name,
         projectId: input.projectId,
+        sizeCategory: input.sizeCategory,
+        location: input.location,
+        budget: input.budget,
+        tags: input.tags ?? [],
+        tagNames: input.tagNames ?? [],
+      },
+      {
+        Authorization: `Bearer ${token}`,
+      },
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+export type UpdateOrganizationValues = {
+  name: string;
+  sizeCategory?: string | null;
+  location?: string | null;
+  budget?: string | null;
+  tags?: string[];
+  tagNames?: string[];
+};
+
+export async function updateOrganization(
+  id: string,
+  input: UpdateOrganizationValues,
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(id)}`,
+      {
+        name: input.name,
         sizeCategory: input.sizeCategory,
         location: input.location,
         budget: input.budget,

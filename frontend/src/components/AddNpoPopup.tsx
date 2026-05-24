@@ -33,27 +33,56 @@ type MediaPreview = {
   previewUrl: string;
 };
 
+export type AddNpoInitialValues = {
+  title?: string;
+  description?: string;
+  location?: string;
+  npoSize?: string;
+  budgetSize?: string;
+  focusAreas?: FocusAreaValue[];
+};
+
 type AddNpoPopupProps = {
   open: boolean;
   onClose: () => void;
   onNext?: (values: AddNpoValues) => void;
   onSaveDraft?: (values: AddNpoValues) => void;
-  initialTitle?: string;
-  initialDescription?: string;
+  mode?: "create" | "edit";
+  initialValues?: AddNpoInitialValues;
   isSubmitting?: boolean;
   errorMessage?: string | null;
 };
+
+function focusAreaKey(value: FocusAreaValue): string {
+  return `${value.isCustom ? "custom" : (value.id ?? "")}:${value.name.toLowerCase()}`;
+}
+
+function focusAreasEqual(a: FocusAreaValue[], b: FocusAreaValue[]): boolean {
+  if (a.length !== b.length) return false;
+  const aKeys = new Set(a.map(focusAreaKey));
+  return b.every((value) => aKeys.has(focusAreaKey(value)));
+}
 
 export default function AddNpoPopup({
   open,
   onClose,
   onNext,
   onSaveDraft,
-  initialTitle = "",
-  initialDescription = "",
+  mode = "create",
+  initialValues,
   isSubmitting = false,
   errorMessage = null,
 }: AddNpoPopupProps) {
+  const isEditMode = mode === "edit";
+  const initialTitle = initialValues?.title ?? "";
+  const initialDescription = initialValues?.description ?? "";
+  const initialLocation = initialValues?.location ?? "";
+  const initialNpoSize = initialValues?.npoSize ?? "";
+  const initialBudgetSize = initialValues?.budgetSize ?? "";
+  const initialFocusAreas = useMemo(
+    () => initialValues?.focusAreas ?? [],
+    [initialValues?.focusAreas],
+  );
   const titleId = useId();
   const descId = useId();
   const locationId = useId();
@@ -67,14 +96,14 @@ export default function AddNpoPopup({
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [mediaFiles, setMediaFiles] = useState<MediaPreview[]>([]);
-  const [location, setLocation] = useState("");
-  const [npoSize, setNpoSize] = useState("");
-  const [budgetSize, setBudgetSize] = useState("");
+  const [location, setLocation] = useState(initialLocation);
+  const [npoSize, setNpoSize] = useState(initialNpoSize);
+  const [budgetSize, setBudgetSize] = useState(initialBudgetSize);
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
   const [isTagsLoading, setIsTagsLoading] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [focusAreaQuery, setFocusAreaQuery] = useState("");
-  const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusAreaValue[]>([]);
+  const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusAreaValue[]>(initialFocusAreas);
   const [isFocusAreaOpen, setIsFocusAreaOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
@@ -83,11 +112,11 @@ export default function AddNpoPopup({
     if (!open) return;
     setTitle(initialTitle);
     setDescription(initialDescription);
-    setLocation("");
-    setNpoSize("");
-    setBudgetSize("");
+    setLocation(initialLocation);
+    setNpoSize(initialNpoSize);
+    setBudgetSize(initialBudgetSize);
     setFocusAreaQuery("");
-    setSelectedFocusAreas([]);
+    setSelectedFocusAreas(initialFocusAreas);
     setIsFocusAreaOpen(false);
     setIsExitConfirmOpen(false);
     setMediaFiles((previous) => {
@@ -97,7 +126,15 @@ export default function AddNpoPopup({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [open, initialTitle, initialDescription]);
+  }, [
+    open,
+    initialTitle,
+    initialDescription,
+    initialLocation,
+    initialNpoSize,
+    initialBudgetSize,
+    initialFocusAreas,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -151,21 +188,25 @@ export default function AddNpoPopup({
       title !== initialTitle ||
       description !== initialDescription ||
       mediaFiles.length > 0 ||
-      location.trim().length > 0 ||
-      npoSize.trim().length > 0 ||
-      budgetSize.trim().length > 0 ||
+      location !== initialLocation ||
+      npoSize !== initialNpoSize ||
+      budgetSize !== initialBudgetSize ||
       focusAreaQuery.trim().length > 0 ||
-      selectedFocusAreas.length > 0,
+      !focusAreasEqual(selectedFocusAreas, initialFocusAreas),
     [
       budgetSize,
       description,
       focusAreaQuery,
+      initialBudgetSize,
       initialDescription,
+      initialFocusAreas,
+      initialLocation,
+      initialNpoSize,
       initialTitle,
       location,
       mediaFiles.length,
       npoSize,
-      selectedFocusAreas.length,
+      selectedFocusAreas,
       title,
     ],
   );
@@ -316,7 +357,7 @@ export default function AddNpoPopup({
         <header className={styles.addNpoTitle}>
           <div className={styles.headerRow}>
             <h2 id="add-npo-title" className={styles.title}>
-              Add NPO
+              {isEditMode ? "Edit NPO" : "Add NPO"}
             </h2>
 
             <button
@@ -599,14 +640,16 @@ export default function AddNpoPopup({
         <footer className={styles.footer}>
           {errorMessage ? <p className={styles.errorMessage}>{errorMessage}</p> : null}
           <div className={styles.buttons}>
-            <button
-              type="button"
-              className={styles.saveDraft}
-              disabled={isSubmitting}
-              onClick={() => onSaveDraft?.(values)}
-            >
-              Save Draft
-            </button>
+            {isEditMode ? null : (
+              <button
+                type="button"
+                className={styles.saveDraft}
+                disabled={isSubmitting}
+                onClick={() => onSaveDraft?.(values)}
+              >
+                Save Draft
+              </button>
+            )}
 
             <button
               type="button"
@@ -614,7 +657,7 @@ export default function AddNpoPopup({
               disabled={isSubmitting}
               onClick={() => onNext?.(values)}
             >
-              {isSubmitting ? "Saving..." : "Next"}
+              {isSubmitting ? "Saving..." : isEditMode ? "Save" : "Next"}
             </button>
           </div>
         </footer>

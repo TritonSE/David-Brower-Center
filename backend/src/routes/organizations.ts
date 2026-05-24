@@ -209,4 +209,112 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
   }
 });
 
+async function resolveTagIdSet(body: OrganizationBody): Promise<Set<string>> {
+  const tagIds = toUniqueTrimmedStrings(body.tags);
+  const tagNames = toUniqueTrimmedStrings(body.tagNames);
+
+  const tagsById = tagIds.length
+    ? await prisma.tag.findMany({
+        where: { id: { in: tagIds } },
+        select: { id: true },
+      })
+    : [];
+
+  const resolved = new Set(tagsById.map((tag) => tag.id));
+
+  const tagsByName = await Promise.all(
+    tagNames.map(
+      async (tagName) =>
+        await prisma.tag.upsert({
+          where: { name: tagName },
+          update: {},
+          create: { name: tagName },
+          select: { id: true },
+        }),
+    ),
+  );
+
+  for (const tag of tagsByName) {
+    resolved.add(tag.id);
+  }
+
+  return resolved;
+}
+
+/** PATCH /api/organizations/:id */
+router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  const rawId: unknown = req.params.id;
+  if (typeof rawId !== "string" || rawId.length === 0) {
+    next(createError(400, "Organization id is required"));
+    return;
+  }
+  const id: string = rawId;
+
+  try {
+    const body = req.body as OrganizationBody;
+
+    const data: {
+      name?: string;
+      sizeCategory?: string | null;
+      website?: string | null;
+      location?: string | null;
+      budget?: string | null;
+    } = {};
+
+    if (body.name !== undefined) {
+      if (typeof body.name !== "string" || body.name.trim().length === 0) {
+        throw createError(400, "name must be a non-empty string");
+      }
+      data.name = body.name.trim();
+    }
+
+    if ("sizeCategory" in body) data.sizeCategory = toOptionalTrimmedString(body.sizeCategory);
+    if ("website" in body) data.website = toOptionalTrimmedString(body.website);
+    if ("location" in body) data.location = toOptionalTrimmedString(body.location);
+    if ("budget" in body) data.budget = toOptionalTrimmedString(body.budget);
+
+    const replaceTags = body.tags !== undefined || body.tagNames !== undefined;
+    const tagIds = replaceTags ? await resolveTagIdSet(body) : null;
+
+    const organization = await prisma.$transaction(async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
+      if (!existing) {
+        throw createError(404, `Organization ${id} not found`);
+      }
+
+      if (tagIds) {
+        await tx.organizationTag.deleteMany({ where: { organizationId: id } });
+      }
+
+      return tx.organization.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(tagIds && tagIds.size > 0
+            ? {
+                tags: {
+                  create: [...tagIds].map((tagId) => ({
+                    tag: { connect: { id: tagId } },
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          tags: {
+            orderBy: { tag: { name: "asc" } },
+            select: {
+              tag: { select: { id: true, name: true, color: true } },
+            },
+          },
+        },
+      });
+    });
+
+    res.status(200).json({ organization: flattenOrganizationTags(organization) });
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
 export default router;
