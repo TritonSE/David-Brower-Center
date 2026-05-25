@@ -7,8 +7,11 @@ import NpoListView from "./NpoListView";
 import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
+import type { OrganizationDetail } from "@/api/organization";
+import type { APIResult } from "@/api/request";
 
-import { getOrganizationById, getOrganizations } from "@/api/organization";
+import { getOrganizationById } from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 const POPUP_FADE_DURATION_MS = 200;
 
 function isAbortError(error: unknown): boolean {
@@ -23,17 +26,28 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function HomePage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [isListLoading, setIsListLoading] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
+  const {
+    organizations,
+    isLoading: isListLoading,
+    error: listError,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
+  const rows: Row[] = useMemo(
+    () =>
+      organizations.map((o) => ({
+        id: o.id,
+        name: o.name,
+        focus: o.focus,
+        year: o.year,
+        tags: o.tags,
+      })),
+    [organizations],
+  );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [activeOrgDetail, setActiveOrgDetail] = useState<Awaited<
-    ReturnType<typeof getOrganizationById>
-  > | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isCardVisible, setIsCardVisible] = useState(false);
-  const listAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -41,33 +55,6 @@ export default function HomePage() {
     () => rows.find((row) => row.id === selectedOrgId) ?? null,
     [rows, selectedOrgId],
   );
-
-  const fetchOrganizations = useCallback(async () => {
-    listAbortRef.current?.abort();
-    const abortController = new AbortController();
-    listAbortRef.current = abortController;
-
-    setIsListLoading(true);
-    setListError(null);
-
-    try {
-      const organizations = await getOrganizations(abortController.signal);
-      setRows(organizations);
-    } catch (error) {
-      if (isAbortError(error)) return;
-      setRows([]);
-      setListError(getErrorMessage(error, "Unable to load organizations."));
-    } finally {
-      if (listAbortRef.current === abortController) {
-        setIsListLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchOrganizations();
-    return () => listAbortRef.current?.abort();
-  }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -81,9 +68,17 @@ export default function HomePage() {
     setActiveOrgDetail(null);
 
     try {
-      const detail = await getOrganizationById(organizationId, abortController.signal);
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
+      if (result.success) {
+        if (detailRequestIdRef.current !== requestId) return;
+        setActiveOrgDetail(result.data);
+        return;
+      }
       if (detailRequestIdRef.current !== requestId) return;
-      setActiveOrgDetail(detail);
+      setDetailError(result.error || "Unable to load organization details.");
     } catch (error) {
       if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
       setDetailError(getErrorMessage(error, "Unable to load organization details."));
@@ -93,7 +88,6 @@ export default function HomePage() {
       }
     }
   }, []);
-
   useEffect(() => () => detailAbortRef.current?.abort(), []);
 
   useEffect(() => {
@@ -125,8 +119,8 @@ export default function HomePage() {
   );
 
   const handleRetryList = useCallback(() => {
-    void fetchOrganizations();
-  }, [fetchOrganizations]);
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
 
   const handleRetryDetail = useCallback(() => {
     if (!selectedOrgId) return;
@@ -167,14 +161,14 @@ export default function HomePage() {
   }, [activeOrgDetail]);
 
   return (
-    <div className="min-h-screen bg-[#f2f9f8] px-4 py-6 md:px-8 lg:px-10">
+    <div>
       <div className="grid gap-6">
         {isListLoading ? (
-          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c]">
             Loading organizations...
           </div>
         ) : listError ? (
-          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 shadow-sm">
+          <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6">
             <p className="text-sm text-[#484848]">{listError}</p>
             <button
               className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"

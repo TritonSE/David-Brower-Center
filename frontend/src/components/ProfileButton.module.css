@@ -1,8 +1,8 @@
-.profile-btn-wrapper {
+.wrapper {
   position: relative;
 }
 
-.profile-btn {
+.btn {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -19,49 +19,36 @@
   box-sizing: border-box;
 }
 
-.profile-btn:hover,
-.profile-btn.profile-btn-open {
+.btn:hover,
+.btn.btnOpen {
   background: #3b9c9c;
   border-color: #3b9c9c;
   box-shadow: 0 2px 8px rgba(59, 156, 156, 0.3);
 }
 
-.profile-btn.profile-btn-open {
+.btn.btnOpen {
   width: 176px;
   min-width: 176px;
   height: 56px;
   border-radius: 999px;
 }
 
-.profile-btn-wrapper.profile-btn-dropdown-open {
+.wrapper.dropdownOpen {
   width: 176px;
 }
 
-.profile-btn:hover .profile-btn-name,
-.profile-btn.profile-btn-open .profile-btn-name {
+.btn:hover .caret,
+.btn.btnOpen .caret {
   color: white;
 }
 
-.profile-btn:hover .profile-btn-caret,
-.profile-btn.profile-btn-open .profile-btn-caret {
-  color: white;
-}
-
-.profile-btn-avatar {
+.avatar {
   border-radius: 50%;
   border: none;
   flex-shrink: 0;
 }
 
-.profile-btn-name {
-  color: #3b9a9a;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: color 0.3s ease;
-}
-
-.profile-btn-caret {
+.caret {
   color: #666;
   flex-shrink: 0;
   transition:
@@ -71,11 +58,11 @@
   display: inline-block;
 }
 
-.profile-btn-caret-up {
+.caretUp {
   transform: rotate(180deg);
 }
 
-.profile-btn-panel {
+.panel {
   position: absolute;
   top: 100%;
   right: 0;
@@ -92,7 +79,7 @@
   overflow: hidden;
 }
 
-.profile-btn-panel-header {
+.panelHeader {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -100,26 +87,26 @@
   background: white;
 }
 
-.profile-btn-panel-avatar {
+.panelAvatar {
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.profile-btn-panel-name {
+.panelName {
   flex: 1;
   color: #3b9c9c;
   font-size: 14px;
   font-weight: 500;
 }
 
-.profile-btn-divider {
+.divider {
   height: 1px;
   background: #e0e0e0;
   margin: 0;
   border: none;
 }
 
-.profile-btn-item {
+.item {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -135,15 +122,15 @@
   transition: background 0.2s ease;
 }
 
-.profile-btn-item:hover {
+.item:hover {
   background: #f5f5f5;
 }
 
-.profile-btn-item-icon {
+.itemIcon {
   flex-shrink: 0;
   filter: brightness(0) saturate(100%) invert(40%) sepia(0%) saturate(0%) hue-rotate(0deg);
 }
 
-.profile-btn-item:hover .profile-btn-item-icon {
+.item:hover .itemIcon {
   filter: brightness(0) saturate(100%) invert(59%) sepia(45%) saturate(1000%) hue-rotate(140deg);
 }

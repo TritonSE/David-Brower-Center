@@ -1,19 +1,10 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config";
 import { prisma } from "../lib/prisma";
+import { requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
-
-const supabaseAuthUnknown: unknown = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAuth = supabaseAuthUnknown as SupabaseClient;
-
-type AuthUserResult = {
-  data: { user: { id: string } } | null;
-  error: Error | null;
-};
 
 type OrganizationBody = {
   images?: unknown;
@@ -24,52 +15,18 @@ type OrganizationBody = {
   website?: unknown;
 };
 
-async function requireAdminUser(req: Request): Promise<string> {
-  const authHeader = req.headers.authorization;
-
-  if (typeof authHeader !== "string") {
-    throw createError(401, "Missing Authorization header");
-  }
-
-  const [scheme, token] = authHeader.trim().split(/\s+/);
-  if (scheme?.toLowerCase() !== "bearer" || !token) {
-    throw createError(401, "Missing or invalid Authorization header");
-  }
-
-  const authResult = (await supabaseAuth.auth.getUser(token)) as AuthUserResult;
-  const { data: authData, error: authError } = authResult;
-
-  if (authError || !authData?.user) {
-    throw createError(401, "Invalid or expired token");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { supabase_user_id: authData.user.id },
-    select: { supabase_user_id: true, role: true },
-  });
-
-  if (!user) {
-    throw createError(404, "User does not exist");
-  }
-
-  if (user.role !== "admin") {
-    throw createError(403, "Admin access required");
-  }
-
-  return user.supabase_user_id;
-}
-
-// Flattens the Prisma `tags` relation (a pivot row that nests a `tag`) into a
-// plain array of `{ id, name }` objects. Clients don't care about the join
-// table; they just want to render and filter on the tag list itself.
-type OrganizationTagJoin = { tag: { id: string; name: string } };
+type OrganizationTagJoin = { tag: { id: string; name: string; color: string } };
 function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
   organization: T,
-): Omit<T, "tags"> & { tags: { id: string; name: string }[] } {
+): Omit<T, "tags"> & { tags: { id: string; name: string; color: string }[] } {
   const { tags, ...rest } = organization;
   return {
     ...rest,
-    tags: tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name })),
+    tags: tags.map((entry) => ({
+      id: entry.tag.id,
+      name: entry.tag.name,
+      color: entry.tag.color,
+    })),
   };
 }
 
@@ -94,26 +51,46 @@ function toImageUrlArray(value: unknown): string[] {
   return urls;
 }
 
-router.get("/organizations", async (req: Request, res: Response, next: NextFunction) => {
+/** GET /api/organizations */
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organizations = await prisma.organization.findMany({
       include: {
         tags: {
+          orderBy: { tag: { name: "asc" } },
           select: {
-            tag: { select: { id: true, name: true } },
+            tag: { select: { id: true, name: true, color: true } },
           },
         },
       },
     });
     res.status(200).json({ organizations: organizations.map(flattenOrganizationTags) });
-  } catch {
+  } catch (error) {
+    console.error("GET /organizations failed:", error);
     next(createError(500, "Failed to fetch organizations"));
   }
 });
 
-router.get("/organizations/:id", async (req: Request, res: Response, next: NextFunction) => {
-  // Express 5 types `req.params` values as `string | string[] | undefined`,
-  // so narrow to a plain string before using it in queries or messages.
+/** GET /api/organizations/relationships */
+router.get("/relationships", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const relationships = await prisma.organizationRelationship.findMany({
+      select: {
+        id: true,
+        npo1Id: true,
+        npo2Id: true,
+        relationshipTier: true,
+        relationshipType: true,
+      },
+    });
+    res.status(200).json({ relationships });
+  } catch {
+    next(createError(500, "Failed to fetch organization relationships"));
+  }
+});
+
+/** GET /api/organizations/:id */
+router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   const rawId: unknown = req.params.id;
   if (typeof rawId !== "string" || rawId.length === 0) {
     next(createError(400, "Organization id is required"));
@@ -126,8 +103,9 @@ router.get("/organizations/:id", async (req: Request, res: Response, next: NextF
       where: { id },
       include: {
         tags: {
+          orderBy: { tag: { name: "asc" } },
           select: {
-            tag: { select: { id: true, name: true } },
+            tag: { select: { id: true, name: true, color: true } },
           },
         },
       },
@@ -139,23 +117,21 @@ router.get("/organizations/:id", async (req: Request, res: Response, next: NextF
     }
 
     res.status(200).json({ organization: flattenOrganizationTags(organization) });
-  } catch {
+  } catch (error) {
+    console.error(`GET /organizations/${id} failed:`, error);
     next(createError(500, `Failed to fetch organization ${id}`));
   }
 });
 
-router.post("/organizations", async (req: Request, res: Response, next: NextFunction) => {
+/** POST /api/organizations */
+router.post("/", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await requireAdminUser(req);
-
     const body = req.body as OrganizationBody;
 
     if (typeof body.name !== "string" || body.name.trim().length === 0) {
       throw createError(400, "name is required");
     }
 
-    // `tags` is a relation through the `OrganizationTag` join table. Accept an
-    // array of Tag UUIDs and create join rows linking to existing tags.
     const tagIds: string[] =
       Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
         ? body.tags
@@ -190,8 +166,9 @@ router.post("/organizations", async (req: Request, res: Response, next: NextFunc
       },
       include: {
         tags: {
+          orderBy: { tag: { name: "asc" } },
           select: {
-            tag: { select: { id: true, name: true } },
+            tag: { select: { id: true, name: true, color: true } },
           },
         },
       },

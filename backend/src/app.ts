@@ -1,13 +1,13 @@
 import cors from "cors";
 import express from "express";
-import createError from "http-errors";
 
-import organizationsRouter from "./api/organizations";
-import apiRouter from "./api/whoami";
 import { FRONTEND_ORIGIN, PORT } from "./config";
-import { prisma } from "./lib/prisma";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
+import organizationsRouter from "./routes/organizations";
+import tagsRouter from "./routes/tags";
+import usersRouter from "./routes/users";
+import whoamiRouter from "./routes/whoami";
 
 const app = express();
 const allowedOrigins = new Set([FRONTEND_ORIGIN]);
@@ -15,6 +15,7 @@ const allowedOrigins = new Set([FRONTEND_ORIGIN]);
 if (process.env.NODE_ENV !== "production") {
   allowedOrigins.add("http://localhost:3000");
   allowedOrigins.add("http://localhost:3001");
+  allowedOrigins.add("http://localhost:3002");
 }
 
 app.use(
@@ -39,22 +40,10 @@ app.get("/", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
-// Mount API routes
-app.use("/api", apiRouter);
-app.use(organizationsRouter);
-
-app.get("/tags", async (req, res, next) => {
-  try {
-    const tags = await prisma.tag.findMany({
-      orderBy: {
-        name: "asc",
-      },
-    });
-    res.status(200).json({ tags });
-  } catch {
-    next(createError(500, "Failed to fetch tags"));
-  }
-});
+app.use("/api/whoami", whoamiRouter);
+app.use("/api/users", usersRouter);
+app.use("/api/organizations", organizationsRouter);
+app.use("/api/tags", tagsRouter);
 
 app.use(errorHandler);
 app.listen(PORT, () => {
