@@ -19,6 +19,10 @@ function toFallbackString(value: unknown): string {
   return toOptionalString(value) ?? NOT_PROVIDED;
 }
 
+function toTagFocus(tags: OrganizationTag[]): string {
+  return tags.length > 0 ? tags.map((tag) => tag.name).join(" | ") : NOT_PROVIDED;
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -119,6 +123,17 @@ export type OrganizationDetail = {
   tags: OrganizationTag[];
 };
 
+export type CreateOrganizationValues = {
+  name: string;
+  projectId: string;
+  sizeCategory?: string | null;
+  location?: string | null;
+  budget?: string | null;
+  description?: string | null;
+  tags?: string[];
+  tagNames?: string[];
+};
+
 function parseOrganizationTag(value: unknown): OrganizationTag | null {
   if (!isRecord(value)) return null;
   const id = toOptionalString(value.id);
@@ -142,14 +157,17 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     throw new Error("[/api/organizations] Expected each organization item to be an object.");
   }
 
+  const tags = parseOrganizationTagList(value.tags);
+  const focus = toFallbackString(value.focus);
+
   return {
     id: getRequiredString(value.id, "/api/organizations", "id"),
     name: getRequiredString(value.name, "/api/organizations", "name"),
-    focus: toFallbackString(value.focus),
+    focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
     images: toStringArray(value.images),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
-    tags: parseOrganizationTagList(value.tags),
+    tags,
   };
 }
 
@@ -158,18 +176,21 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     throw new Error("[/api/organizations/:id] Expected organization detail to be an object.");
   }
 
+  const tags = parseOrganizationTagList(value.tags);
+  const focus = toFallbackString(value.focus);
+
   return {
     id: getRequiredString(value.id, "/api/organizations/:id", "id"),
     name: getRequiredString(value.name, "/api/organizations/:id", "name"),
-    focus: toFallbackString(value.focus),
+    focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
     year: toFallbackString(value.year),
-    size: toFallbackString(value.size),
+    size: toFallbackString(value.size ?? value.sizeCategory),
     budget: toFallbackString(value.budget),
     location: toFallbackString(value.location),
     description: toFallbackString(value.description),
     images: toStringArray(value.images),
     mission: toFallbackString(value.mission),
-    tags: parseOrganizationTagList(value.tags),
+    tags,
   };
 }
 
@@ -320,6 +341,80 @@ export async function getOrganizationById(
 ): Promise<APIResult<OrganizationDetail>> {
   try {
     const response = await get(`/api/organizations/${encodeURIComponent(id)}`, {}, signal);
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+export async function createOrganization(
+  input: CreateOrganizationValues,
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await post(
+      "/api/organizations",
+      {
+        name: input.name,
+        projectId: input.projectId,
+        sizeCategory: input.sizeCategory,
+        location: input.location,
+        budget: input.budget,
+        description: input.description,
+        tags: input.tags ?? [],
+        tagNames: input.tagNames ?? [],
+      },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+export type UpdateOrganizationValues = {
+  name: string;
+  sizeCategory?: string | null;
+  location?: string | null;
+  budget?: string | null;
+  description?: string | null;
+  tags?: string[];
+  tagNames?: string[];
+};
+
+export async function updateOrganization(
+  id: string,
+  input: UpdateOrganizationValues,
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(id)}`,
+      {
+        name: input.name,
+        sizeCategory: input.sizeCategory,
+        location: input.location,
+        budget: input.budget,
+        description: input.description,
+        tags: input.tags ?? [],
+        tagNames: input.tagNames ?? [],
+      },
+      authHeaders(token),
+      signal,
+    );
     const payload: unknown = await response.json();
     const organization = parseOrganizationPayload(payload);
     return { success: true, data: parseOrganizationDetail(organization) };

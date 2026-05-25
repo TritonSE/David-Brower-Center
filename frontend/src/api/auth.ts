@@ -1,5 +1,3 @@
-import type { Session } from "@supabase/supabase-js";
-
 import { supabase } from "@/services/supabase";
 
 export async function getAccessToken(): Promise<string> {
@@ -7,10 +5,10 @@ export async function getAccessToken(): Promise<string> {
   if (sessionError) {
     throw new Error(sessionError.message);
   }
-  // `getSession()` types `session` as `AuthSession`, which omits `access_token`; the
-  // runtime value includes the JWT on the full `Session` shape.
-  const session = data.session as Session | null;
-  const accessToken = session?.access_token;
+  // `getSession()` types `session` as `AuthSession`, which omits `access_token`;
+  // the runtime value includes the JWT on the full `Session` shape.
+  // @ts-expect-error access_token exists at runtime but not on AuthSession type
+  const accessToken: unknown = data.session?.access_token;
   if (typeof accessToken !== "string" || accessToken.length === 0) {
     throw new Error("You must be signed in to perform this action.");
   }

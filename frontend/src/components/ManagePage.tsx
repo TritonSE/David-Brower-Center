@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import AddNpoPopup from "./AddNpoPopup";
+import AddNpoPopup, { type AddNpoInitialValues, type AddNpoValues } from "./AddNpoPopup";
 import {
   FilterIcon,
   LeafIcon,
@@ -19,12 +19,40 @@ import type { OrganizationDetail, OrganizationListItem } from "@/api/organizatio
 import type { APIResult } from "@/api/request";
 
 import {
+  createOrganization,
   getImageUploadUrl,
   getOrganizationById,
   recordOrganizationImages,
+  updateOrganization,
   uploadImageToStorage,
 } from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
+
+const NOT_PROVIDED = "Not provided";
+const LOCATION_OPTIONS = new Set(["Berkeley", "Los Angeles", "San Jose", "Other"]);
+const NPO_SIZE_OPTIONS = new Set(["Grassroots", "Small", "Medium", "Large"]);
+
+function detailStringToFormValue(value: string): string {
+  return value === NOT_PROVIDED ? "" : value;
+}
+
+function detailLocationToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  return LOCATION_OPTIONS.has(raw) ? raw : "";
+}
+
+function detailNpoSizeToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  return NPO_SIZE_OPTIONS.has(raw) ? raw : "";
+}
+
+function detailBudgetToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  if (!raw) return "";
+  // Backend stores budget as a formatted currency string (e.g. "$1,234.56");
+  // the input expects a plain decimal.
+  return raw.replace(/[^\d.]/g, "");
+}
 
 type ManageStatus = "published" | "draft";
 
@@ -46,6 +74,36 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function generateProjectId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${slug || "npo"}-${Date.now().toString(36)}`;
+}
+
+function toOptionalString(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function formatBudgetSize(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function formatDate(dateString: string): string {
@@ -80,11 +138,16 @@ export default function ManagePage() {
   const [isCardVisible, setIsCardVisible] = useState(false);
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
-  const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
+  const [editingDetail, setEditingDetail] = useState<OrganizationDetail | null>(null);
+  const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
+  const [isCreatingNpo, setIsCreatingNpo] = useState(false);
+  const [addNpoError, setAddNpoError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
+  const createAbortRef = useRef<AbortController | null>(null);
+  const editAbortRef = useRef<AbortController | null>(null);
 
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
@@ -123,6 +186,7 @@ export default function ManagePage() {
     }
   }, []);
   useEffect(() => () => detailAbortRef.current?.abort(), []);
+  useEffect(() => () => createAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
@@ -214,50 +278,164 @@ export default function ManagePage() {
     );
   }
 
-  const handleAddNpoNext = useCallback(
-    async (values: { title: string; description: string; mediaFiles: File[] }) => {
-      setUploadError(null);
-      if (!values.title.trim()) return;
+  const handleCloseAddNpo = useCallback(() => {
+    createAbortRef.current?.abort();
+    setIsAddNpoOpen(false);
+    setEditingDetail(null);
+    setAddNpoError(null);
+    setIsCreatingNpo(false);
+    setUploadError(null);
+  }, []);
 
-      // After org creation is wired up, upload any selected images.
-      // For now we upload images to the org identified by editingOrg (edit flow),
-      // since the create flow doesn't have a POST /organizations endpoint wired yet.
-      const targetId = editingOrg?.id;
-      if (!targetId || values.mediaFiles.length === 0) {
-        setIsAddNpoOpen(false);
-        setEditingOrg(null);
+  const handleEditOrg = useCallback(async (orgId: string) => {
+    editAbortRef.current?.abort();
+    const abortController = new AbortController();
+    editAbortRef.current = abortController;
+
+    setEditLoadingId(orgId);
+    setAddNpoError(null);
+
+    try {
+      const result = await getOrganizationById(orgId, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      if (!result.success) {
+        setAddNpoError(result.error || "Unable to load organization for editing.");
         return;
       }
 
+      setEditingDetail(result.data);
+      setIsAddNpoOpen(true);
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setAddNpoError(getErrorMessage(error, "Unable to load organization for editing."));
+    } finally {
+      if (editAbortRef.current === abortController) {
+        editAbortRef.current = null;
+        setEditLoadingId(null);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => editAbortRef.current?.abort(), []);
+
+  const handleSubmitNpo = useCallback(
+    async (values: AddNpoValues) => {
+      const name = values.title.trim();
+      if (!name) {
+        setAddNpoError("NPO name is required.");
+        return;
+      }
+
+      createAbortRef.current?.abort();
+      const abortController = new AbortController();
+      createAbortRef.current = abortController;
+
+      setIsCreatingNpo(true);
+      setAddNpoError(null);
+
+      const existingTagIds = values.focusAreas
+        .filter((tag) => !tag.isCustom && tag.id)
+        .map((tag) => tag.id as string);
+      const customTagNames = values.focusAreas
+        .filter((tag) => tag.isCustom)
+        .map((tag) => tag.name.trim())
+        .filter(Boolean);
+
+      const editingId = editingDetail?.id ?? null;
+      const failureMessage = editingId ? "Unable to update NPO." : "Unable to create NPO.";
+
       try {
-        // Record each image immediately after upload so a mid-batch failure
-        // leaves nothing orphaned in Storage that isn't referenced by the DB.
-        for (const file of values.mediaFiles) {
-          // eslint-disable-next-line no-await-in-loop
-          const urlResult = await getImageUploadUrl(targetId, file.name);
-          if (!urlResult.success) {
-            setUploadError(`Failed to get upload URL: ${urlResult.error}`);
-            return;
-          }
-          // eslint-disable-next-line no-await-in-loop
-          await uploadImageToStorage(urlResult.data.uploadUrl, file);
-          // eslint-disable-next-line no-await-in-loop
-          const recordResult = await recordOrganizationImages(targetId, [urlResult.data.publicUrl]);
-          if (!recordResult.success) {
-            setUploadError(`Failed to save image URL: ${recordResult.error}`);
-            return;
+        const description = toOptionalString(values.description);
+
+        const result = editingId
+          ? await updateOrganization(
+              editingId,
+              {
+                name,
+                sizeCategory: toOptionalString(values.npoSize),
+                location: toOptionalString(values.location),
+                budget: formatBudgetSize(values.budgetSize),
+                description,
+                tags: existingTagIds,
+                tagNames: customTagNames,
+              },
+              abortController.signal,
+            )
+          : await createOrganization(
+              {
+                name,
+                projectId: generateProjectId(name),
+                sizeCategory: toOptionalString(values.npoSize),
+                location: toOptionalString(values.location),
+                budget: formatBudgetSize(values.budgetSize),
+                description,
+                tags: existingTagIds,
+                tagNames: customTagNames,
+              },
+              abortController.signal,
+            );
+
+        if (!result.success) {
+          setAddNpoError(result.error || failureMessage);
+          return;
+        }
+
+        const targetId = result.data.id;
+        if (values.mediaFiles.length > 0) {
+          // Record each image immediately after upload so a mid-batch failure
+          // leaves nothing orphaned in Storage that isn't referenced by the DB.
+          for (const file of values.mediaFiles) {
+            // eslint-disable-next-line no-await-in-loop
+            const urlResult = await getImageUploadUrl(targetId, file.name);
+            if (!urlResult.success) {
+              setUploadError(`Failed to get upload URL: ${urlResult.error}`);
+              return;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await uploadImageToStorage(urlResult.data.uploadUrl, file);
+            // eslint-disable-next-line no-await-in-loop
+            const recordResult = await recordOrganizationImages(targetId, [
+              urlResult.data.publicUrl,
+            ]);
+            if (!recordResult.success) {
+              setUploadError(`Failed to save image URL: ${recordResult.error}`);
+              return;
+            }
           }
         }
 
         setIsAddNpoOpen(false);
-        setEditingOrg(null);
-        void refetchOrganizations();
+        setEditingDetail(null);
+        await refetchOrganizations();
       } catch (error) {
-        setUploadError(getErrorMessage(error, "Image upload failed."));
+        if (isAbortError(error)) return;
+        setAddNpoError(getErrorMessage(error, failureMessage));
+      } finally {
+        if (createAbortRef.current === abortController) {
+          createAbortRef.current = null;
+          setIsCreatingNpo(false);
+        }
       }
     },
-    [editingOrg, refetchOrganizations],
+    [editingDetail, refetchOrganizations],
   );
+
+  const addNpoInitialValues = useMemo<AddNpoInitialValues | undefined>(() => {
+    if (!editingDetail) return undefined;
+    return {
+      title: editingDetail.name,
+      description: detailStringToFormValue(editingDetail.description),
+      location: detailLocationToFormValue(editingDetail.location),
+      npoSize: detailNpoSizeToFormValue(editingDetail.size),
+      budgetSize: detailBudgetToFormValue(editingDetail.budget),
+      focusAreas: editingDetail.tags.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        isCustom: false,
+      })),
+    };
+  }, [editingDetail]);
 
   if (isLoading) {
     return (
@@ -313,9 +491,10 @@ export default function ManagePage() {
 
             <button
               type="button"
-              className="inline-flex items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
+              className="inline-flex cursor-pointer items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
               onClick={() => {
-                setEditingOrg(null);
+                setEditingDetail(null);
+                setAddNpoError(null);
                 setIsAddNpoOpen(true);
               }}
             >
@@ -330,7 +509,7 @@ export default function ManagePage() {
                 type="button"
                 onClick={() => setActiveTab("published")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6",
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
                   activeTab === "published" ? "text-black" : "text-[#484848]",
                 )}
               >
@@ -346,7 +525,7 @@ export default function ManagePage() {
                 type="button"
                 onClick={() => setActiveTab("draft")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6",
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
                   activeTab === "draft" ? "text-black" : "text-[#484848]",
                 )}
               >
@@ -433,10 +612,8 @@ export default function ManagePage() {
                             <button
                               type="button"
                               aria-label={`Edit ${row.name}`}
-                              onClick={() => {
-                                setEditingOrg(row);
-                                setIsAddNpoOpen(true);
-                              }}
+                              disabled={editLoadingId !== null}
+                              onClick={() => void handleEditOrg(row.id)}
                             >
                               <span className="flex h-[22px] w-[22px] items-center justify-center">
                                 <Image
@@ -529,13 +706,12 @@ export default function ManagePage() {
 
       <AddNpoPopup
         open={isAddNpoOpen}
-        onClose={() => {
-          setIsAddNpoOpen(false);
-          setEditingOrg(null);
-          setUploadError(null);
-        }}
-        onNext={(values) => void handleAddNpoNext(values)}
-        initialTitle={editingOrg?.name ?? ""}
+        onClose={handleCloseAddNpo}
+        onNext={(values) => void handleSubmitNpo(values)}
+        mode={editingDetail ? "edit" : "create"}
+        initialValues={addNpoInitialValues}
+        isSubmitting={isCreatingNpo}
+        errorMessage={addNpoError}
       />
 
       {uploadError ? (

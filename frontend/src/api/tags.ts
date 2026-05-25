@@ -149,6 +149,41 @@ export async function getTagsWithMeta(signal?: AbortSignal): Promise<TagMeta[]> 
   return tags;
 }
 
+export type TagOption = {
+  id: string;
+  name: string;
+};
+
+function parseTagOption(value: unknown): TagOption {
+  if (!isRecord(value)) {
+    throw new Error("[/tags] Expected each tag to be an object.");
+  }
+
+  const id = toNonEmptyString(value.id);
+  const name = toNonEmptyString(value.name);
+
+  if (!id || !name) {
+    throw new Error('[/tags] Missing required fields "id" or "name" in response.');
+  }
+
+  return { id, name };
+}
+
+export async function getTagOptions(signal?: AbortSignal): Promise<TagOption[]> {
+  const response = await get("/api/tags", { Accept: "application/json" }, signal);
+  const payload: unknown = await response.json();
+  const rawTags = parseTagsPayload(payload);
+  const tags = rawTags.map(parseTagOption);
+  const seen = new Set<string>();
+
+  return tags.filter((tag) => {
+    const key = tag.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function getTags(signal?: AbortSignal): Promise<string[]> {
   const response = await get(
     "/api/tags",

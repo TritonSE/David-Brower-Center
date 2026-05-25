@@ -16,8 +16,12 @@ type OrganizationBody = {
   name?: unknown;
   projectId?: unknown;
   sizeCategory?: unknown;
-  tags?: unknown;
+  location?: unknown;
+  budget?: unknown;
+  description?: unknown;
   website?: unknown;
+  tags?: unknown;
+  tagNames?: unknown;
 };
 
 type OrganizationTagJoin = { tag: { id: string; name: string; color: string } };
@@ -33,6 +37,31 @@ function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
       color: entry.tag.color,
     })),
   };
+}
+
+function toOptionalTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toUniqueTrimmedStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const strings: string[] = [];
+
+  for (const item of value) {
+    const trimmed = toOptionalTrimmedString(item);
+    if (!trimmed) continue;
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    strings.push(trimmed);
+  }
+
+  return strings;
 }
 
 function isHttpsUrl(value: string): boolean {
@@ -132,32 +161,59 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
       throw createError(400, "name is required");
     }
 
-    const tagIds: string[] =
-      Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
-        ? body.tags
-        : [];
-    const images = toImageUrlArray(body.images);
-
     if (typeof body.projectId !== "string" || body.projectId.trim().length === 0) {
       throw createError(400, "projectId is required");
     }
 
-    const sizeCategoryRaw = body.sizeCategory;
-    const websiteRaw = body.website;
+    const images = toImageUrlArray(body.images);
+    const tagIds = toUniqueTrimmedStrings(body.tags);
+    const tagNames = toUniqueTrimmedStrings(body.tagNames);
+
+    const tagsById = tagIds.length
+      ? await prisma.tag.findMany({
+          where: { id: { in: tagIds } },
+          select: { id: true },
+        })
+      : [];
+
+    const connectedTagIds = new Set(tagsById.map((tag) => tag.id));
+
+    const tagsByName = await Promise.all(
+      tagNames.map(
+        async (tagName) =>
+          await prisma.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName },
+            select: { id: true },
+          }),
+      ),
+    );
+
+    for (const tag of tagsByName) {
+      connectedTagIds.add(tag.id);
+    }
+
+    const sizeCategory = toOptionalTrimmedString(body.sizeCategory);
+    const website = toOptionalTrimmedString(body.website);
+    const location = toOptionalTrimmedString(body.location);
+    const budget = toOptionalTrimmedString(body.budget);
+    const description = toOptionalTrimmedString(body.description);
 
     const organization = await prisma.organization.create({
       data: {
         images,
         name: body.name.trim(),
         projectId: body.projectId.trim(),
-        ...(typeof sizeCategoryRaw === "string"
-          ? { sizeCategory: sizeCategoryRaw.trim() || null }
-          : {}),
-        ...(typeof websiteRaw === "string" ? { website: websiteRaw.trim() || null } : {}),
-        ...(tagIds.length > 0
+        sizeCategory,
+        website,
+        location,
+        budget,
+        description,
+        ...(connectedTagIds.size > 0
           ? {
               tags: {
-                create: tagIds.map((tagId) => ({
+                create: [...connectedTagIds].map((tagId) => ({
                   tag: { connect: { id: tagId } },
                 })),
               },
@@ -168,6 +224,116 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
     });
 
     res.status(201).json({ organization: flattenOrganizationTags(organization) });
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+async function resolveTagIdSet(body: OrganizationBody): Promise<Set<string>> {
+  const tagIds = toUniqueTrimmedStrings(body.tags);
+  const tagNames = toUniqueTrimmedStrings(body.tagNames);
+
+  const tagsById = tagIds.length
+    ? await prisma.tag.findMany({
+        where: { id: { in: tagIds } },
+        select: { id: true },
+      })
+    : [];
+
+  const resolved = new Set(tagsById.map((tag) => tag.id));
+
+  const tagsByName = await Promise.all(
+    tagNames.map(
+      async (tagName) =>
+        await prisma.tag.upsert({
+          where: { name: tagName },
+          update: {},
+          create: { name: tagName },
+          select: { id: true },
+        }),
+    ),
+  );
+
+  for (const tag of tagsByName) {
+    resolved.add(tag.id);
+  }
+
+  return resolved;
+}
+
+/** PATCH /api/organizations/:id */
+router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  const rawId: unknown = req.params.id;
+  if (typeof rawId !== "string" || rawId.length === 0) {
+    next(createError(400, "Organization id is required"));
+    return;
+  }
+  const id: string = rawId;
+
+  try {
+    const body = req.body as OrganizationBody;
+
+    const data: {
+      name?: string;
+      sizeCategory?: string | null;
+      website?: string | null;
+      location?: string | null;
+      budget?: string | null;
+      description?: string | null;
+    } = {};
+
+    if (body.name !== undefined) {
+      if (typeof body.name !== "string" || body.name.trim().length === 0) {
+        throw createError(400, "name must be a non-empty string");
+      }
+      data.name = body.name.trim();
+    }
+
+    if ("sizeCategory" in body) data.sizeCategory = toOptionalTrimmedString(body.sizeCategory);
+    if ("website" in body) data.website = toOptionalTrimmedString(body.website);
+    if ("location" in body) data.location = toOptionalTrimmedString(body.location);
+    if ("budget" in body) data.budget = toOptionalTrimmedString(body.budget);
+    if ("description" in body) data.description = toOptionalTrimmedString(body.description);
+
+    const replaceTags = body.tags !== undefined || body.tagNames !== undefined;
+    const tagIds = replaceTags ? await resolveTagIdSet(body) : null;
+
+    const organization = await prisma.$transaction(async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
+      if (!existing) {
+        throw createError(404, `Organization ${id} not found`);
+      }
+
+      if (tagIds) {
+        await tx.organizationTag.deleteMany({ where: { organizationId: id } });
+      }
+
+      return tx.organization.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(tagIds && tagIds.size > 0
+            ? {
+                tags: {
+                  create: [...tagIds].map((tagId) => ({
+                    tag: { connect: { id: tagId } },
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          tags: {
+            orderBy: { tag: { name: "asc" } },
+            select: {
+              tag: { select: { id: true, name: true, color: true } },
+            },
+          },
+        },
+      });
+    });
+
+    res.status(200).json({ organization: flattenOrganizationTags(organization) });
   } catch (err: unknown) {
     next(err);
   }

@@ -13,7 +13,7 @@ export type AuthenticatedUser = {
 };
 
 type AuthUserResult = {
-  data: { user: { id: string } } | null;
+  data: { user: { id: string; email?: string | null } } | null;
   error: Error | null;
 };
 
@@ -39,16 +39,28 @@ async function loadAuthenticatedUser(req: Request): Promise<AuthenticatedUser> {
     throw createError(401, "Invalid or expired token");
   }
 
-  const user = await prisma.user.findUnique({
+  const existing = await prisma.user.findUnique({
     where: { supabase_user_id: authData.user.id },
     select: { supabase_user_id: true, profile_picture: true, role: true },
   });
 
-  if (!user) {
+  if (existing) {
+    return existing;
+  }
+
+  const email = authData.user.email?.trim();
+  if (!email) {
     throw createError(404, "User does not exist");
   }
 
-  return user;
+  const created = await prisma.user.upsert({
+    where: { supabase_user_id: authData.user.id },
+    update: {},
+    create: { supabase_user_id: authData.user.id, email, role: "admin" },
+    select: { supabase_user_id: true, profile_picture: true, role: true },
+  });
+
+  return created;
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
