@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
 import type { OrganizationDetail } from "@/api/organization";
@@ -33,7 +33,14 @@ export default function HomePage() {
     refetch: refetchOrganizations,
   } = useOrganizations();
   const rows: Row[] = useMemo(
-    () => organizations.map((o) => ({ id: o.id, name: o.name, focus: o.focus, year: o.year })),
+    () =>
+      organizations.map((o) => ({
+        id: o.id,
+        name: o.name,
+        focus: o.focus,
+        year: o.year,
+        tags: o.tags,
+      })),
     [organizations],
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -148,6 +155,7 @@ export default function HomePage() {
         },
       ],
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);

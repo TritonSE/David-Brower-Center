@@ -10,6 +10,7 @@
 }
 
 .wrapper {
+  position: relative;
   width: min(825px, 100%);
   height: min(665px, 100%);
 
@@ -22,6 +23,103 @@
   flex-direction: column;
   box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.exitConfirmLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.exitConfirmDialog {
+  width: 379px;
+  max-width: calc(100vw - 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+  border: none;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.exitConfirmCopy {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.exitConfirmTitle {
+  width: 288px;
+  margin: 0;
+  color: #000000;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.exitConfirmDescription {
+  min-width: 100%;
+  margin: 0;
+  color: #484848;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.24px;
+}
+
+.exitConfirmButtons {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 24px;
+}
+
+.exitButton,
+.continueEditingButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 40px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.exitButton {
+  border: 1px solid #b4b4b4;
+  padding: 8px 16px;
+  background: #ffffff;
+  color: #3b9a9a;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.continueEditingButton {
+  border: none;
+  padding: 0 16px;
+  background: #3b9a9a;
+  color: #ffffff;
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 32px;
+}
+
+.exitButton:hover,
+.continueEditingButton:hover {
+  filter: brightness(0.97);
 }
 
 .addNpoTitle {
@@ -40,7 +138,7 @@
 }
 
 .title {
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
   font-weight: 600;
   font-size: 25px;
   line-height: 1;
@@ -83,12 +181,16 @@
   margin-bottom: 18px;
 }
 
+.mediaField .caption {
+  margin-bottom: 4px;
+}
+
 .caption {
-  font-family: "Rubik";
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
   font-weight: 400;
   font-size: 12px;
   line-height: 150%;
-  letter-spacing: 2%;
+  letter-spacing: 0.24px;
   display: block;
   color: #484848;
   margin-bottom: 8px;
@@ -104,7 +206,7 @@
   border: 1px solid var(--border, #d9d9d9);
   padding: 8px 12px;
 
-  font-family: "Rubik";
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   line-height: 20px;
@@ -122,8 +224,46 @@
 }
 
 .input:focus {
-  border-color: var(--ring, rgba(59, 130, 246, 0.65));
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  outline: none;
+  border: 2px solid #428bcd;
+  box-shadow: none;
+}
+
+.currencyInputWrap {
+  position: relative;
+  width: 100%;
+}
+
+.currencyPrefix {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #909090;
+  pointer-events: none;
+}
+
+.currencyInput {
+  padding-left: 24px;
+}
+
+.select {
+  appearance: none;
+  color: #909090;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #d9d9d9 50%),
+    linear-gradient(135deg, #d9d9d9 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 15px,
+    calc(100% - 12px) 15px;
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
 }
 
 .textarea {
@@ -148,8 +288,16 @@
   width: min(704px, 100%);
   border-radius: 5px;
   border: 0.5px dashed #b4b4b4;
-  padding: 21px;
+  padding: 24px;
   text-align: center;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .dropzoneText {
@@ -158,22 +306,21 @@
 }
 
 .dropzoneMain {
-  font-family: "Rubik";
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 150%;
-  letter-spacing: 2%;
+  letter-spacing: 0.24px;
   color: var(--text, #484848);
 }
 
 .dropzoneSub {
-  font-family: "Rubik";
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
   font-size: 10px;
   font-weight: 400;
-  font-style: Regular;
   line-height: 150%;
-  letter-spacing: 2%;
-  color: var(--mutedText, d9d9d9);
+  letter-spacing: 0.2px;
+  color: var(--mutedText, #d9d9d9);
 }
 
 .browseButton {
@@ -193,14 +340,14 @@
 .mediaGrid {
   width: min(704px, 100%);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 216px));
+  gap: 28px;
 }
 
 .mediaCard {
   position: relative;
-  height: 180px;
-  border-radius: 8px;
+  height: 140px;
+  border-radius: 5px;
   overflow: hidden;
   border: 0.5px solid #d9d9d9;
   background: #f8f8f8;
@@ -247,8 +394,8 @@
 }
 
 .mediaAddTile {
-  height: 180px;
-  border-radius: 8px;
+  height: 140px;
+  border-radius: 5px;
   border: 1px dashed #b4b4b4;
   background: #ffffff;
   cursor: pointer;
@@ -258,6 +405,126 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.demographicsGrid {
+  width: min(704px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.demographicsGrid .field {
+  min-width: 0;
+  margin-bottom: 18px;
+}
+
+.focusCombobox {
+  position: relative;
+  width: min(704px, 100%);
+}
+
+.focusInputWrap {
+  min-height: 36px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #d9d9d9);
+  background: #fff;
+  padding: 5px 8px;
+}
+
+.focusInputWrap:focus-within {
+  border: 2px solid #428bcd;
+  padding: 4px 7px;
+  box-shadow: none;
+}
+
+.focusPills {
+  display: flex;
+  min-height: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.focusPill {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #f2f9f8;
+  padding: 3px 8px;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  color: #484848;
+}
+
+.focusPillRemove {
+  border: none;
+  background: transparent;
+  color: #6c6c6c;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.focusInput {
+  flex: 1 1 220px;
+  min-width: 180px;
+  height: 24px;
+  border: none;
+  outline: none;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #484848;
+}
+
+.focusInput::placeholder {
+  color: #909090;
+}
+
+.focusDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #d9d9d9;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.focusOption {
+  display: block;
+  width: 100%;
+  border: none;
+  background: #fff;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #484848;
+  text-align: left;
+}
+
+.focusOption:hover {
+  background: #f2f9f8;
+}
+
+.focusStatus {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  color: #6c6c6c;
 }
 
 .fileList {
@@ -301,12 +568,18 @@
   background: transparent;
   cursor: pointer;
 
-  font-family: "Proxima Nova";
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
   font-size: 17px;
   font-weight: 600;
   line-height: 21px;
   text-decoration: underline;
   color: #3b9a9a;
+}
+
+.saveDraft:disabled,
+.nextButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .nextButton {
@@ -323,6 +596,7 @@
   background: #3b9a9a;
   color: white;
 
+  font-family: var(--font-proxima), var(--font-sans), Arial, sans-serif;
   font-weight: 400;
   line-height: 32px;
   font-size: 16px;
@@ -330,4 +604,28 @@
 
 .nextButton:hover {
   filter: brightness(0.97);
+}
+
+.errorMessage {
+  margin: 0 0 8px;
+  font-family: var(--font-rubik), "Rubik", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  color: #b42318;
+}
+
+@media (max-width: 760px) {
+  .wrapper {
+    padding: 24px;
+  }
+
+  .demographicsGrid,
+  .mediaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mediaCard,
+  .mediaAddTile {
+    height: 150px;
+  }
 }
