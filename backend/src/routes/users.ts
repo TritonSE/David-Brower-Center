@@ -1,8 +1,11 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
 
 import { supabaseAdmin, supabaseAuth } from "../lib/supabaseClients";
+import { getRequestAuthUser, requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type AuthUserResult = {
   data: { user: { id: string; email?: string | null } } | null;
@@ -12,6 +15,7 @@ type AuthUserResult = {
 type ProfileRow = {
   supabase_user_id: string;
   email: string;
+  name: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
@@ -45,9 +49,18 @@ function isValidEmail(value: string): boolean {
 }
 
 function profileResponse(profile: ProfileRow) {
+  const displayName =
+    [profile.first_name, profile.last_name]
+      .map((namePart) => namePart?.trim())
+      .filter(Boolean)
+      .join(" ") ||
+    profile.name ||
+    "";
+
   return {
     id: profile.supabase_user_id,
     email: profile.email,
+    name: displayName,
     firstName: profile.first_name ?? "",
     lastName: profile.last_name ?? "",
     phone: profile.phone ?? "",
@@ -81,7 +94,7 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
 
     const profileResult = (await supabaseAdmin
       .from("users")
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
+      .select("supabase_user_id, email, name, first_name, last_name, phone, role")
       .eq("supabase_user_id", supabaseUserId)
       .single()) as ProfileResult;
     const { data: profile, error: profileError } = profileResult;
@@ -104,7 +117,7 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
         },
         { onConflict: "supabase_user_id" },
       )
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
+      .select("supabase_user_id, email, name, first_name, last_name, phone, role")
       .single()) as ProfileResult;
 
     const { data: createdProfile, error: createdError } = createdResult;
@@ -114,6 +127,40 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
     }
 
     return res.status(200).json(profileResponse(createdProfile));
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+/** GET /api/users/:id */
+router.get("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || !USER_ID_PATTERN.test(rawId)) {
+      return res.status(400).json({ error: "A valid user id is required." });
+    }
+
+    const requester = getRequestAuthUser(req);
+    if (rawId === requester.supabase_user_id) {
+      return res.status(403).json({ error: "Use /api/users/profile to view your own profile." });
+    }
+
+    const profileResult = (await supabaseAdmin
+      .from("users")
+      .select("supabase_user_id, email, name, first_name, last_name, phone, role")
+      .eq("supabase_user_id", rawId)
+      .single()) as ProfileResult;
+    const { data: profile, error: profileError } = profileResult;
+
+    if (!profile) {
+      return res.status(404).json({ error: "User profile not found." });
+    }
+
+    if (profileError) {
+      return res.status(500).json({ error: "Failed to fetch user profile." });
+    }
+
+    return res.status(200).json(profileResponse(profile));
   } catch (err: unknown) {
     next(err);
   }
@@ -187,7 +234,7 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
         },
         { onConflict: "supabase_user_id" },
       )
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
+      .select("supabase_user_id, email, name, first_name, last_name, phone, role")
       .single()) as ProfileResult;
 
     const { data: updatedProfile, error: updateError } = updateResult;
