@@ -1,9 +1,7 @@
+import { authHeaders, getAccessToken } from "./auth";
 import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
-import type { Session } from "@supabase/supabase-js";
-
-import { supabase } from "@/services/supabase";
 
 const NOT_PROVIDED = "Not provided";
 
@@ -23,6 +21,13 @@ function toFallbackString(value: unknown): string {
 
 function toTagFocus(tags: OrganizationTag[]): string {
   return tags.length > 0 ? tags.map((tag) => tag.name).join(" | ") : NOT_PROVIDED;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => toOptionalString(item))
+    .filter((item): item is string => item !== null);
 }
 
 function parseOrganizationsPayload(payload: unknown): unknown[] {
@@ -88,6 +93,7 @@ export type OrganizationListItem = {
   id: string;
   name: string;
   focus: string;
+  images: string[];
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
@@ -112,6 +118,7 @@ export type OrganizationDetail = {
   budget: string;
   location: string;
   description: string;
+  images: string[];
   mission: string;
   tags: OrganizationTag[];
 };
@@ -157,6 +164,7 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     id: getRequiredString(value.id, "/api/organizations", "id"),
     name: getRequiredString(value.name, "/api/organizations", "name"),
     focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
+    images: toStringArray(value.images),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
     tags,
@@ -180,24 +188,88 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     budget: toFallbackString(value.budget),
     location: toFallbackString(value.location),
     description: toFallbackString(value.description),
+    images: toStringArray(value.images),
     mission: toFallbackString(value.mission),
     tags,
   };
 }
 
-async function getAccessToken(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    throw new Error(error.message);
-  }
+export type ImageUploadUrlResult = {
+  uploadUrl: string;
+  path: string;
+  publicUrl: string;
+};
 
-  const session = data.session as Session | null;
-  const token = session?.access_token;
-  if (typeof token !== "string" || token.length === 0) {
-    throw new Error("You must be signed in to create an organization.");
+function parseImageUploadUrlResult(payload: unknown): ImageUploadUrlResult {
+  if (!isRecord(payload)) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Unexpected response shape.");
   }
+  const uploadUrl = toOptionalString(payload.uploadUrl);
+  const path = toOptionalString(payload.path);
+  const publicUrl = toOptionalString(payload.publicUrl);
+  if (!uploadUrl || !path || !publicUrl) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Missing fields in response.");
+  }
+  return { uploadUrl, path, publicUrl };
+}
 
-  return token;
+export async function getImageUploadUrl(
+  organizationId: string,
+  filename: string,
+  signal?: AbortSignal,
+): Promise<APIResult<ImageUploadUrlResult>> {
+  try {
+    const token = await getAccessToken();
+    const response = await post(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images/upload-url`,
+      { filename },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    return { success: true, data: parseImageUploadUrlResult(payload) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
+}
+
+export async function uploadImageToStorage(
+  uploadUrl: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.status.toString()} ${response.statusText}`);
+  }
+}
+
+export async function recordOrganizationImages(
+  organizationId: string,
+  urls: string[],
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images`,
+      { urls },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
 }
 
 export async function getOrganizations(
@@ -298,9 +370,7 @@ export async function createOrganization(
         tags: input.tags ?? [],
         tagNames: input.tagNames ?? [],
       },
-      {
-        Authorization: `Bearer ${token}`,
-      },
+      authHeaders(token),
       signal,
     );
     const payload: unknown = await response.json();
@@ -342,9 +412,7 @@ export async function updateOrganization(
         tags: input.tags ?? [],
         tagNames: input.tagNames ?? [],
       },
-      {
-        Authorization: `Bearer ${token}`,
-      },
+      authHeaders(token),
       signal,
     );
     const payload: unknown = await response.json();

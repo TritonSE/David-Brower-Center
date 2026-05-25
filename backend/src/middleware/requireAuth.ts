@@ -8,6 +8,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 export type AuthenticatedUser = {
   supabase_user_id: string;
+  profile_picture: string | null;
   role: string;
 };
 
@@ -40,7 +41,7 @@ async function loadAuthenticatedUser(req: Request): Promise<AuthenticatedUser> {
 
   const existing = await prisma.user.findUnique({
     where: { supabase_user_id: authData.user.id },
-    select: { supabase_user_id: true, role: true },
+    select: { supabase_user_id: true, profile_picture: true, role: true },
   });
 
   if (existing) {
@@ -56,7 +57,7 @@ async function loadAuthenticatedUser(req: Request): Promise<AuthenticatedUser> {
     where: { supabase_user_id: authData.user.id },
     update: {},
     create: { supabase_user_id: authData.user.id, email, role: "admin" },
-    select: { supabase_user_id: true, role: true },
+    select: { supabase_user_id: true, profile_picture: true, role: true },
   });
 
   return created;

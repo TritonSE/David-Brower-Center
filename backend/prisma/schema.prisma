@@ -37,6 +37,7 @@ model Organization {
   location            String?
   budget              String?
   description         String?                    @db.Text
+  images              String[]                   @default([])
   tags                OrganizationTag[]
   relationshipsAsNpo1 OrganizationRelationship[] @relation("OrganizationRelationshipNpo1")
   relationshipsAsNpo2 OrganizationRelationship[] @relation("OrganizationRelationshipNpo2")
@@ -96,6 +97,7 @@ model User {
   first_name       String?
   last_name        String?
   phone            String?
+  profile_picture  String?
   role             String   @default("admin")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
 

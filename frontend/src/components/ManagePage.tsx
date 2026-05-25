@@ -13,12 +13,19 @@ import {
   SearchIcon,
   SortArrowIcon,
 } from "./icons/AppIcons";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 
-import { createOrganization, getOrganizationById, updateOrganization } from "@/api/organization";
+import {
+  createOrganization,
+  getImageUploadUrl,
+  getOrganizationById,
+  recordOrganizationImages,
+  updateOrganization,
+  uploadImageToStorage,
+} from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 const NOT_PROVIDED = "Not provided";
@@ -135,6 +142,7 @@ export default function ManagePage() {
   const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
   const [isCreatingNpo, setIsCreatingNpo] = useState(false);
   const [addNpoError, setAddNpoError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
@@ -246,6 +254,7 @@ export default function ManagePage() {
         },
       ],
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
@@ -275,6 +284,7 @@ export default function ManagePage() {
     setEditingDetail(null);
     setAddNpoError(null);
     setIsCreatingNpo(false);
+    setUploadError(null);
   }, []);
 
   const handleEditOrg = useCallback(async (orgId: string) => {
@@ -369,6 +379,30 @@ export default function ManagePage() {
         if (!result.success) {
           setAddNpoError(result.error || failureMessage);
           return;
+        }
+
+        const targetId = result.data.id;
+        if (values.mediaFiles.length > 0) {
+          // Record each image immediately after upload so a mid-batch failure
+          // leaves nothing orphaned in Storage that isn't referenced by the DB.
+          for (const file of values.mediaFiles) {
+            // eslint-disable-next-line no-await-in-loop
+            const urlResult = await getImageUploadUrl(targetId, file.name);
+            if (!urlResult.success) {
+              setUploadError(`Failed to get upload URL: ${urlResult.error}`);
+              return;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await uploadImageToStorage(urlResult.data.uploadUrl, file);
+            // eslint-disable-next-line no-await-in-loop
+            const recordResult = await recordOrganizationImages(targetId, [
+              urlResult.data.publicUrl,
+            ]);
+            if (!recordResult.success) {
+              setUploadError(`Failed to save image URL: ${recordResult.error}`);
+              return;
+            }
+          }
         }
 
         setIsAddNpoOpen(false);
@@ -679,6 +713,19 @@ export default function ManagePage() {
         isSubmitting={isCreatingNpo}
         errorMessage={addNpoError}
       />
+
+      {uploadError ? (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-md">
+          {uploadError}
+          <button
+            type="button"
+            className="ml-3 font-semibold underline"
+            onClick={() => setUploadError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
