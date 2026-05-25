@@ -32,6 +32,7 @@ async function getAccessToken(): Promise<string> {
 export type Profile = {
   id: string;
   email: string;
+  name: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -45,6 +46,7 @@ function parseProfilePayload(payload: unknown): Profile {
 
   const id = toOptionalString(payload.id);
   const email = toOptionalString(payload.email);
+  const name = toOptionalString(payload.name) ?? "";
   const firstName = toOptionalString(payload.firstName) ?? "";
   const lastName = toOptionalString(payload.lastName) ?? "";
   const phone = toOptionalString(payload.phone) ?? "";
@@ -57,6 +59,7 @@ function parseProfilePayload(payload: unknown): Profile {
   return {
     id,
     email,
+    name: name || [firstName, lastName].filter(Boolean).join(" "),
     firstName,
     lastName,
     phone,
@@ -74,6 +77,17 @@ function authHeaders(token: string): Record<string, string> {
 export async function getProfile(signal?: AbortSignal): Promise<Profile> {
   const token = await getAccessToken();
   const response = await get("/api/users/profile", authHeaders(token), signal);
+  const payload: unknown = await response.json();
+  return parseProfilePayload(payload);
+}
+
+export async function getUserProfileById(userId: string, signal?: AbortSignal): Promise<Profile> {
+  const token = await getAccessToken();
+  const response = await get(
+    `/api/users/${encodeURIComponent(userId)}`,
+    authHeaders(token),
+    signal,
+  );
   const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }
