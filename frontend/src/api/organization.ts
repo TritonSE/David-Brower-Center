@@ -122,6 +122,7 @@ export type CreateOrganizationValues = {
   sizeCategory?: string | null;
   location?: string | null;
   budget?: string | null;
+  description?: string | null;
   tags?: string[];
   tagNames?: string[];
 };
@@ -293,6 +294,7 @@ export async function createOrganization(
         sizeCategory: input.sizeCategory,
         location: input.location,
         budget: input.budget,
+        description: input.description,
         tags: input.tags ?? [],
         tagNames: input.tagNames ?? [],
       },
@@ -317,6 +319,7 @@ export type UpdateOrganizationValues = {
   sizeCategory?: string | null;
   location?: string | null;
   budget?: string | null;
+  description?: string | null;
   tags?: string[];
   tagNames?: string[];
 };
@@ -335,6 +338,7 @@ export async function updateOrganization(
         sizeCategory: input.sizeCategory,
         location: input.location,
         budget: input.budget,
+        description: input.description,
         tags: input.tags ?? [],
         tagNames: input.tagNames ?? [],
       },

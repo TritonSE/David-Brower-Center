@@ -12,6 +12,7 @@ type OrganizationBody = {
   sizeCategory?: unknown;
   location?: unknown;
   budget?: unknown;
+  description?: unknown;
   website?: unknown;
   tags?: unknown;
   tagNames?: unknown;
@@ -174,6 +175,7 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
     const website = toOptionalTrimmedString(body.website);
     const location = toOptionalTrimmedString(body.location);
     const budget = toOptionalTrimmedString(body.budget);
+    const description = toOptionalTrimmedString(body.description);
 
     const organization = await prisma.organization.create({
       data: {
@@ -183,6 +185,7 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
         website,
         location,
         budget,
+        description,
         ...(connectedTagIds.size > 0
           ? {
               tags: {
@@ -259,6 +262,7 @@ router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: 
       website?: string | null;
       location?: string | null;
       budget?: string | null;
+      description?: string | null;
     } = {};
 
     if (body.name !== undefined) {
@@ -272,6 +276,7 @@ router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: 
     if ("website" in body) data.website = toOptionalTrimmedString(body.website);
     if ("location" in body) data.location = toOptionalTrimmedString(body.location);
     if ("budget" in body) data.budget = toOptionalTrimmedString(body.budget);
+    if ("description" in body) data.description = toOptionalTrimmedString(body.description);
 
     const replaceTags = body.tags !== undefined || body.tagNames !== undefined;
     const tagIds = replaceTags ? await resolveTagIdSet(body) : null;

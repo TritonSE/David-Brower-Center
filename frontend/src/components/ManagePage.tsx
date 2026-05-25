@@ -336,6 +336,8 @@ export default function ManagePage() {
       const failureMessage = editingId ? "Unable to update NPO." : "Unable to create NPO.";
 
       try {
+        const description = toOptionalString(values.description);
+
         const result = editingId
           ? await updateOrganization(
               editingId,
@@ -344,6 +346,7 @@ export default function ManagePage() {
                 sizeCategory: toOptionalString(values.npoSize),
                 location: toOptionalString(values.location),
                 budget: formatBudgetSize(values.budgetSize),
+                description,
                 tags: existingTagIds,
                 tagNames: customTagNames,
               },
@@ -356,6 +359,7 @@ export default function ManagePage() {
                 sizeCategory: toOptionalString(values.npoSize),
                 location: toOptionalString(values.location),
                 budget: formatBudgetSize(values.budgetSize),
+                description,
                 tags: existingTagIds,
                 tagNames: customTagNames,
               },
