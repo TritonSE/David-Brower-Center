@@ -1,10 +1,15 @@
+import { randomUUID } from "node:crypto";
+
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseClients";
 import { requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
+
+const IMAGES_BUCKET = "images";
 
 type OrganizationBody = {
   images?: unknown;
@@ -51,18 +56,20 @@ function toImageUrlArray(value: unknown): string[] {
   return urls;
 }
 
+const orgTagsInclude = {
+  tags: {
+    orderBy: { tag: { name: "asc" } },
+    select: {
+      tag: { select: { id: true, name: true, color: true } },
+    },
+  },
+} as const;
+
 /** GET /api/organizations */
-router.get("/", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const organizations = await prisma.organization.findMany({
-      include: {
-        tags: {
-          orderBy: { tag: { name: "asc" } },
-          select: {
-            tag: { select: { id: true, name: true, color: true } },
-          },
-        },
-      },
+      include: orgTagsInclude,
     });
     res.status(200).json({ organizations: organizations.map(flattenOrganizationTags) });
   } catch (error) {
@@ -101,14 +108,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
-      include: {
-        tags: {
-          orderBy: { tag: { name: "asc" } },
-          select: {
-            tag: { select: { id: true, name: true, color: true } },
-          },
-        },
-      },
+      include: orgTagsInclude,
     });
 
     if (!organization) {
@@ -164,14 +164,7 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
             }
           : {}),
       },
-      include: {
-        tags: {
-          orderBy: { tag: { name: "asc" } },
-          select: {
-            tag: { select: { id: true, name: true, color: true } },
-          },
-        },
-      },
+      include: orgTagsInclude,
     });
 
     res.status(201).json({ organization: flattenOrganizationTags(organization) });
@@ -179,5 +172,123 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
     next(err);
   }
 });
+
+const EXT_PATTERN = /^[a-z0-9]{1,8}$/i;
+
+function safeExtensionFromFilename(filename: string): string {
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot < 0 || lastDot === filename.length - 1) return "bin";
+  const ext = filename.slice(lastDot + 1);
+  return EXT_PATTERN.test(ext) ? ext.toLowerCase() : "bin";
+}
+
+/**
+ * POST /api/organizations/:id/images/upload-url
+ *
+ * Returns a Supabase signed upload URL for a single image file.
+ * The client PUTs the file directly to Supabase Storage using the returned URL,
+ * then calls PATCH /api/organizations/:id/images to record the resulting public URL.
+ *
+ * Body: { filename: string }
+ * Response: { uploadUrl: string; path: string; publicUrl: string }
+ */
+router.post(
+  "/:id/images/upload-url",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || rawId.length === 0) {
+      next(createError(400, "Organization id is required"));
+      return;
+    }
+    const id: string = rawId;
+
+    try {
+      const org = await prisma.organization.findUnique({ where: { id }, select: { id: true } });
+      if (!org) {
+        next(createError(404, `Organization ${id} not found`));
+        return;
+      }
+
+      const body = req.body as { filename?: unknown };
+      if (typeof body.filename !== "string" || body.filename.trim().length === 0) {
+        throw createError(400, "filename is required");
+      }
+
+      const ext = safeExtensionFromFilename(body.filename.trim());
+      const storagePath = `${id}/${randomUUID()}.${ext}`;
+
+      const { data, error } = await supabaseAdmin.storage
+        .from(IMAGES_BUCKET)
+        .createSignedUploadUrl(storagePath);
+
+      if (error || !data) {
+        console.error("Supabase signed URL error:", error);
+        throw createError(500, "Failed to generate upload URL");
+      }
+
+      const { data: publicData } = supabaseAdmin.storage
+        .from(IMAGES_BUCKET)
+        .getPublicUrl(storagePath);
+
+      res.status(200).json({
+        uploadUrl: data.signedUrl,
+        path: storagePath,
+        publicUrl: publicData.publicUrl,
+      });
+    } catch (err: unknown) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * PATCH /api/organizations/:id/images
+ *
+ * Appends one or more public image URLs to the organization's images array.
+ * Called by the frontend after successfully uploading to Supabase Storage.
+ *
+ * Body: { urls: string[] }
+ */
+router.patch(
+  "/:id/images",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || rawId.length === 0) {
+      next(createError(400, "Organization id is required"));
+      return;
+    }
+    const id: string = rawId;
+
+    try {
+      const body = req.body as { urls?: unknown };
+      const urls = toImageUrlArray(body.urls);
+
+      if (urls.length === 0) {
+        throw createError(400, "urls array is required and must be non-empty");
+      }
+
+      const org = await prisma.organization.findUnique({
+        where: { id },
+        select: { id: true, images: true },
+      });
+      if (!org) {
+        next(createError(404, `Organization ${id} not found`));
+        return;
+      }
+
+      const updated = await prisma.organization.update({
+        where: { id },
+        data: { images: { push: urls } },
+        include: orgTagsInclude,
+      });
+
+      res.status(200).json({ organization: flattenOrganizationTags(updated) });
+    } catch (err: unknown) {
+      next(err);
+    }
+  },
+);
 
 export default router;

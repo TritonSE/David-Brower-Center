@@ -18,7 +18,12 @@ import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 
-import { getOrganizationById } from "@/api/organization";
+import {
+  getImageUploadUrl,
+  getOrganizationById,
+  recordOrganizationImages,
+  uploadImageToStorage,
+} from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 type ManageStatus = "published" | "draft";
@@ -76,6 +81,7 @@ export default function ManagePage() {
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
@@ -207,6 +213,51 @@ export default function ManagePage() {
       current.includes(rowId) ? current.filter((value) => value !== rowId) : [...current, rowId],
     );
   }
+
+  const handleAddNpoNext = useCallback(
+    async (values: { title: string; description: string; mediaFiles: File[] }) => {
+      setUploadError(null);
+      if (!values.title.trim()) return;
+
+      // After org creation is wired up, upload any selected images.
+      // For now we upload images to the org identified by editingOrg (edit flow),
+      // since the create flow doesn't have a POST /organizations endpoint wired yet.
+      const targetId = editingOrg?.id;
+      if (!targetId || values.mediaFiles.length === 0) {
+        setIsAddNpoOpen(false);
+        setEditingOrg(null);
+        return;
+      }
+
+      try {
+        // Record each image immediately after upload so a mid-batch failure
+        // leaves nothing orphaned in Storage that isn't referenced by the DB.
+        for (const file of values.mediaFiles) {
+          // eslint-disable-next-line no-await-in-loop
+          const urlResult = await getImageUploadUrl(targetId, file.name);
+          if (!urlResult.success) {
+            setUploadError(`Failed to get upload URL: ${urlResult.error}`);
+            return;
+          }
+          // eslint-disable-next-line no-await-in-loop
+          await uploadImageToStorage(urlResult.data.uploadUrl, file);
+          // eslint-disable-next-line no-await-in-loop
+          const recordResult = await recordOrganizationImages(targetId, [urlResult.data.publicUrl]);
+          if (!recordResult.success) {
+            setUploadError(`Failed to save image URL: ${recordResult.error}`);
+            return;
+          }
+        }
+
+        setIsAddNpoOpen(false);
+        setEditingOrg(null);
+        void refetchOrganizations();
+      } catch (error) {
+        setUploadError(getErrorMessage(error, "Image upload failed."));
+      }
+    },
+    [editingOrg, refetchOrganizations],
+  );
 
   if (isLoading) {
     return (
@@ -481,9 +532,24 @@ export default function ManagePage() {
         onClose={() => {
           setIsAddNpoOpen(false);
           setEditingOrg(null);
+          setUploadError(null);
         }}
+        onNext={(values) => void handleAddNpoNext(values)}
         initialTitle={editingOrg?.name ?? ""}
       />
+
+      {uploadError ? (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-md">
+          {uploadError}
+          <button
+            type="button"
+            className="ml-3 font-semibold underline"
+            onClick={() => setUploadError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

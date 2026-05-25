@@ -1,4 +1,5 @@
-import { get, handleAPIError, isAbortError } from "./request";
+import { authHeaders, getAccessToken } from "./auth";
+import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
 
@@ -170,6 +171,84 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     mission: toFallbackString(value.mission),
     tags: parseOrganizationTagList(value.tags),
   };
+}
+
+export type ImageUploadUrlResult = {
+  uploadUrl: string;
+  path: string;
+  publicUrl: string;
+};
+
+function parseImageUploadUrlResult(payload: unknown): ImageUploadUrlResult {
+  if (!isRecord(payload)) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Unexpected response shape.");
+  }
+  const uploadUrl = toOptionalString(payload.uploadUrl);
+  const path = toOptionalString(payload.path);
+  const publicUrl = toOptionalString(payload.publicUrl);
+  if (!uploadUrl || !path || !publicUrl) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Missing fields in response.");
+  }
+  return { uploadUrl, path, publicUrl };
+}
+
+export async function getImageUploadUrl(
+  organizationId: string,
+  filename: string,
+  signal?: AbortSignal,
+): Promise<APIResult<ImageUploadUrlResult>> {
+  try {
+    const token = await getAccessToken();
+    const response = await post(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images/upload-url`,
+      { filename },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    return { success: true, data: parseImageUploadUrlResult(payload) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
+}
+
+export async function uploadImageToStorage(
+  uploadUrl: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.status.toString()} ${response.statusText}`);
+  }
+}
+
+export async function recordOrganizationImages(
+  organizationId: string,
+  urls: string[],
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images`,
+      { urls },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
 }
 
 export async function getOrganizations(
