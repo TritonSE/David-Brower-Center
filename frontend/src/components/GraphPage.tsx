@@ -2,49 +2,35 @@
 
 // NOTE: THIS IS A VIBE CODED PROTOTYPE FOR USER TESTING PURPOSES
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  FilterIcon,
+  ChevronRightIcon,
   LeafIcon,
   LocationIcon,
   MoneyIcon,
   PeopleIcon,
   SearchIcon,
 } from "./icons/AppIcons";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
+import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
-import type { APIResult } from "@/api/request";
 
-import {
-  getOrganizationById,
-  getOrganizations,
-  type OrganizationDetail,
-  type OrganizationListItem,
-} from "@/api/organization";
+import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 
-// Reagraph depends on WebGL/Three.js, so it must only render on the client.
-// Using `dynamic` with `ssr: false` prevents Next.js from attempting to
-// render the canvas during server-side rendering.
-// We re-assert the ref-forwarding type because `next/dynamic`'s public
-// types drop the ref signature, even though Next preserves refs at
-// runtime. Without this cast, passing `ref` to <GraphCanvas /> would
-// fail to type-check.
 const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
   ssr: false,
 }) as unknown as React.ForwardRefExoticComponent<
   GraphCanvasProps & React.RefAttributes<GraphCanvasRef>
 >;
 
-// Node/edge shapes accepted by reagraph. `fx`/`fy` pin a node's position in
-// the force-directed layout so we can compute a custom tree silhouette.
 type GraphNode = {
   id: string;
   label: string;
-  fx?: number;
-  fy?: number;
 };
 
 type GraphEdge = {
@@ -54,22 +40,11 @@ type GraphEdge = {
   label?: string;
 };
 
-// Branching factor for the dummy tree — how many children each parent has.
-// 3 produces a full, bushy crown without getting too wide.
-const DUMMY_TREE_BRANCHING_FACTOR = 3;
-
-// Matches the fade duration of the overlay card so we can fully tear down
-// the associated detail state after the exit animation finishes.
 const POPUP_FADE_DURATION_MS = 200;
 
-// Parameters that shape the rendered tree silhouette. Tuned for readability
-// at reagraph's default camera distance; adjust if the graph feels cramped
-// or overly spread out.
-const RADIUS_STEP = 140; // Radial distance between consecutive tree depths.
-const TREE_FAN_MIN_ANGLE = Math.PI * 0.12; // ~22°; lower bound of the root fan.
-const TREE_FAN_MAX_ANGLE = Math.PI * 0.88; // ~158°; upper bound (fan points upward).
-const ANGLE_JITTER_RATIO = 0.18; // Jitter as a fraction of each node's own slice.
-const RADIUS_JITTER_RATIO = 0.08; // ±8% deterministic variation in radius per node.
+const FILTER_CATEGORIES = ["Focus Area", "Location", "Size", "Opportunity Type", "Budget"] as const;
+
+type GraphFilterCategory = (typeof FILTER_CATEGORIES)[number];
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -79,219 +54,95 @@ function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
   }
+
   return fallback;
 }
 
-// Builds deterministic, client-only edges that form a balanced tree between
-// organizations. The backend does not yet model relationships between orgs,
-// so we synthesize a tree topology where the first node is the root and each
-// subsequent node is assigned to a parent based on its index. This produces
-// the parent/child structure we use to lay out a natural-looking tree.
-function buildDummyTreeEdges(nodes: GraphNode[]): GraphEdge[] {
-  if (nodes.length < 2) return [];
-
-  const edges: GraphEdge[] = [];
-  const branchingFactor = Math.max(1, DUMMY_TREE_BRANCHING_FACTOR);
-
-  for (let i = 1; i < nodes.length; i++) {
-    const parentIndex = Math.floor((i - 1) / branchingFactor);
-    const source = nodes[parentIndex];
-    const target = nodes[i];
-    edges.push({
-      id: `${source.id}->${target.id}`,
-      source: source.id,
-      target: target.id,
-      label: "Related",
-    });
-  }
-
-  return edges;
-}
-
-// Deterministic hash of a string to a value in [0, 1). Used to seed per-node
-// jitter so the tree looks organic but renders identically every time.
-function hashToUnitInterval(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
-  }
-  return (hash >>> 0) / 0x100000000;
-}
-
-// Computes (x, y) positions for each node such that the graph resembles a
-// natural tree: the root sits at the base and branches fan upward, with
-// each subtree confined to its own angular slice so sibling subtrees can
-// never overlap at any depth. Positions are written onto a Map keyed by id.
-function computeTreePositions(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  if (nodes.length === 0) return positions;
-
-  // Build a parent -> children adjacency list from the dummy tree edges.
-  // Edge order is preserved so siblings render left-to-right consistently.
-  const childrenByParent = new Map<string, string[]>();
-  for (const edge of edges) {
-    const list = childrenByParent.get(edge.source) ?? [];
-    list.push(edge.target);
-    childrenByParent.set(edge.source, list);
-  }
-
-  // The first node is treated as the trunk's base. It sits at the origin;
-  // its children will fan outward along the range [TREE_FAN_MIN_ANGLE,
-  // TREE_FAN_MAX_ANGLE] in standard math angle convention (0 = right,
-  // PI / 2 = up), so the tree opens upward from the base.
-  const rootId = nodes[0].id;
-  positions.set(rootId, { x: 0, y: 0 });
-
-  // Post-order traversal: compute each subtree's total leaf count. The
-  // leaf count determines how much angular territory that subtree needs
-  // — more leaves means a wider angular slice, which prevents cramping.
-  const leafCountById = new Map<string, number>();
-  const computeLeafCount = (id: string): number => {
-    const children = childrenByParent.get(id);
-    if (!children || children.length === 0) {
-      leafCountById.set(id, 1);
-      return 1;
-    }
-    let total = 0;
-    for (const childId of children) {
-      total += computeLeafCount(childId);
-    }
-    leafCountById.set(id, total);
-    return total;
-  };
-  computeLeafCount(rootId);
-
-  // Pre-order placement. Each node is assigned an angular slice by its
-  // parent; the node places itself at the slice's center (plus jitter),
-  // then recursively subdivides the slice among its own children
-  // proportionally to their leaf counts.
-  const placeSubtree = (
-    nodeId: string,
-    depth: number,
-    sliceStart: number,
-    sliceEnd: number,
-  ): void => {
-    const children = childrenByParent.get(nodeId);
-    if (!children || children.length === 0) return;
-
-    const parentLeafCount = leafCountById.get(nodeId) ?? 1;
-    const sliceWidth = sliceEnd - sliceStart;
-    const childRadius = (depth + 1) * RADIUS_STEP;
-
-    let cursor = sliceStart;
-    for (const childId of children) {
-      const childLeafCount = leafCountById.get(childId) ?? 1;
-      const childSliceWidth = sliceWidth * (childLeafCount / parentLeafCount);
-      const childSliceStart = cursor;
-      const childSliceEnd = cursor + childSliceWidth;
-      const childSliceCenter = (childSliceStart + childSliceEnd) / 2;
-
-      // Deterministic per-node jitter for organic asymmetry. Angle jitter
-      // is scaled to a fraction of the child's own slice so it can never
-      // push the node into a sibling's territory.
-      const rand = hashToUnitInterval(childId);
-      const angleJitter = (rand - 0.5) * 2 * ANGLE_JITTER_RATIO * childSliceWidth;
-      const radiusJitter = 1 + (rand - 0.5) * 2 * RADIUS_JITTER_RATIO;
-
-      const finalAngle = childSliceCenter + angleJitter;
-      const finalRadius = childRadius * radiusJitter;
-
-      positions.set(childId, {
-        x: finalRadius * Math.cos(finalAngle),
-        y: finalRadius * Math.sin(finalAngle),
-      });
-
-      placeSubtree(childId, depth + 1, childSliceStart, childSliceEnd);
-      cursor = childSliceEnd;
-    }
-  };
-
-  placeSubtree(rootId, 0, TREE_FAN_MIN_ANGLE, TREE_FAN_MAX_ANGLE);
-  return positions;
-}
-
-// Collects the given node id plus every descendant in the parent -> children
-// adjacency map. Used so that dragging a node translates its whole subtree
-// (i.e. the "branch" hanging off that node) as a single unit.
-function collectSubtreeIds(rootId: string, childrenByParent: Map<string, string[]>): Set<string> {
-  const visited = new Set<string>();
-  const stack: string[] = [rootId];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (current === undefined || visited.has(current)) continue;
-    visited.add(current);
-    const children = childrenByParent.get(current);
-    if (children) stack.push(...children);
-  }
-  return visited;
-}
-
 export default function GraphPage() {
-  const [organizations, setOrganizations] = useState<OrganizationListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // LANDING STATE: static tree until user explicitly opens the interactive graph
+  const [showFunctionalGraph, setShowFunctionalGraph] = useState(false);
+
+  const {
+    organizations,
+    relationships,
+    isLoading,
+    error,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
+
   const [search, setSearch] = useState("");
-  // Tag IDs the user has enabled in the filter panel. Using a Set makes
-  // toggle-and-check operations O(1). When empty, no tag filter is applied
-  // (i.e. all organizations pass the tag criterion).
+  const [expandedFilter, setExpandedFilter] = useState<GraphFilterCategory | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
-  // Positions are mutable at runtime so that dragging a node can translate
-  // it and all of its descendants together. Keyed by node id.
-  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
-  // Detail-panel state: mirrors the list view so clicking a node opens the
-  // same NpoProfileCard overlay with the selected organization's info.
+
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
+
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+
   const [detailError, setDetailError] = useState<string | null>(null);
+
   const [isCardVisible, setIsCardVisible] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const listRequestIdRef = useRef(0);
+
   const detailAbortRef = useRef<AbortController | null>(null);
-  // Monotonically increasing id used to ignore stale detail responses when
-  // the user clicks through several nodes quickly.
+
   const detailRequestIdRef = useRef(0);
-  // Imperative handle to the reagraph canvas. Used to re-fit the camera on
-  // the currently rendered nodes whenever the search filter changes the
-  // visible set (or on initial load).
+
   const graphRef = useRef<GraphCanvasRef | null>(null);
+
+  const graphContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const popupCardRef = useRef<HTMLDivElement | null>(null);
+
+  // ACTIVATE GRAPH
+  const activateGraph = useCallback(() => {
+    setShowFunctionalGraph(true);
+  }, []);
 
   const selectedOrganization = useMemo(
     () => organizations.find((org) => org.id === selectedOrgId) ?? null,
     [organizations, selectedOrgId],
   );
 
-  // Aggregate every unique tag present on the loaded organizations so the
-  // filter panel can render one row per tag along with an "orgs in data"
-  // count. Sorted alphabetically for stable, predictable ordering.
   const availableTags = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; count: number }>();
+    const byId = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        count: number;
+      }
+    >();
+
     for (const org of organizations) {
       for (const tag of org.tags) {
         const existing = byId.get(tag.id);
+
         if (existing) {
           existing.count += 1;
         } else {
-          byId.set(tag.id, { id: tag.id, name: tag.name, count: 1 });
+          byId.set(tag.id, {
+            id: tag.id,
+            name: tag.name,
+            count: 1,
+          });
         }
       }
     }
+
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [organizations]);
 
-  // Drop selected tag ids that no longer exist on any loaded organization
-  // (e.g. after a refetch returns a reduced dataset). Without this the user
-  // could end up with a "stuck" filter that matches nothing with no way to
-  // clear it via the UI.
   useEffect(() => {
     setSelectedTagIds((previous) => {
       if (previous.size === 0) return previous;
+
       const validIds = new Set(availableTags.map((tag) => tag.id));
+
       let changed = false;
+
       const next = new Set<string>();
+
       for (const id of previous) {
         if (validIds.has(id)) {
           next.add(id);
@@ -299,93 +150,71 @@ export default function GraphPage() {
           changed = true;
         }
       }
+
       return changed ? next : previous;
     });
   }, [availableTags]);
 
-  // Case-insensitive substring match on organization name combined with an
-  // OR-style tag filter: when any tags are selected, an org must carry at
-  // least one of them to pass. When no tags are selected, the tag check is
-  // a no-op.
   const filteredOrganizations = useMemo(() => {
     const query = search.trim().toLowerCase();
+
     const hasQuery = query.length > 0;
     const hasTagFilter = selectedTagIds.size > 0;
-    if (!hasQuery && !hasTagFilter) return organizations;
+
+    if (!hasQuery && !hasTagFilter) {
+      return organizations;
+    }
 
     return organizations.filter((org) => {
-      if (hasQuery && !org.name.toLowerCase().includes(query)) return false;
+      if (hasQuery && !org.name.toLowerCase().includes(query)) {
+        return false;
+      }
+
       if (hasTagFilter && !org.tags.some((tag) => selectedTagIds.has(tag.id))) {
         return false;
       }
+
       return true;
     });
   }, [organizations, search, selectedTagIds]);
 
-  const toggleTag = useCallback((tagId: string) => {
-    setSelectedTagIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(tagId)) {
-        next.delete(tagId);
-      } else {
-        next.add(tagId);
-      }
-      return next;
-    });
-  }, []);
+  const toggleTag = useCallback(
+    (tagId: string) => {
+      activateGraph();
+
+      setSelectedTagIds((previous) => {
+        const next = new Set(previous);
+
+        if (next.has(tagId)) {
+          next.delete(tagId);
+        } else {
+          next.add(tagId);
+        }
+
+        return next;
+      });
+    },
+    [activateGraph],
+  );
 
   const clearTagFilter = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
   }, []);
 
-  const fetchOrganizations = useCallback(async () => {
-    abortRef.current?.abort();
-    const abortController = new AbortController();
-    abortRef.current = abortController;
-    const requestId = listRequestIdRef.current + 1;
-    listRequestIdRef.current = requestId;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result: APIResult<OrganizationListItem[]> = await getOrganizations(
-        abortController.signal,
-      );
-      if (abortRef.current !== abortController || listRequestIdRef.current !== requestId) return;
-      if (result.success) {
-        setOrganizations(result.data);
-        return;
-      }
-      setOrganizations([]);
-      setError(result.error || "Unable to load organizations.");
-    } catch (caughtError) {
-      if (
-        isAbortError(caughtError) ||
-        abortRef.current !== abortController ||
-        listRequestIdRef.current !== requestId
-      ) {
-        return;
-      }
-      setOrganizations([]);
-      setError(getErrorMessage(caughtError, "Unable to load organizations."));
-    } finally {
-      if (abortRef.current === abortController && listRequestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
-    }
+  const handleFilterToggle = useCallback((category: GraphFilterCategory) => {
+    if (category !== "Focus Area") return;
+    setExpandedFilter((previous) => (previous === category ? null : category));
   }, []);
-
-  useEffect(() => {
-    void fetchOrganizations();
-    return () => abortRef.current?.abort();
-  }, [fetchOrganizations]);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
+
     const abortController = new AbortController();
+
     detailAbortRef.current = abortController;
+
     const requestId = detailRequestIdRef.current + 1;
+
     detailRequestIdRef.current = requestId;
 
     setIsDetailLoading(true);
@@ -397,14 +226,22 @@ export default function GraphPage() {
         organizationId,
         abortController.signal,
       );
-      if (detailRequestIdRef.current !== requestId) return;
+
+      if (detailRequestIdRef.current !== requestId) {
+        return;
+      }
+
       if (result.success) {
         setActiveOrgDetail(result.data);
         return;
       }
+
       setDetailError(result.error || "Unable to load organization details.");
     } catch (caughtError) {
-      if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) return;
+      if (isAbortError(caughtError) || detailRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setDetailError(getErrorMessage(caughtError, "Unable to load organization details."));
     } finally {
       if (detailRequestIdRef.current === requestId) {
@@ -415,8 +252,6 @@ export default function GraphPage() {
 
   useEffect(() => () => detailAbortRef.current?.abort(), []);
 
-  // After the overlay finishes fading out, fully clear the selection so we
-  // don't keep stale data around (and a future selection starts fresh).
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
       const timer = setTimeout(() => {
@@ -425,120 +260,130 @@ export default function GraphPage() {
         setDetailError(null);
         setIsDetailLoading(false);
       }, POPUP_FADE_DURATION_MS);
+
       return () => clearTimeout(timer);
     }
+
     return undefined;
   }, [isCardVisible, selectedOrgId]);
 
-  // Derive the graph's structural data (base nodes, edges, and a
-  // parent -> children adjacency map) from the organization list.
-  // `childrenByParent` is used both for the initial layout and for
-  // subtree drag handling.
-  const { baseNodes, edges, childrenByParent } = useMemo(() => {
-    const nextBaseNodes: GraphNode[] = filteredOrganizations.map((org) => ({
-      id: org.id,
-      label: org.name,
-    }));
-    const nextEdges = buildDummyTreeEdges(nextBaseNodes);
-    const nextChildrenByParent = new Map<string, string[]>();
-    for (const edge of nextEdges) {
-      const list = nextChildrenByParent.get(edge.source) ?? [];
-      list.push(edge.target);
-      nextChildrenByParent.set(edge.source, list);
-    }
-    return {
-      baseNodes: nextBaseNodes,
-      edges: nextEdges,
-      childrenByParent: nextChildrenByParent,
-    };
-  }, [filteredOrganizations]);
-
-  // Reset positions whenever the underlying organization list changes.
-  // This throws away any drag translations the user applied, which is
-  // the correct behavior since the tree structure itself has changed.
-  useEffect(() => {
-    setPositions(computeTreePositions(baseNodes, edges));
-  }, [baseNodes, edges]);
-
-  // Produce the final node list for reagraph by pinning each node's
-  // position via `fx` / `fy`. Reagraph will respect these fixed positions
-  // as long as we're using a force-directed layout.
   const nodes = useMemo<GraphNode[]>(
     () =>
-      baseNodes.map((node) => {
-        const position = positions.get(node.id);
-        if (!position) return node;
-        return { ...node, fx: position.x, fy: position.y };
-      }),
-    [baseNodes, positions],
+      filteredOrganizations.map((org) => ({
+        id: org.id,
+        label: org.name,
+      })),
+    [filteredOrganizations],
   );
 
-  // Stable key that changes only when the *set* of rendered node ids
-  // changes (e.g. because search filtered the list). We use this to
-  // re-fit the camera without re-firing the effect on unrelated
-  // re-renders like drag updates.
+  const edges = useMemo<GraphEdge[]>(() => {
+    const visibleNodeIds = new Set(nodes.map((node) => node.id));
+
+    return relationships
+      .filter(
+        (rel) =>
+          rel.relationshipTier === "PRIMARY" &&
+          visibleNodeIds.has(rel.npo1Id) &&
+          visibleNodeIds.has(rel.npo2Id),
+      )
+      .map((rel) => ({
+        id: rel.id,
+        source: rel.npo1Id,
+        target: rel.npo2Id,
+        ...(rel.relationshipType ? { label: rel.relationshipType } : {}),
+      }));
+  }, [nodes, relationships]);
+
   const visibleNodeIdsKey = useMemo(
     () =>
-      baseNodes
+      nodes
         .map((node) => node.id)
         .sort()
         .join("|"),
-    [baseNodes],
+    [nodes],
   );
 
-  // Whenever the visible node set changes, fit the camera to the current
-  // nodes so the graph stays centered on screen. We defer to
-  // requestAnimationFrame so reagraph has a chance to apply the new
-  // layout positions before we ask it to fit them.
+  const selections = useMemo<string[]>(
+    () => (isCardVisible && selectedOrgId ? [selectedOrgId] : []),
+    [isCardVisible, selectedOrgId],
+  );
+
+  // Left sidebar is `absolute left-4 w-[400px]`, so its right edge sits at 416px.
+  // Round up slightly so content has breathing room from the sidebar.
+  const SIDEBAR_RIGHT_PX = 420;
+
+  const fitWithSidebarOffset = useCallback((nodeIds?: string[]) => {
+    const ref = graphRef.current;
+    if (!ref) return;
+
+    ref.fitNodesInView(nodeIds, { animated: true });
+
+    // After fit, compensate when the WebGL canvas extends behind the floating
+    // sidebar so the visible center of the content sits to the right of it.
+    const controls = ref.getControls() as unknown as {
+      camera?: { fov?: number; position: { length: () => number } };
+      distance?: number;
+      truck: (x: number, y: number, enableTransition?: boolean) => void;
+      dolly: (distance: number, enableTransition?: boolean) => void;
+    } | null;
+    const container = graphContainerRef.current;
+    if (!controls || !container) return;
+
+    const camera = controls.camera;
+    if (!camera || typeof camera.fov !== "number") return;
+
+    const rect = container.getBoundingClientRect();
+    if (rect.height === 0) return;
+
+    // If the container already starts at or past the sidebar's right edge, fit
+    // is already centered in the visible area — no shift needed.
+    const overlapPx = SIDEBAR_RIGHT_PX - rect.left;
+    if (overlapPx <= 0) return;
+
+    // Convert the half-overlap from CSS pixels to world units using the
+    // perspective camera's visible height at the current target distance.
+    const distance = controls.distance ?? camera.position.length();
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovRad / 2) * distance;
+    const worldPerPixel = visibleHeight / rect.height;
+    const offsetWorld = (overlapPx / 2) * worldPerPixel;
+
+    // Trucking the camera left shifts visible content rightward, clearing the
+    // sidebar. Dolly out by the same magnitude so nothing falls off the right.
+    controls.truck(-offsetWorld, 0, true);
+    controls.dolly(-offsetWorld, true);
+  }, []);
+
   useEffect(() => {
-    if (visibleNodeIdsKey.length === 0) return;
-    let cancelled = false;
-    const rafId = requestAnimationFrame(() => {
-      if (cancelled) return;
-      graphRef.current?.fitNodesInView(undefined, { animated: true });
-    });
+    if (visibleNodeIdsKey.length === 0 || !showFunctionalGraph) {
+      return;
+    }
+
+    // Force-directed layout needs time to settle after nodes change; refit a few
+    // times across the simulation window so the camera tracks it as it converges.
+    const refitDelaysMs = [50, 350, 800, 1400];
+
+    const timeoutIds = refitDelaysMs.map((delay) =>
+      window.setTimeout(() => {
+        fitWithSidebarOffset();
+      }, delay),
+    );
+
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
+      for (const id of timeoutIds) {
+        window.clearTimeout(id);
+      }
     };
-  }, [visibleNodeIdsKey]);
-
-  // Drag handler: translate the dragged node AND every descendant by the
-  // same delta so an entire branch of the tree moves as a unit.
-  const handleNodeDragged = useCallback(
-    (node: InternalGraphNode) => {
-      setPositions((previousPositions) => {
-        const previous = previousPositions.get(node.id);
-        if (!previous) return previousPositions;
-
-        const deltaX = node.position.x - previous.x;
-        const deltaY = node.position.y - previous.y;
-        if (deltaX === 0 && deltaY === 0) return previousPositions;
-
-        const subtreeIds = collectSubtreeIds(node.id, childrenByParent);
-        const nextPositions = new Map(previousPositions);
-        for (const id of subtreeIds) {
-          const current = nextPositions.get(id);
-          if (!current) continue;
-          nextPositions.set(id, {
-            x: current.x + deltaX,
-            y: current.y + deltaY,
-          });
-        }
-        return nextPositions;
-      });
-    },
-    [childrenByParent],
-  );
+  }, [visibleNodeIdsKey, showFunctionalGraph, fitWithSidebarOffset]);
 
   const handleRetry = useCallback(() => {
-    void fetchOrganizations();
-  }, [fetchOrganizations]);
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
 
-  // Clicking the same node again toggles the overlay closed, matching the
-  // list view's behavior where re-clicking the active row collapses it.
   const handleNodeClick = useCallback(
     (node: InternalGraphNode) => {
+      activateGraph();
+
       if (selectedOrgId === node.id && isCardVisible) {
         detailAbortRef.current?.abort();
         setIsCardVisible(false);
@@ -547,9 +392,12 @@ export default function GraphPage() {
 
       setSelectedOrgId(node.id);
       setIsCardVisible(true);
+
+      fitWithSidebarOffset([node.id]);
+
       void fetchOrganizationDetail(node.id);
     },
-    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+    [activateGraph, fetchOrganizationDetail, fitWithSidebarOffset, isCardVisible, selectedOrgId],
   );
 
   const handleCloseCard = useCallback(() => {
@@ -559,13 +407,34 @@ export default function GraphPage() {
 
   const handleRetryDetail = useCallback(() => {
     if (!selectedOrgId) return;
+
     void fetchOrganizationDetail(selectedOrgId);
   }, [fetchOrganizationDetail, selectedOrgId]);
 
+  // Close the popup when the user clicks anywhere outside it.
+  useEffect(() => {
+    if (!isCardVisible) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && popupCardRef.current?.contains(target)) {
+        return;
+      }
+      handleCloseCard();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [handleCloseCard, isCardVisible]);
+
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
+
     return {
       name: activeOrgDetail.name,
+
       tags: [
         {
           icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
@@ -584,103 +453,146 @@ export default function GraphPage() {
           label: activeOrgDetail.location,
         },
       ],
+
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
 
-  // Distinguish "no data at all" from "filters returned nothing" so the
-  // empty state can explain why the graph is blank.
   const hasSearchQuery = search.trim().length > 0;
+
   const hasTagFilter = selectedTagIds.size > 0;
+
   const hasActiveFilters = hasSearchQuery || hasTagFilter;
+
   const hasOrganizations = organizations.length > 0;
 
   return (
     <div className="relative min-h-[calc(100vh-92px)] overflow-hidden rounded-3xl border border-slate-300 bg-slate-50">
+      {/* LEFT SIDEBAR */}
       {!isLoading && !error && hasOrganizations && (
-        // Floating left-side control column layered over the canvas. Holds
-        // the search input on top and the tag filter panel below it so the
-        // two filtering affordances live together. `z-10` keeps it above
-        // the reagraph WebGL canvas, while `pointer-events-none` on the
-        // outer wrapper lets unclaimed regions pass clicks through to the
-        // graph for panning.
-        <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col gap-3">
-          <div className="pointer-events-auto relative flex items-center rounded-[100px] border border-[#b4b4b4] bg-white px-5 py-[10px] shadow-sm">
-            <SearchIcon className="pointer-events-none absolute left-5 h-4.5 w-4.5 text-[#6c6c6c]" />
-            <input
-              className="w-full pl-8 text-sm text-[#6c6c6c] placeholder:text-[#6c6c6c] focus:outline-none"
-              placeholder="Search"
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+        <div className="pointer-events-none absolute left-4 top-4 z-10 w-[400px] max-w-[calc(100vw-2rem)]">
+          <section className="pointer-events-auto flex h-[calc(100vh-120px)] flex-col overflow-y-auto rounded-[20px] border border-[#d4d7d6] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="px-10 pb-6 pt-9">
+              <h1 className="text-[20px] font-semibold leading-7 text-black">
+                Welcome to the DBC Database
+              </h1>
+              <p className="mt-4 text-[14px] leading-[20px] text-black">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
 
-          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#b4b4b4] bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-[#e5e5e5] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#333]">
-                <FilterIcon className="h-4 w-4 text-[#6c6c6c]" aria-hidden="true" />
-                <span>Filter by tag</span>
-                {selectedTagIds.size > 0 ? (
-                  <span className="rounded-full bg-[#3b9a9a] px-2 py-0.5 text-xs font-semibold text-white">
-                    {selectedTagIds.size}
-                  </span>
-                ) : null}
-              </div>
-              {selectedTagIds.size > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearTagFilter}
-                  className="text-xs font-semibold text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
-                >
-                  Clear
-                </button>
-              ) : null}
+              <label className="mt-8 flex h-[44px] items-center rounded-full border border-[#b4b4b4] bg-white px-4">
+                <span className="sr-only">Search organizations</span>
+                <SearchIcon className="pointer-events-none h-5 w-5 flex-shrink-0 text-[#6c6c6c]" />
+                <input
+                  className="min-w-0 flex-1 bg-transparent pl-3 text-[14px] text-[#333] placeholder:text-[#6c6c6c] focus:outline-none"
+                  placeholder="Search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearch(value);
+                    if (value.trim().length > 0) {
+                      activateGraph();
+                    }
+                  }}
+                />
+              </label>
             </div>
 
-            {availableTags.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-[#6c6c6c]">
-                No tags are associated with the loaded organizations.
-              </p>
-            ) : (
-              <ul className="flex-1 overflow-y-auto py-1">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTagIds.has(tag.id);
+            <div className="flex flex-1 flex-col border-t border-[#d9d9d9] px-10 pb-9 pt-7">
+              <div className="mb-4 flex min-h-5 items-center justify-between gap-2">
+                <p className="text-[13px] leading-5 text-[#6c6c6c]">Filters</p>
+                {selectedTagIds.size > 0 ? (
+                  <button
+                    type="button"
+                    onClick={clearTagFilter}
+                    className="text-[13px] font-semibold leading-5 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {FILTER_CATEGORIES.map((category) => {
+                  const isExpanded = expandedFilter === category;
+                  const isFocusArea = category === "Focus Area";
+
                   return (
-                    <li key={tag.id}>
-                      <label
-                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#f5f5f5] ${
-                          isSelected ? "bg-[#f0f8f8] text-[#2f7f7f]" : "text-[#333]"
-                        }`}
+                    <div key={category}>
+                      <button
+                        type="button"
+                        aria-expanded={isFocusArea ? isExpanded : undefined}
+                        onClick={() => handleFilterToggle(category)}
+                        className="flex h-[44px] w-full items-center justify-between rounded-[8px] border border-[#b4b4b4] bg-white px-4 text-left text-[14px] font-medium leading-5 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
-                          checked={isSelected}
-                          onChange={() => toggleTag(tag.id)}
-                        />
-                        <span className="flex-1 truncate" title={tag.name}>
-                          {tag.name}
+                        <span className="truncate">
+                          {category}
+                          {isFocusArea && selectedTagIds.size > 0
+                            ? ` (${selectedTagIds.size})`
+                            : ""}
                         </span>
-                        <span className="flex-shrink-0 text-xs text-[#6c6c6c]">{tag.count}</span>
-                      </label>
-                    </li>
+                        <ChevronRightIcon
+                          className={`h-5 w-5 flex-shrink-0 text-black transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isFocusArea && isExpanded ? (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-[8px] border border-[#d9d9d9] bg-white py-1">
+                          {availableTags.length === 0 ? (
+                            <p className="px-4 py-2.5 text-[13px] leading-5 text-[#6c6c6c]">
+                              No focus areas available.
+                            </p>
+                          ) : (
+                            availableTags.map((tag) => {
+                              const isSelected = selectedTagIds.has(tag.id);
+                              return (
+                                <label
+                                  key={tag.id}
+                                  className={`flex cursor-pointer items-center gap-2.5 px-4 py-2.5 text-[13px] leading-5 transition-colors hover:bg-[#f5f5f5] ${
+                                    isSelected ? "text-[#2f7f7f]" : "text-black"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
+                                    checked={isSelected}
+                                    onChange={() => toggleTag(tag.id)}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate" title={tag.name}>
+                                    {tag.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-[#6c6c6c]">{tag.count}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
-              </ul>
-            )}
-          </div>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
+      {/* LOADING */}
       {isLoading ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
           Loading organizations...
         </div>
       ) : error ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] flex-col items-center justify-center gap-3 p-6 text-center">
+        <div className="flex min-h-[calc(100vh-92px)] flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="text-sm text-slate-700">{error}</p>
+
           <button
             type="button"
             onClick={handleRetry}
@@ -689,36 +601,60 @@ export default function GraphPage() {
             Retry
           </button>
         </div>
+      ) : !showFunctionalGraph ? (
+        /* STATIC TREE LANDING PAGE */
+        <div className="flex min-h-[calc(100vh-92px)] w-full items-center justify-center pl-[420px] pr-6">
+          <button
+            type="button"
+            onClick={activateGraph}
+            className="relative h-[80vh] w-full max-w-5xl transition-transform duration-300 hover:scale-[1.01]"
+          >
+            <Image
+              src="/images/tree.svg"
+              alt="Static organization tree"
+              fill
+              priority
+              className="object-contain"
+            />
+          </button>
+        </div>
       ) : nodes.length === 0 ? (
-        <div className="flex h-full min-h-[calc(100vh-92px)] items-center justify-center p-6 text-sm text-slate-600">
+        <div className="flex min-h-[calc(100vh-92px)] items-center justify-center p-6 pl-[420px] text-sm text-slate-600">
           {hasActiveFilters
             ? "No organizations match the current filters."
             : "No organizations to display."}
         </div>
       ) : (
-        <GraphCanvas
-          ref={graphRef}
-          draggable
-          layoutType="forceDirected2d"
-          edgeArrowPosition="none"
-          nodes={nodes}
-          edges={edges}
-          onNodeDragged={handleNodeDragged}
-          onNodeClick={handleNodeClick}
-        />
+        /* FUNCTIONAL GRAPH */
+        <div ref={graphContainerRef} className="h-[calc(100vh-92px)] w-full pl-[420px]">
+          <GraphCanvas
+            ref={graphRef}
+            draggable
+            layoutType="forceDirected2d"
+            layoutOverrides={{ nodeStrength: -800, linkDistance: 180 }}
+            labelType="nodes"
+            edgeArrowPosition="none"
+            nodes={nodes}
+            edges={edges}
+            selections={selections}
+            onNodeClick={handleNodeClick}
+          />
+        </div>
       )}
 
-      {/* Overlay card that fades in/out and sits above the canvas. Mirrors
-          the list view's profile card so the two surfaces behave the same. */}
+      {/* PROFILE CARD */}
       <div
-        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
+        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 transition-opacity duration-200 md:px-8 lg:px-10 ${
           isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
         }`}
       >
         {selectedOrgId ? (
           <div
+            ref={popupCardRef}
             className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
-            style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
+            style={{
+              transform: isCardVisible ? "translateY(0)" : "translateY(8px)",
+            }}
           >
             {selectedCardProps ? (
               <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
@@ -730,20 +666,7 @@ export default function GraphPage() {
                   onClick={handleCloseCard}
                   className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  ✕
                 </button>
 
                 <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
@@ -751,14 +674,11 @@ export default function GraphPage() {
                 </h1>
 
                 {isDetailLoading ? (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                    Loading organization details...
-                  </p>
+                  <p className="mt-3 text-sm text-[#484848]">Loading organization details...</p>
                 ) : detailError ? (
                   <div className="mt-3 space-y-3">
-                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                      {detailError}
-                    </p>
+                    <p className="text-sm text-[#484848]">{detailError}</p>
+
                     <button
                       className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
                       type="button"
@@ -768,9 +688,7 @@ export default function GraphPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                    No organization details available.
-                  </p>
+                  <p className="mt-3 text-sm text-[#484848]">No organization details available.</p>
                 )}
               </section>
             )}

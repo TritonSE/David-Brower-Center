@@ -18,6 +18,13 @@ function toFallbackString(value: unknown): string {
   return toOptionalString(value) ?? NOT_PROVIDED;
 }
 
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => toOptionalString(item))
+    .filter((item): item is string => item !== null);
+}
+
 function parseOrganizationsPayload(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload;
 
@@ -31,6 +38,16 @@ function parseOrganizationsPayload(payload: unknown): unknown[] {
   }
 
   throw new Error("[/api/organizations] Unexpected response shape.");
+}
+
+function parseRelationshipsPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  if (isRecord(payload) && Array.isArray(payload.relationships)) {
+    return payload.relationships;
+  }
+
+  throw new Error("[/api/organizations/relationships] Unexpected response shape.");
 }
 
 function parseOrganizationPayload(payload: unknown): unknown {
@@ -54,16 +71,37 @@ function getRequiredString(value: unknown, route: string, field: string): string
 export type OrganizationTag = {
   id: string;
   name: string;
+  color: string;
 };
+
+const DEFAULT_TAG_COLOR = "#D9D9D9";
+const HEX_COLOR_PATTERN = /^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function parseTagColor(value: unknown): string {
+  if (typeof value !== "string") return DEFAULT_TAG_COLOR;
+  const trimmed = value.trim();
+  if (!HEX_COLOR_PATTERN.test(trimmed)) return DEFAULT_TAG_COLOR;
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+}
 
 export type OrganizationListItem = {
   id: string;
   name: string;
   focus: string;
+  images: string[];
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
-  images: string[];
+};
+
+export type OrganizationRelationshipTier = "PRIMARY" | "SECONDARY" | "TERTIARY";
+
+export type OrganizationRelationship = {
+  id: string;
+  npo1Id: string;
+  npo2Id: string;
+  relationshipTier: OrganizationRelationshipTier;
+  relationshipType: string | null;
 };
 
 export type OrganizationDetail = {
@@ -75,9 +113,9 @@ export type OrganizationDetail = {
   budget: string;
   location: string;
   description: string;
+  images: string[];
   mission: string;
   tags: OrganizationTag[];
-  images: string[];
 };
 
 function parseOrganizationTag(value: unknown): OrganizationTag | null {
@@ -85,7 +123,7 @@ function parseOrganizationTag(value: unknown): OrganizationTag | null {
   const id = toOptionalString(value.id);
   const name = toOptionalString(value.name);
   if (!id || !name) return null;
-  return { id, name };
+  return { id, name, color: parseTagColor(value.color) };
 }
 
 function parseOrganizationTagList(value: unknown): OrganizationTag[] {
@@ -98,11 +136,6 @@ function parseOrganizationTagList(value: unknown): OrganizationTag[] {
   return tags;
 }
 
-function parseStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
-}
-
 function parseOrganizationListItem(value: unknown): OrganizationListItem {
   if (!isRecord(value)) {
     throw new Error("[/api/organizations] Expected each organization item to be an object.");
@@ -112,10 +145,10 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     id: getRequiredString(value.id, "/api/organizations", "id"),
     name: getRequiredString(value.name, "/api/organizations", "name"),
     focus: toFallbackString(value.focus),
+    images: toStringArray(value.images),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
     tags: parseOrganizationTagList(value.tags),
-    images: parseStringArray(value.images),
   };
 }
 
@@ -133,9 +166,9 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     budget: toFallbackString(value.budget),
     location: toFallbackString(value.location),
     description: toFallbackString(value.description),
+    images: toStringArray(value.images),
     mission: toFallbackString(value.mission),
     tags: parseOrganizationTagList(value.tags),
-    images: parseStringArray(value.images),
   };
 }
 
@@ -226,6 +259,53 @@ export async function getOrganizations(
     const payload: unknown = await response.json();
     const organizations = parseOrganizationsPayload(payload);
     return { success: true, data: organizations.map(parseOrganizationListItem) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
+
+function parseRelationshipTier(value: unknown): OrganizationRelationshipTier | null {
+  if (value === "PRIMARY" || value === "SECONDARY" || value === "TERTIARY") {
+    return value;
+  }
+  return null;
+}
+
+function parseOrganizationRelationship(value: unknown): OrganizationRelationship | null {
+  if (!isRecord(value)) return null;
+
+  const id = toOptionalString(value.id);
+  const npo1Id = toOptionalString(value.npo1Id);
+  const npo2Id = toOptionalString(value.npo2Id);
+  const tier = parseRelationshipTier(value.relationshipTier);
+
+  if (!id || !npo1Id || !npo2Id || !tier) return null;
+
+  return {
+    id,
+    npo1Id,
+    npo2Id,
+    relationshipTier: tier,
+    relationshipType: toOptionalString(value.relationshipType),
+  };
+}
+
+export async function getOrganizationRelationships(
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationRelationship[]>> {
+  try {
+    const response = await get("/api/organizations/relationships", {}, signal);
+    const payload: unknown = await response.json();
+    const raw = parseRelationshipsPayload(payload);
+    const relationships: OrganizationRelationship[] = [];
+    for (const entry of raw) {
+      const relationship = parseOrganizationRelationship(entry);
+      if (relationship) relationships.push(relationship);
+    }
+    return { success: true, data: relationships };
   } catch (error) {
     if (isAbortError(error)) {
       throw error;

@@ -21,13 +21,20 @@ enum RelationshipTier {
   @@schema("public")
 }
 
+enum TagVisibility {
+  PUBLIC
+  PRIVATE
+
+  @@schema("public")
+}
+
 model Organization {
   id                  String                     @id @default(uuid()) @db.Uuid
   projectId           String                     @unique
   name                String
   website             String?
   sizeCategory        String?
-  images              String[]                   @default([])
+  images       String[]          @default([])
   tags                OrganizationTag[]
   relationshipsAsNpo1 OrganizationRelationship[] @relation("OrganizationRelationshipNpo1")
   relationshipsAsNpo2 OrganizationRelationship[] @relation("OrganizationRelationshipNpo2")
@@ -60,6 +67,8 @@ model Tag {
   id            String            @id @default(uuid()) @db.Uuid
   name          String            @unique
   description   String?
+  color         String            @default("#D9D9D9")
+  visibility    TagVisibility     @default(PUBLIC)
   organizations OrganizationTag[]
 
   @@map("tags")
@@ -85,6 +94,7 @@ model User {
   first_name       String?
   last_name        String?
   phone            String?
+  profile_picture  String?
   role             String   @default("admin")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
 

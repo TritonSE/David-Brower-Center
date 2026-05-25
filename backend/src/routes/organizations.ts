@@ -9,43 +9,90 @@ import { requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
 
-const IMAGES_BUCKET = "organization-images";
+const IMAGES_BUCKET = "images";
 
 type OrganizationBody = {
+  images?: unknown;
   name?: unknown;
   projectId?: unknown;
   sizeCategory?: unknown;
-  website?: unknown;
   tags?: unknown;
-  images?: unknown;
+  website?: unknown;
 };
 
-type OrganizationTagJoin = { tag: { id: string; name: string } };
+type OrganizationTagJoin = { tag: { id: string; name: string; color: string } };
 function flattenOrganizationTags<T extends { tags: OrganizationTagJoin[] }>(
   organization: T,
-): Omit<T, "tags"> & { tags: { id: string; name: string }[] } {
+): Omit<T, "tags"> & { tags: { id: string; name: string; color: string }[] } {
   const { tags, ...rest } = organization;
   return {
     ...rest,
-    tags: tags.map((entry) => ({ id: entry.tag.id, name: entry.tag.name })),
+    tags: tags.map((entry) => ({
+      id: entry.tag.id,
+      name: entry.tag.name,
+      color: entry.tag.color,
+    })),
   };
 }
 
-const orgInclude = {
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function toImageUrlArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const urls: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (trimmed.length === 0) continue;
+    if (!isHttpsUrl(trimmed)) continue;
+    urls.push(trimmed);
+  }
+  return urls;
+}
+
+const orgTagsInclude = {
   tags: {
+    orderBy: { tag: { name: "asc" } },
     select: {
-      tag: { select: { id: true, name: true } },
+      tag: { select: { id: true, name: true, color: true } },
     },
   },
 } as const;
 
 /** GET /api/organizations */
-router.get("/", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const organizations = await prisma.organization.findMany({ include: orgInclude });
+    const organizations = await prisma.organization.findMany({
+      include: orgTagsInclude,
+    });
     res.status(200).json({ organizations: organizations.map(flattenOrganizationTags) });
-  } catch {
+  } catch (error) {
+    console.error("GET /organizations failed:", error);
     next(createError(500, "Failed to fetch organizations"));
+  }
+});
+
+/** GET /api/organizations/relationships */
+router.get("/relationships", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const relationships = await prisma.organizationRelationship.findMany({
+      select: {
+        id: true,
+        npo1Id: true,
+        npo2Id: true,
+        relationshipTier: true,
+        relationshipType: true,
+      },
+    });
+    res.status(200).json({ relationships });
+  } catch {
+    next(createError(500, "Failed to fetch organization relationships"));
   }
 });
 
@@ -61,7 +108,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
-      include: orgInclude,
+      include: orgTagsInclude,
     });
 
     if (!organization) {
@@ -70,7 +117,8 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     }
 
     res.status(200).json({ organization: flattenOrganizationTags(organization) });
-  } catch {
+  } catch (error) {
+    console.error(`GET /organizations/${id} failed:`, error);
     next(createError(500, `Failed to fetch organization ${id}`));
   }
 });
@@ -88,6 +136,7 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
       Array.isArray(body.tags) && body.tags.every((tag): tag is string => typeof tag === "string")
         ? body.tags
         : [];
+    const images = toImageUrlArray(body.images);
 
     if (typeof body.projectId !== "string" || body.projectId.trim().length === 0) {
       throw createError(400, "projectId is required");
@@ -96,21 +145,15 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
     const sizeCategoryRaw = body.sizeCategory;
     const websiteRaw = body.website;
 
-    const images: string[] =
-      Array.isArray(body.images) &&
-      body.images.every((img): img is string => typeof img === "string")
-        ? body.images
-        : [];
-
     const organization = await prisma.organization.create({
       data: {
+        images,
         name: body.name.trim(),
         projectId: body.projectId.trim(),
         ...(typeof sizeCategoryRaw === "string"
           ? { sizeCategory: sizeCategoryRaw.trim() || null }
           : {}),
         ...(typeof websiteRaw === "string" ? { website: websiteRaw.trim() || null } : {}),
-        images,
         ...(tagIds.length > 0
           ? {
               tags: {
@@ -121,7 +164,7 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
             }
           : {}),
       },
-      include: orgInclude,
+      include: orgTagsInclude,
     });
 
     res.status(201).json({ organization: flattenOrganizationTags(organization) });
@@ -135,10 +178,10 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
  *
  * Returns a Supabase signed upload URL for a single image file.
  * The client uploads the file directly to Supabase Storage using the returned URL,
- * then calls PATCH /api/organizations/:id to record the resulting public URL.
+ * then calls PATCH /api/organizations/:id/images to record the resulting public URL.
  *
  * Body: { filename: string; contentType: string }
- * Response: { uploadUrl: string; publicUrl: string; path: string }
+ * Response: { uploadUrl: string; token: string; path: string; publicUrl: string }
  */
 router.post(
   "/:id/images/upload-url",
@@ -215,11 +258,7 @@ router.patch(
 
     try {
       const body = req.body as { urls?: unknown };
-      const urls: string[] =
-        Array.isArray(body.urls) &&
-        body.urls.every((u): u is string => typeof u === "string" && u.trim().length > 0)
-          ? body.urls.map((u) => u.trim())
-          : [];
+      const urls = toImageUrlArray(body.urls);
 
       if (urls.length === 0) {
         throw createError(400, "urls array is required and must be non-empty");
@@ -237,7 +276,7 @@ router.patch(
       const updated = await prisma.organization.update({
         where: { id },
         data: { images: { push: urls } },
-        include: orgInclude,
+        include: orgTagsInclude,
       });
 
       res.status(200).json({ organization: flattenOrganizationTags(updated) });

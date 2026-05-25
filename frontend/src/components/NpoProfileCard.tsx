@@ -25,9 +25,38 @@ type NpoProfileCardProps = {
   onClose?: () => void;
 };
 
+export function getNpoProfileCardImageProps(
+  images: string[],
+): Partial<Pick<NpoProfileCardProps, "images" | "moreCountLabel">> {
+  const primary = images[0] ?? "";
+  const secondary = images[1] ?? "";
+  const morePreview = images[2] ?? "";
+  const remainingImageCount = images.length - 3;
+
+  return {
+    images: {
+      primary,
+      secondary,
+      morePreview,
+    },
+    moreCountLabel: remainingImageCount > 0 ? `+ ${remainingImageCount} More` : "",
+  };
+}
+
 const imgPrimary = "/images/dbc-primary.svg";
 const imgSecondary = "/images/dbc-secondary.svg";
 const imgMorePreview = "/images/dbc-more-preview.svg";
+
+function ImagePlaceholder() {
+  return (
+    <div
+      aria-hidden
+      className="flex h-full w-full items-center justify-center bg-[#e5e5e5] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[12px] font-normal text-[#6c6c6c]"
+    >
+      No image
+    </div>
+  );
+}
 
 const defaultContent: NpoProfileCardProps = {
   name: "David Brower Center",
@@ -116,42 +145,56 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[10px] flex w-full flex-col gap-[10px] sm:h-[240px] sm:flex-row">
         <div className="h-[220px] w-full overflow-hidden rounded-[12px] sm:h-[240px] sm:w-[369px]">
-          <Image
-            alt="David Brower Center building"
-            src={content.images.primary}
-            width={738}
-            height={480}
-            sizes="(min-width: 640px) 369px, 100vw"
-            className="h-full w-full object-cover"
-          />
+          {content.images.primary ? (
+            <Image
+              alt={`Photo of ${content.name}`}
+              src={content.images.primary}
+              width={738}
+              height={480}
+              sizes="(min-width: 640px) 369px, 100vw"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <ImagePlaceholder />
+          )}
         </div>
 
         <div className="flex w-full flex-row gap-[10px] sm:w-[159px] sm:flex-col">
           <div className="h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[144px] sm:w-[159px]">
-            <Image
-              alt="David Brower Center interior"
-              src={content.images.secondary}
-              width={318}
-              height={288}
-              sizes="(min-width: 640px) 159px, 50vw"
-              className="h-full w-full object-cover"
-            />
+            {content.images.secondary ? (
+              <Image
+                alt={`Photo of ${content.name}`}
+                src={content.images.secondary}
+                width={318}
+                height={288}
+                sizes="(min-width: 640px) 159px, 50vw"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ImagePlaceholder />
+            )}
           </div>
 
           <div className="relative h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[86px] sm:w-[159px]">
-            <Image
-              alt="Additional gallery images"
-              src={content.images.morePreview}
-              width={318}
-              height={172}
-              sizes="(min-width: 640px) 159px, 50vw"
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px]/[normal] font-normal text-white">
-                {content.moreCountLabel}
-              </span>
-            </div>
+            {content.images.morePreview ? (
+              <Image
+                alt={`Photo of ${content.name}`}
+                src={content.images.morePreview}
+                width={318}
+                height={172}
+                sizes="(min-width: 640px) 159px, 50vw"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ImagePlaceholder />
+            )}
+            {content.moreCountLabel ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px]/[normal] font-normal text-white">
+                  {content.moreCountLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
