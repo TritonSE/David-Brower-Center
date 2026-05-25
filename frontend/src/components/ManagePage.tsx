@@ -230,23 +230,23 @@ export default function ManagePage() {
       }
 
       try {
-        const publicUrls: string[] = [];
+        // Record each image immediately after upload so a mid-batch failure
+        // leaves nothing orphaned in Storage that isn't referenced by the DB.
         for (const file of values.mediaFiles) {
           // eslint-disable-next-line no-await-in-loop
-          const urlResult = await getImageUploadUrl(targetId, file.name, file.type);
+          const urlResult = await getImageUploadUrl(targetId, file.name);
           if (!urlResult.success) {
             setUploadError(`Failed to get upload URL: ${urlResult.error}`);
             return;
           }
           // eslint-disable-next-line no-await-in-loop
           await uploadImageToStorage(urlResult.data.uploadUrl, file);
-          publicUrls.push(urlResult.data.publicUrl);
-        }
-
-        const recordResult = await recordOrganizationImages(targetId, publicUrls);
-        if (!recordResult.success) {
-          setUploadError(`Failed to save image URLs: ${recordResult.error}`);
-          return;
+          // eslint-disable-next-line no-await-in-loop
+          const recordResult = await recordOrganizationImages(targetId, [urlResult.data.publicUrl]);
+          if (!recordResult.success) {
+            setUploadError(`Failed to save image URL: ${recordResult.error}`);
+            return;
+          }
         }
 
         setIsAddNpoOpen(false);

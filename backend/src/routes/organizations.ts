@@ -173,15 +173,24 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
   }
 });
 
+const EXT_PATTERN = /^[a-z0-9]{1,8}$/i;
+
+function safeExtensionFromFilename(filename: string): string {
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot < 0 || lastDot === filename.length - 1) return "bin";
+  const ext = filename.slice(lastDot + 1);
+  return EXT_PATTERN.test(ext) ? ext.toLowerCase() : "bin";
+}
+
 /**
  * POST /api/organizations/:id/images/upload-url
  *
  * Returns a Supabase signed upload URL for a single image file.
- * The client uploads the file directly to Supabase Storage using the returned URL,
+ * The client PUTs the file directly to Supabase Storage using the returned URL,
  * then calls PATCH /api/organizations/:id/images to record the resulting public URL.
  *
- * Body: { filename: string; contentType: string }
- * Response: { uploadUrl: string; token: string; path: string; publicUrl: string }
+ * Body: { filename: string }
+ * Response: { uploadUrl: string; path: string; publicUrl: string }
  */
 router.post(
   "/:id/images/upload-url",
@@ -201,15 +210,12 @@ router.post(
         return;
       }
 
-      const body = req.body as { filename?: unknown; contentType?: unknown };
+      const body = req.body as { filename?: unknown };
       if (typeof body.filename !== "string" || body.filename.trim().length === 0) {
         throw createError(400, "filename is required");
       }
-      if (typeof body.contentType !== "string" || body.contentType.trim().length === 0) {
-        throw createError(400, "contentType is required");
-      }
 
-      const ext = body.filename.split(".").pop() ?? "bin";
+      const ext = safeExtensionFromFilename(body.filename.trim());
       const storagePath = `${id}/${randomUUID()}.${ext}`;
 
       const { data, error } = await supabaseAdmin.storage
@@ -227,7 +233,6 @@ router.post(
 
       res.status(200).json({
         uploadUrl: data.signedUrl,
-        token: data.token,
         path: storagePath,
         publicUrl: publicData.publicUrl,
       });

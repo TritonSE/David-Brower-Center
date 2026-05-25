@@ -1,3 +1,4 @@
+import { authHeaders, getAccessToken } from "./auth";
 import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
@@ -174,7 +175,6 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
 
 export type ImageUploadUrlResult = {
   uploadUrl: string;
-  token: string;
   path: string;
   publicUrl: string;
 };
@@ -184,26 +184,25 @@ function parseImageUploadUrlResult(payload: unknown): ImageUploadUrlResult {
     throw new Error("[/api/organizations/:id/images/upload-url] Unexpected response shape.");
   }
   const uploadUrl = toOptionalString(payload.uploadUrl);
-  const token = toOptionalString(payload.token);
   const path = toOptionalString(payload.path);
   const publicUrl = toOptionalString(payload.publicUrl);
-  if (!uploadUrl || !token || !path || !publicUrl) {
+  if (!uploadUrl || !path || !publicUrl) {
     throw new Error("[/api/organizations/:id/images/upload-url] Missing fields in response.");
   }
-  return { uploadUrl, token, path, publicUrl };
+  return { uploadUrl, path, publicUrl };
 }
 
 export async function getImageUploadUrl(
   organizationId: string,
   filename: string,
-  contentType: string,
   signal?: AbortSignal,
 ): Promise<APIResult<ImageUploadUrlResult>> {
   try {
+    const token = await getAccessToken();
     const response = await post(
       `/api/organizations/${encodeURIComponent(organizationId)}/images/upload-url`,
-      { filename, contentType },
-      {},
+      { filename },
+      authHeaders(token),
       signal,
     );
     const payload: unknown = await response.json();
@@ -236,10 +235,11 @@ export async function recordOrganizationImages(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationDetail>> {
   try {
+    const token = await getAccessToken();
     const response = await patch(
       `/api/organizations/${encodeURIComponent(organizationId)}/images`,
       { urls },
-      {},
+      authHeaders(token),
       signal,
     );
     const payload: unknown = await response.json();
