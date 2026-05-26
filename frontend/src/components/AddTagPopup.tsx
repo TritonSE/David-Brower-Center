@@ -7,9 +7,18 @@ import styles from "./AddTagPopup.module.css";
 import { createTag, type TagRecord, type TagVisibility } from "@/api/tags";
 import { DEFAULT_TAG_COLOR, PRESET_TAG_COLORS } from "@/constants/tagColors";
 
+type TagFormValues = {
+  color: string;
+  name: string;
+  visibility: TagVisibility;
+};
+
 type AddTagPopupProps = {
+  initialValues?: Partial<TagFormValues> | null;
+  mode?: "create" | "edit";
   open: boolean;
   onClose: () => void;
+  onSaveLocal?: (values: TagFormValues) => void;
   onSuccess?: (tag: TagRecord) => void;
 };
 
@@ -21,7 +30,14 @@ function normalizeCustomColor(value: string): string | null {
   return null;
 }
 
-export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupProps) {
+export default function AddTagPopup({
+  initialValues,
+  mode = "create",
+  open,
+  onClose,
+  onSaveLocal,
+  onSuccess,
+}: AddTagPopupProps) {
   const nameId = useId();
   const colorInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -35,14 +51,14 @@ export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupPro
 
   useEffect(() => {
     if (!open) return;
-    setName("");
-    setColor(DEFAULT_TAG_COLOR);
-    setVisibility(null);
+    setName(initialValues?.name ?? "");
+    setColor(initialValues?.color ?? DEFAULT_TAG_COLOR);
+    setVisibility(initialValues?.visibility ?? null);
     setNameError(null);
     setVisibilityError(null);
     setSubmitError(null);
     setIsSubmitting(false);
-  }, [open]);
+  }, [initialValues, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,11 +99,24 @@ export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupPro
     if (!validate()) return;
 
     setSubmitError(null);
+    const trimmedName = name.trim();
+
+    if (mode === "edit") {
+      if (!visibility || !onSaveLocal) return;
+      onSaveLocal({
+        color,
+        name: trimmedName,
+        visibility,
+      });
+      onClose();
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const tag = await createTag({
-        name: name.trim(),
+        name: trimmedName,
         color,
         visibility: visibility as TagVisibility,
       });
@@ -114,6 +143,8 @@ export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupPro
   if (!open) return null;
 
   const presetColors = PRESET_TAG_COLORS as readonly string[];
+  const dialogTitle = mode === "edit" ? "Edit Tag" : "Add Tag";
+  const saveLabel = mode === "edit" ? "Save Changes" : "Save";
 
   return (
     <div className={styles.overlay} onMouseDown={handleOverlayMouseDown}>
@@ -126,7 +157,7 @@ export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupPro
         <header className={styles.header}>
           <div className={styles.headerRow}>
             <h2 id="add-tag-title" className={styles.title}>
-              Add Tag
+              {dialogTitle}
             </h2>
             <button
               type="button"
@@ -247,7 +278,7 @@ export default function AddTagPopup({ open, onClose, onSuccess }: AddTagPopupPro
             onClick={() => void handleSave()}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Saving..." : "Save"}
+            {isSubmitting ? "Saving..." : saveLabel}
           </button>
         </footer>
       </div>

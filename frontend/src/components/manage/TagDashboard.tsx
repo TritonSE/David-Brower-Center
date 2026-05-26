@@ -5,15 +5,17 @@ import { useState } from "react";
 import AddTagPopup from "../AddTagPopup";
 import { FilterIcon, SearchIcon } from "../icons/AppIcons";
 
-import type { ManageTag } from "./types";
+import TagRow from "./TagRow";
+
+import type { AssignedOrganization, ManageTag, ManageTagDraft } from "./types";
 import type { TagRecord } from "@/api/tags";
 
 export const STATIC_TAGS: ManageTag[] = [
   {
     id: "tag-environmental",
+    color: "#77A881",
     name: "Environmental",
     visibility: "public",
-    organizationCount: 5,
     assignedOrganizations: [
       { id: "org-1", name: "Calflora", website: "https://www.calflora.org/" },
       { id: "org-2", name: "Friends of Alemany Farm", website: "http://www.alemanyfarm.org/" },
@@ -21,18 +23,18 @@ export const STATIC_TAGS: ManageTag[] = [
   },
   {
     id: "tag-social",
+    color: "#EFA54D",
     name: "Social",
     visibility: "private",
-    organizationCount: 20,
     assignedOrganizations: [
       { id: "org-3", name: "Food Shift", website: "http://www.foodshift.net/" },
     ],
   },
   {
     id: "tag-community",
+    color: "#5A8FBB",
     name: "Community Resilience",
     visibility: "public",
-    organizationCount: 10,
     assignedOrganizations: [
       { id: "org-4", name: "Green Schoolyards America", website: "http://greenschoolyards.org" },
     ],
@@ -40,15 +42,24 @@ export const STATIC_TAGS: ManageTag[] = [
 ];
 
 type TagDashboardProps = {
+  availableOrganizations: AssignedOrganization[];
   tags: ManageTag[];
   onTagCreated: (tag: TagRecord) => void;
+  onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
+  onTagUpdated: (tagId: string, updates: ManageTagDraft) => void;
 };
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-export default function TagDashboard({ tags, onTagCreated }: TagDashboardProps) {
+export default function TagDashboard({
+  availableOrganizations,
+  onTagCreated,
+  onTagOrganizationsUpdated,
+  onTagUpdated,
+  tags,
+}: TagDashboardProps) {
   const [isAddTagOpen, setIsAddTagOpen] = useState(false);
 
   return (
@@ -105,55 +116,24 @@ export default function TagDashboard({ tags, onTagCreated }: TagDashboardProps) 
 
         <div className="flex flex-col">
           <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
-            <div className="grid grid-cols-[minmax(0,1.5fr)_140px_140px] items-center gap-4">
+            <div className="grid grid-cols-[minmax(0,1.2fr)_120px_120px_220px] items-center gap-4">
               <span>Tag Name</span>
               <span className="text-center">Visibility</span>
               <span className="text-right">Assigned NPOs</span>
+              <span className="text-right">Actions</span>
             </div>
           </div>
 
           <div>
             {tags.map((tag, index) => (
-              <div
+              <TagRow
+                availableOrganizations={availableOrganizations}
                 key={tag.id}
-                className={classNames(
-                  "border-b border-[#b4b4b4] py-3",
-                  index % 2 === 0 ? "bg-[#f2f9f8]" : "bg-white",
-                )}
-              >
-                <div className="grid grid-cols-[minmax(0,1.5fr)_140px_140px] items-center gap-4 px-4">
-                  <div>
-                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px] font-semibold text-black">
-                      {tag.name}
-                    </p>
-                    <p className="mt-1 text-xs text-[#6c6c6c]">
-                      {tag.assignedOrganizations.length > 0
-                        ? tag.assignedOrganizations
-                            .slice(0, 2)
-                            .map((organization) => organization.name)
-                            .join(", ")
-                        : "No assigned organizations"}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-center">
-                    <span
-                      className={classNames(
-                        "inline-flex rounded-full px-3 py-1 text-xs font-medium",
-                        tag.visibility === "public"
-                          ? "bg-[#d8efef] text-[#2f7f7f]"
-                          : "bg-[#f3f4f6] text-[#6c6c6c]",
-                      )}
-                    >
-                      {tag.visibility === "public" ? "Public" : "Private"}
-                    </span>
-                  </div>
-
-                  <span className="text-right font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] text-[#484848]">
-                    {tag.organizationCount}
-                  </span>
-                </div>
-              </div>
+                onTagOrganizationsUpdated={onTagOrganizationsUpdated}
+                onTagUpdated={onTagUpdated}
+                striped={index % 2 === 0}
+                tag={tag}
+              />
             ))}
           </div>
         </div>

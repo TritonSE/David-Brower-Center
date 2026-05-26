@@ -11,17 +11,19 @@ export type AssignedOrganization = {
 export type ManageTag = {
   id: string;
   name: string;
+  color: string;
   visibility: TagVisibility;
-  organizationCount: number;
   assignedOrganizations: AssignedOrganization[];
 };
+
+export type ManageTagDraft = Pick<ManageTag, "color" | "name" | "visibility">;
 
 export function toManageTag(tag: TagRecord): ManageTag {
   return {
     id: tag.id,
     name: tag.name,
+    color: tag.color,
     visibility: tag.visibility,
-    organizationCount: 0,
     assignedOrganizations: [],
   };
 }

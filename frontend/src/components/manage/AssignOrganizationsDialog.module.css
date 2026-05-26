@@ -1,0 +1,177 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.wrapper {
+  width: min(760px, calc(100% - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #d9d9d9;
+}
+
+.title {
+  margin: 0;
+  font-family: "Proxima Nova", var(--font-sans);
+  font-size: 24px;
+  font-weight: 600;
+  color: #000;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-family: "Rubik", sans-serif;
+  font-size: 13px;
+  color: #6c6c6c;
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.count {
+  margin: 0;
+  font-family: "Rubik", sans-serif;
+  font-size: 13px;
+  color: #484848;
+}
+
+.listWrapper {
+  min-height: 240px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #d9d9d9;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.row + .row {
+  border-top: 1px solid #d9d9d9;
+}
+
+.rowLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #3b9a9a;
+}
+
+.name {
+  display: block;
+  font-family: "Proxima Nova", var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+}
+
+.website {
+  display: block;
+  margin-top: 4px;
+  font-family: "Rubik", sans-serif;
+  font-size: 13px;
+  color: #6c6c6c;
+}
+
+.emptyState {
+  display: flex;
+  min-height: 240px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  font-family: "Rubik", sans-serif;
+  font-size: 14px;
+  color: #6c6c6c;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.cancelButton,
+.saveButton {
+  border-radius: 40px;
+  padding: 10px 22px;
+  font-family: "Proxima Nova", var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelButton {
+  border: 1px solid #d9d9d9;
+  background: #ffffff;
+  color: #484848;
+}
+
+.saveButton {
+  border: none;
+  background: #3b9a9a;
+  color: #ffffff;
+}
+
+.cancelButton:hover {
+  border-color: #b4b4b4;
+}
+
+.saveButton:hover {
+  filter: brightness(0.97);
+}

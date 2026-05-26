@@ -14,7 +14,12 @@ import {
   SortArrowIcon,
 } from "./icons/AppIcons";
 import TagDashboard, { STATIC_TAGS } from "./manage/TagDashboard";
-import { type ManageTag, toManageTag } from "./manage/types";
+import {
+  type AssignedOrganization,
+  type ManageTag,
+  type ManageTagDraft,
+  toManageTag,
+} from "./manage/types";
 import NpoProfileCard from "./NpoProfileCard";
 
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
@@ -194,6 +199,15 @@ export default function ManagePage() {
 
   const npoCount = organizations.length;
   const tagCount = manageTags.length;
+  const availableTagOrganizations = useMemo<AssignedOrganization[]>(
+    () =>
+      organizations.map((organization) => ({
+        id: organization.id,
+        name: organization.name,
+        website: null,
+      })),
+    [organizations],
+  );
 
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -209,11 +223,26 @@ export default function ManagePage() {
 
   const handleTagCreated = useCallback((tag: TagRecord) => {
     const nextTag = toManageTag(tag);
-    setManageTags((current) => [
+    setManageTags((current: ManageTag[]) => [
       nextTag,
       ...current.filter((existingTag) => existingTag.id !== nextTag.id),
     ]);
   }, []);
+
+  const handleTagUpdated = useCallback((tagId: string, updates: ManageTagDraft) => {
+    setManageTags((current) =>
+      current.map((tag) => (tag.id === tagId ? { ...tag, ...updates } : tag)),
+    );
+  }, []);
+
+  const handleTagOrganizationsUpdated = useCallback(
+    (tagId: string, assignedOrganizations: AssignedOrganization[]) => {
+      setManageTags((current) =>
+        current.map((tag) => (tag.id === tagId ? { ...tag, assignedOrganizations } : tag)),
+      );
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -429,7 +458,13 @@ export default function ManagePage() {
                 </div>
               </>
             ) : (
-              <TagDashboard tags={manageTags} onTagCreated={handleTagCreated} />
+              <TagDashboard
+                availableOrganizations={availableTagOrganizations}
+                tags={manageTags}
+                onTagCreated={handleTagCreated}
+                onTagOrganizationsUpdated={handleTagOrganizationsUpdated}
+                onTagUpdated={handleTagUpdated}
+              />
             )}
           </div>
         </div>
