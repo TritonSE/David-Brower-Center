@@ -1,5 +1,7 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
 
+import { Prisma } from "../generated/prisma/client";
+import { prisma } from "../lib/prisma";
 import { supabaseAdmin, supabaseAuth } from "../lib/supabaseClients";
 
 const router = Router();
@@ -9,7 +11,7 @@ type AuthUserResult = {
   error: Error | null;
 };
 
-type ProfileRow = {
+type UserRow = {
   supabase_user_id: string;
   email: string;
   first_name: string | null;
@@ -18,15 +20,8 @@ type ProfileRow = {
   role: string;
 };
 
-type ProfileResult = {
-  data: ProfileRow | null;
-  error: Error | null;
-};
-
-type ProfileRoleResult = {
-  data: { role: string } | null;
-  error: Error | null;
-};
+type AuthOk = { ok: true; userId: string; email: string | null };
+type AuthFail = { ok: false; status: number; error: string };
 
 function toNullableTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -44,7 +39,7 @@ function isValidEmail(value: string): boolean {
   return true;
 }
 
-function profileResponse(profile: ProfileRow) {
+function profileResponse(profile: UserRow) {
   return {
     id: profile.supabase_user_id,
     email: profile.email,
@@ -55,65 +50,50 @@ function profileResponse(profile: ProfileRow) {
   };
 }
 
+async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader !== "string") {
+    return { ok: false, status: 401, error: "Missing Authorization header" };
+  }
+  const [scheme, token] = authHeader.trim().split(/\s+/);
+  if (scheme?.toLowerCase() !== "bearer" || !token) {
+    return { ok: false, status: 401, error: "Missing or invalid Authorization header" };
+  }
+  const { data, error } = (await supabaseAuth.auth.getUser(token)) as AuthUserResult;
+  if (error || !data?.user) {
+    return { ok: false, status: 401, error: "Invalid or expired token" };
+  }
+  const email = toNullableTrimmedString(data.user.email);
+  return { ok: true, userId: data.user.id, email };
+}
+
 /** GET /api/users/profile */
 router.get("/profile", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (typeof authHeader !== "string") {
-      return res.status(401).json({ error: "Missing Authorization header" });
+    const auth = await authenticate(req);
+    if (!auth.ok) {
+      return res.status(auth.status).json({ error: auth.error });
     }
 
-    const [scheme, token] = authHeader.trim().split(/\s+/);
-    if (scheme?.toLowerCase() !== "bearer" || !token) {
-      return res.status(401).json({ error: "Missing or invalid Authorization header" });
+    const existing = await prisma.user.findUnique({
+      where: { supabase_user_id: auth.userId },
+    });
+    if (existing) {
+      return res.status(200).json(profileResponse(existing));
     }
 
-    const authResult = (await supabaseAuth.auth.getUser(token)) as AuthUserResult;
-    const { data: authData, error: authError } = authResult;
-
-    if (authError || !authData?.user) {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
-
-    const supabaseUserId = authData.user.id;
-    const authEmail = toNullableTrimmedString(authData.user.email);
-
-    const profileResult = (await supabaseAdmin
-      .from("users")
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
-      .eq("supabase_user_id", supabaseUserId)
-      .single()) as ProfileResult;
-    const { data: profile, error: profileError } = profileResult;
-
-    if (!profileError && profile) {
-      return res.status(200).json(profileResponse(profile));
-    }
-
-    if (!authEmail) {
+    if (!auth.email) {
       return res.status(404).json({ error: "User profile is missing and no email is available." });
     }
 
-    const createdResult = (await supabaseAdmin
-      .from("users")
-      .upsert(
-        {
-          supabase_user_id: supabaseUserId,
-          email: authEmail,
-          role: "admin",
-        },
-        { onConflict: "supabase_user_id" },
-      )
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
-      .single()) as ProfileResult;
-
-    const { data: createdProfile, error: createdError } = createdResult;
-
-    if (createdError || !createdProfile) {
-      return res.status(500).json({ error: "Failed to create user profile." });
-    }
-
-    return res.status(200).json(profileResponse(createdProfile));
+    const created = await prisma.user.create({
+      data: {
+        supabase_user_id: auth.userId,
+        email: auth.email,
+        role: "admin",
+      },
+    });
+    return res.status(200).json(profileResponse(created));
   } catch (err: unknown) {
     next(err);
   }
@@ -122,22 +102,9 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
 /** PATCH /api/users/profile */
 router.patch("/profile", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (typeof authHeader !== "string") {
-      return res.status(401).json({ error: "Missing Authorization header" });
-    }
-
-    const [scheme, token] = authHeader.trim().split(/\s+/);
-    if (scheme?.toLowerCase() !== "bearer" || !token) {
-      return res.status(401).json({ error: "Missing or invalid Authorization header" });
-    }
-
-    const authResult = (await supabaseAuth.auth.getUser(token)) as AuthUserResult;
-    const { data: authData, error: authError } = authResult;
-
-    if (authError || !authData?.user) {
-      return res.status(401).json({ error: "Invalid or expired token" });
+    const auth = await authenticate(req);
+    if (!auth.ok) {
+      return res.status(auth.status).json({ error: auth.error });
     }
 
     const body = req.body as Record<string, unknown>;
@@ -155,47 +122,41 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
       return res.status(400).json({ error: "email is invalid." });
     }
 
-    const supabaseUserId = authData.user.id;
-
-    const roleResult = (await supabaseAdmin
-      .from("users")
-      .select("role")
-      .eq("supabase_user_id", supabaseUserId)
-      .single()) as ProfileRoleResult;
-    const userRole = roleResult.data?.role ?? "admin";
-
-    const authEmail = toNullableTrimmedString(authData.user.email);
-    if (authEmail !== email) {
-      const authUpdate = await supabaseAdmin.auth.admin.updateUserById(supabaseUserId, { email });
+    if (auth.email !== email) {
+      const authUpdate = await supabaseAdmin.auth.admin.updateUserById(auth.userId, { email });
       if (authUpdate.error) {
         return res.status(400).json({ error: authUpdate.error.message });
       }
     }
 
-    const fullName = `${firstName} ${lastName}`.trim();
-    const updateResult = (await supabaseAdmin
-      .from("users")
-      .upsert(
-        {
-          supabase_user_id: supabaseUserId,
+    const fullName = `${firstName} ${lastName}`;
+    try {
+      const updated = await prisma.user.upsert({
+        where: { supabase_user_id: auth.userId },
+        update: {
           email,
           first_name: firstName,
           last_name: lastName,
           phone,
-          name: fullName.length > 0 ? fullName : null,
-          role: userRole,
+          name: fullName,
         },
-        { onConflict: "supabase_user_id" },
-      )
-      .select("supabase_user_id, email, first_name, last_name, phone, role")
-      .single()) as ProfileResult;
-
-    const { data: updatedProfile, error: updateError } = updateResult;
-    if (updateError || !updatedProfile) {
-      return res.status(500).json({ error: "Failed to update user profile." });
+        create: {
+          supabase_user_id: auth.userId,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          name: fullName,
+          role: "admin",
+        },
+      });
+      return res.status(200).json(profileResponse(updated));
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return res.status(409).json({ error: "That email is already in use." });
+      }
+      throw err;
     }
-
-    return res.status(200).json(profileResponse(updatedProfile));
   } catch (err: unknown) {
     next(err);
   }

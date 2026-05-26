@@ -1,6 +1,7 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
+import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { getColorFor } from "../lib/tagColors";
 
@@ -10,9 +11,22 @@ type CreateTagBody = {
   name: string;
   description?: string;
   color?: string;
+  visibility: string;
 };
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseVisibility(value: unknown): "PUBLIC" | "PRIVATE" | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "public") return "PUBLIC";
+  if (normalized === "private") return "PRIVATE";
+  return null;
+}
 
 router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -29,13 +43,20 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as CreateTagBody;
 
-    if (!body || typeof body.name !== "string") {
+    if (!isRecord(body) || typeof body.name !== "string") {
       return next(createError(400, "Request body must include a non-empty 'name' string"));
     }
 
     const name = body.name.trim();
     if (name.length === 0) {
       return next(createError(400, "Tag name cannot be empty"));
+    }
+
+    const visibility = parseVisibility(body.visibility);
+    if (!visibility) {
+      return next(
+        createError(400, "Request body must include 'visibility' as either 'public' or 'private'"),
+      );
     }
 
     const description =
@@ -54,12 +75,15 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const tag = await prisma.tag.create({
-      data: { name, description, color },
+      data: { name, description, color, visibility },
     });
 
     return res.status(201).json({ tag });
   } catch (err: unknown) {
-    next(err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return next(createError(409, "A tag with this name already exists"));
+    }
+    return next(err);
   }
 });
 

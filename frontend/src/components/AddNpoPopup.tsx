@@ -13,11 +13,19 @@ export type AddNpoValues = {
   websiteUrl: string;
   description: string;
   mission: string;
+  mediaFiles: File[];
   location: string;
   npoSize: string;
   budgetSize: string;
   focusArea: string;
+  focusAreas: FocusAreaValue[];
   relationships: AddNpoRelationshipValue[];
+};
+
+export type FocusAreaValue = {
+  id?: string;
+  name: string;
+  isCustom: boolean;
 };
 
 type RelationshipTier = "Primary" | "Secondary" | "Tertiary";
@@ -42,10 +50,20 @@ type SelectedRelationship = RelationshipOption & {
 
 type MediaPreview = {
   id: string;
+  file: File;
   fileName: string;
   previewUrl: string;
   width: number;
   height: number;
+};
+
+export type AddNpoInitialValues = {
+  title?: string;
+  description?: string;
+  location?: string;
+  npoSize?: string;
+  budgetSize?: string;
+  focusAreas?: FocusAreaValue[];
 };
 
 type AddNpoPopupProps = {
@@ -53,7 +71,12 @@ type AddNpoPopupProps = {
   onClose: () => void;
   onSuccess?: (name: string) => void;
   onNext?: (values: AddNpoValues) => void | Promise<void>;
+  onSaveDraft?: (values: AddNpoValues) => void;
   relationshipOptions?: RelationshipOption[];
+  mode?: "create" | "edit";
+  initialValues?: AddNpoInitialValues;
+  isSubmitting?: boolean;
+  errorMessage?: string | null;
   initialTitle?: string;
   initialDescription?: string;
 };
@@ -169,6 +192,18 @@ function isValidWebsiteUrl(value: string): boolean {
 function isValidBudgetSize(value: string): boolean {
   const normalized = value.trim().replaceAll(",", "");
   return /^\$?\d+(?:\.\d{1,2})?\s*[kmb]?$/i.test(normalized);
+}
+
+function focusAreasToInputValue(values: FocusAreaValue[] | undefined): string {
+  return values?.map((value) => value.name).join(", ") ?? "";
+}
+
+function inputValueToFocusAreas(value: string): FocusAreaValue[] {
+  return value
+    .split(/[;,]/)
+    .map((area) => area.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, isCustom: true }));
 }
 
 function getProjectId(value: string): string {
@@ -349,9 +384,20 @@ export default function AddNpoPopup({
   onSuccess,
   onNext,
   relationshipOptions = RELATIONSHIP_OPTIONS,
-  initialTitle = "",
-  initialDescription = "",
+  mode = "create",
+  initialValues,
+  isSubmitting: externalIsSubmitting = false,
+  errorMessage = null,
+  initialTitle: legacyInitialTitle = "",
+  initialDescription: legacyInitialDescription = "",
 }: AddNpoPopupProps) {
+  const isEditMode = mode === "edit";
+  const initialTitle = initialValues?.title ?? legacyInitialTitle;
+  const initialDescription = initialValues?.description ?? legacyInitialDescription;
+  const initialLocation = initialValues?.location ?? "";
+  const initialNpoSize = initialValues?.npoSize ?? "";
+  const initialBudgetSize = initialValues?.budgetSize ?? "";
+  const initialFocusArea = focusAreasToInputValue(initialValues?.focusAreas);
   const titleId = useId();
   const urlId = useId();
   const descId = useId();
@@ -367,10 +413,10 @@ export default function AddNpoPopup({
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [description, setDescription] = useState(initialDescription);
   const [mission, setMission] = useState("");
-  const [location, setLocation] = useState("");
-  const [npoSize, setNpoSize] = useState("");
-  const [budgetSize, setBudgetSize] = useState("");
-  const [focusArea, setFocusArea] = useState("");
+  const [location, setLocation] = useState(initialLocation);
+  const [npoSize, setNpoSize] = useState(initialNpoSize);
+  const [budgetSize, setBudgetSize] = useState(initialBudgetSize);
+  const [focusArea, setFocusArea] = useState(initialFocusArea);
   const [uploadedCsvName, setUploadedCsvName] = useState("");
   const [mediaPreviews, setMediaPreviews] = useState<MediaPreview[]>([]);
   const [fieldErrors, setFieldErrors] = useState({
@@ -398,10 +444,10 @@ export default function AddNpoPopup({
     setWebsiteUrl("");
     setDescription(initialDescription);
     setMission("");
-    setLocation("");
-    setNpoSize("");
-    setBudgetSize("");
-    setFocusArea("");
+    setLocation(initialLocation);
+    setNpoSize(initialNpoSize);
+    setBudgetSize(initialBudgetSize);
+    setFocusArea(initialFocusArea);
     setUploadedCsvName("");
     setFieldErrors({
       title: "",
@@ -425,7 +471,15 @@ export default function AddNpoPopup({
     setRelationships([]);
     setSubmitError("");
     setIsSubmitting(false);
-  }, [open, initialTitle, initialDescription]);
+  }, [
+    open,
+    initialTitle,
+    initialDescription,
+    initialLocation,
+    initialNpoSize,
+    initialBudgetSize,
+    initialFocusArea,
+  ]);
 
   useEffect(() => {
     mediaPreviewsRef.current = mediaPreviews;
@@ -454,20 +508,22 @@ export default function AddNpoPopup({
   };
 
   const handleComplete = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || externalIsSubmitting) return;
     setSubmitError("");
     setIsSubmitting(true);
 
     try {
-      const values = {
+      const values: AddNpoValues = {
         title,
         websiteUrl,
         description,
         mission,
+        mediaFiles: mediaPreviews.map((preview) => preview.file),
         location,
         npoSize,
         budgetSize,
         focusArea,
+        focusAreas: inputValueToFocusAreas(focusArea),
         relationships: relationships.map((relationship) => ({
           npo2Id: relationship.id,
           relationshipTier: RELATIONSHIP_TIER_VALUES[relationship.tier],
@@ -567,6 +623,7 @@ export default function AddNpoPopup({
           const dimensions = await getImageDimensions(previewUrl);
           return {
             id: crypto.randomUUID(),
+            file,
             fileName: file.name,
             previewUrl,
             ...dimensions,
@@ -635,11 +692,13 @@ export default function AddNpoPopup({
         <header className={styles.header}>
           <div>
             <h2 id="add-npo-title" className={styles.title}>
-              {currentStep === 1
-                ? "NPO Profile"
-                : currentStep === 2
-                  ? "Add Relationship"
-                  : "Review"}
+              {isEditMode
+                ? "Edit NPO"
+                : currentStep === 1
+                  ? "NPO Profile"
+                  : currentStep === 2
+                    ? "Add Relationship"
+                    : "Review"}
             </h2>
             <Stepper currentStep={currentStep} />
           </div>
@@ -1232,13 +1291,20 @@ export default function AddNpoPopup({
                 Back
               </button>
               {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
+              {errorMessage ? <p className={styles.submitError}>{errorMessage}</p> : null}
               <button
                 type="button"
                 className={styles.nextButton}
-                disabled={isSubmitting}
+                disabled={isSubmitting || externalIsSubmitting}
                 onClick={() => void handleComplete()}
               >
-                {isSubmitting ? "Publishing..." : "Review & Publish"}
+                {isSubmitting || externalIsSubmitting
+                  ? isEditMode
+                    ? "Saving..."
+                    : "Publishing..."
+                  : isEditMode
+                    ? "Save"
+                    : "Review & Publish"}
               </button>
             </footer>
           </>
