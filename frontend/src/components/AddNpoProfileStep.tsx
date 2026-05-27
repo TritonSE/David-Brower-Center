@@ -3,7 +3,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import styles from "./AddNpoPopup.module.css";
-import { LOCATION_OPTIONS, NPO_SIZE_OPTIONS, type NpoProfileValues } from "./AddNpoShared";
+import {
+  LOCATION_OPTIONS,
+  NPO_SIZE_OPTIONS,
+  type NpoProfileValues,
+  type SelectedFocusArea,
+} from "./AddNpoShared";
 
 import type { TagMeta } from "@/api/tags";
 
@@ -165,7 +170,7 @@ export default function AddNpoProfileStep({
             .filter(Boolean)
         : [];
 
-      const matchedFocusAreas = focusAreaNames
+      const matchedFocusAreas: SelectedFocusArea[] = focusAreaNames
         .map((name) => focusAreaTags.find((tag) => tag.name.toLowerCase() === name.toLowerCase()))
         .filter((tag): tag is TagMeta => tag !== undefined)
         .map((tag) => ({ id: tag.id, name: tag.name }));

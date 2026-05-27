@@ -4,9 +4,14 @@ import Image from "next/image";
 import { type ReactNode, useEffect, useMemo } from "react";
 
 import styles from "./AddNpoPopup.module.css";
-import { getOrgInitials, TIER_OPTIONS } from "./AddNpoShared";
-
-import type { AddNpoStep, DraftRelationship, NpoProfileValues } from "./AddNpoShared";
+import {
+  type AddNpoStep,
+  type DraftRelationship,
+  getOrgInitials,
+  type NpoProfileValues,
+  type SelectedFocusArea,
+  TIER_OPTIONS,
+} from "./AddNpoShared";
 
 const IMG_EDIT = "/icons/manage/edit.svg";
 
@@ -25,6 +30,12 @@ type ReviewFieldProps = {
   label: string;
   onEdit: () => void;
   children: ReactNode;
+};
+
+type MediaPreviewItem = {
+  id: string;
+  url: string;
+  name: string;
 };
 
 function ReviewTextValue({ value }: { value: string }) {
@@ -61,17 +72,15 @@ export default function ReviewStep({
   isPublishing,
   publishError,
 }: ReviewStepProps) {
-  const mediaPreviews = useMemo(
-    () =>
-      profile.mediaFiles.map((file) => ({
-        id: `${file.name}-${file.lastModified}`,
-        url: URL.createObjectURL(file),
-        name: file.name,
-      })),
-    [profile.mediaFiles],
-  );
+  const mediaPreviews = useMemo((): MediaPreviewItem[] => {
+    return profile.mediaFiles.map((file) => ({
+      id: `${file.name}-${file.lastModified}`,
+      url: URL.createObjectURL(file),
+      name: file.name,
+    }));
+  }, [profile.mediaFiles]);
 
-  const focusAreaTags = profile.focusAreas;
+  const focusAreaTags: SelectedFocusArea[] = profile.focusAreas;
 
   const relationshipsByTier = useMemo(
     () =>
