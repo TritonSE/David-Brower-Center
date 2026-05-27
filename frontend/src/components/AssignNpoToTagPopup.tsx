@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useOrganizations } from "@/contexts/OrganizationsContext";
-
-import { SearchIcon } from "./icons/AppIcons";
 import styles from "./AssignNpoToTagPopup.module.css";
+import { SearchIcon } from "./icons/AppIcons";
+
+import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 type AssignNpoToTagPopupProps = {
   open: boolean;
@@ -63,10 +63,32 @@ export default function AssignNpoToTagPopup({
   if (!open) return null;
 
   return (
-    <div className={styles.overlay} onMouseDown={handleOverlayMouseDown}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.1)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onMouseDown={handleOverlayMouseDown}
+    >
       <div
         ref={wrapperRef}
-        className={styles.wrapper}
+        style={{
+          position: "relative",
+          background: "#fff",
+          borderRadius: 12,
+          padding: 40,
+          width: "min(825px, 100%)",
+          height: "min(626px, 90vh)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 32,
+          boxShadow: "0px 2px 5px rgba(0,0,0,0.1)",
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="assign-npo-title"
@@ -75,12 +97,7 @@ export default function AssignNpoToTagPopup({
           <h2 id="assign-npo-title" className={styles.title}>
             Assign NPO to Tag
           </h2>
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="M18 6L6 18M18 18L6 6"
