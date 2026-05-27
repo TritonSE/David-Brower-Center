@@ -91,3 +91,14 @@ model User {
   @@map("users")
   @@schema("public")
 }
+
+model AccountCreationRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  email      String   @unique
+  name       String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("account_creation_requests")
+  @@schema("public")
+}

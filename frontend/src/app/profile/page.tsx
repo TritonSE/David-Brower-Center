@@ -617,6 +617,15 @@ export default function AdminProfile() {
                 <span>Manage NPO</span>
               </Link>
 
+              <Link
+                href="/accountRequests"
+                className="account-menu-item"
+                onClick={() => setIsAccountMenuOpen(false)}
+              >
+                <ProfileMenuIcon />
+                <span>Account Requests</span>
+              </Link>
+
               <button type="button" className="account-menu-item" onClick={requestSignOut}>
                 <SignOutMenuIcon />
                 <span>Sign Out</span>
