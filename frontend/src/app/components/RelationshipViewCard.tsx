@@ -41,9 +41,7 @@ export default function RelationshipViewCard({
   const visibleOrganizations = organizations;
 
   return (
-    <section
-      className={`w-full rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] p-5 ${className ?? ""}`.trim()}
-    >
+    <section className={`w-full ${className ?? ""}`.trim()}>
       <div>
         <h3 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px]/[normal] font-bold text-black">
           Related NPOs
