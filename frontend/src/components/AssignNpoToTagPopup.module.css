@@ -1,0 +1,216 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.1);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+}
+
+.wrapper {
+  width: min(600px, 100%);
+  height: min(580px, 100%);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 40px;
+  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d9d9d9;
+}
+
+.title {
+  font-family: "Proxima Nova", var(--font-sans);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1;
+  color: #000;
+}
+
+.cancelButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+}
+
+.cancelButton:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchLabel {
+  position: relative;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.searchInput {
+  height: 44px;
+  width: 100%;
+  border-radius: 100px;
+  border: 1px solid #b4b4b4;
+  background: white;
+  padding-left: 42px;
+  padding-right: 16px;
+  font-size: 14px;
+  color: #484848;
+  outline: none;
+  font-family: "Rubik", sans-serif;
+}
+
+.searchInput::placeholder {
+  color: #6c6c6c;
+}
+
+.listContainer {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 #f3f3f3;
+}
+
+.columnHeader {
+  display: grid;
+  grid-template-columns: 32px 1.5fr 1fr;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d9d9d9;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f1f1f;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 32px 1.5fr 1fr;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d9d9d9;
+  cursor: pointer;
+  transition: background 80ms ease;
+  font-family: "Proxima Nova", var(--font-sans);
+  font-size: 14px;
+  color: #1f1f1f;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:nth-child(even) {
+  background: #f2f9f8;
+}
+
+.row:hover {
+  background: #e8f4f4;
+}
+
+.rowSelected {
+  background: linear-gradient(to right, #3b9a9a, rgba(59, 154, 154, 0.7), white) !important;
+  color: white;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid #909090;
+  accent-color: #3b9a9a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.emptyState {
+  padding: 32px;
+  text-align: center;
+  font-family: "Rubik", sans-serif;
+  font-size: 14px;
+  color: #6c6c6c;
+}
+
+.statusMessage {
+  padding: 32px;
+  text-align: center;
+  font-family: "Rubik", sans-serif;
+  font-size: 14px;
+  color: #484848;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.selectedCount {
+  font-family: "Rubik", sans-serif;
+  font-size: 13px;
+  color: #6c6c6c;
+}
+
+.assignButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  padding: 6px 24px;
+  border-radius: 40px;
+  background: #3b9a9a;
+  color: white;
+  font-weight: 400;
+  line-height: 28px;
+  font-size: 16px;
+  font-family: "Proxima Nova", var(--font-sans);
+  transition: filter 80ms ease;
+}
+
+.assignButton:hover {
+  filter: brightness(0.95);
+}
+
+.assignButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
