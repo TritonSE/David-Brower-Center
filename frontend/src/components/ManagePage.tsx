@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AddNpoPopup from "./AddNpoPopup";
+import AddNpoSuccessMessage from "./AddNpoSuccessMessage";
 import {
   FilterIcon,
   LeafIcon,
@@ -76,6 +77,7 @@ export default function ManagePage() {
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrganizationListItem | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
@@ -481,8 +483,20 @@ export default function ManagePage() {
           setIsAddNpoOpen(false);
           setEditingOrg(null);
         }}
+        organizations={organizations}
+        existingOrgId={editingOrg?.id ?? null}
         initialTitle={editingOrg?.name ?? ""}
+        onRefetch={() => void refetchOrganizations()}
+        onPublished={(orgName) =>
+          setToastMessage(
+            editingOrg ? `${orgName} relationships have been saved` : `${orgName} has been added`,
+          )
+        }
       />
+
+      {toastMessage ? (
+        <AddNpoSuccessMessage message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      ) : null}
     </div>
   );
 }

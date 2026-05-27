@@ -1,6 +1,9 @@
-import { get, handleAPIError, isAbortError } from "./request";
+import { get, handleAPIError, isAbortError, post } from "./request";
 
 import type { APIResult } from "./request";
+import type { Session } from "@supabase/supabase-js";
+
+import { supabase } from "@/services/supabase";
 
 const NOT_PROVIDED = "Not provided";
 
@@ -94,6 +97,25 @@ export type OrganizationRelationship = {
   npo2Id: string;
   relationshipTier: OrganizationRelationshipTier;
   relationshipType: string | null;
+};
+
+export type CreateOrganizationInput = {
+  name: string;
+  projectId: string;
+  website?: string;
+  sizeCategory?: string;
+  tagIds?: string[];
+};
+
+export type CreateRelationshipInput = {
+  npo2Id: string;
+  relationshipTier: OrganizationRelationshipTier;
+  relationshipType?: string;
+};
+
+export type CreateOrganizationRelationshipsInput = {
+  npo1Id: string;
+  relationships: CreateRelationshipInput[];
 };
 
 export type OrganizationDetail = {
@@ -239,4 +261,83 @@ export async function getOrganizationById(
     }
     return handleAPIError(error);
   }
+}
+
+async function getAccessToken(): Promise<string> {
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    throw new Error(sessionError.message);
+  }
+  const session = data.session as Session | null;
+  const accessToken = session?.access_token;
+  if (typeof accessToken !== "string" || accessToken.length === 0) {
+    throw new Error("You must be signed in to create organizations or relationships.");
+  }
+  return accessToken;
+}
+
+function authHeaders(token: string): Record<string, string> {
+  return {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function parseCreatedOrganizationPayload(payload: unknown): OrganizationListItem {
+  if (!isRecord(payload)) {
+    throw new Error("[/api/organizations] Unexpected create response shape.");
+  }
+  const organization = isRecord(payload.organization) ? payload.organization : payload;
+  return parseOrganizationListItem(organization);
+}
+
+export async function createOrganization(
+  input: CreateOrganizationInput,
+  signal?: AbortSignal,
+): Promise<OrganizationListItem> {
+  const token = await getAccessToken();
+  const response = await post(
+    "/api/organizations",
+    {
+      name: input.name.trim(),
+      projectId: input.projectId.trim(),
+      ...(input.website !== undefined ? { website: input.website } : {}),
+      ...(input.sizeCategory !== undefined ? { sizeCategory: input.sizeCategory } : {}),
+      ...(input.tagIds && input.tagIds.length > 0 ? { tags: input.tagIds } : {}),
+    },
+    authHeaders(token),
+    signal,
+  );
+  const payload: unknown = await response.json();
+  return parseCreatedOrganizationPayload(payload);
+}
+
+export async function createOrganizationRelationships(
+  input: CreateOrganizationRelationshipsInput,
+  signal?: AbortSignal,
+): Promise<OrganizationRelationship[]> {
+  const token = await getAccessToken();
+  const response = await post(
+    "/api/organizations/relationships",
+    {
+      npo1Id: input.npo1Id,
+      relationships: input.relationships.map((relationship) => ({
+        npo2Id: relationship.npo2Id,
+        relationshipTier: relationship.relationshipTier,
+        ...(relationship.relationshipType !== undefined
+          ? { relationshipType: relationship.relationshipType }
+          : {}),
+      })),
+    },
+    authHeaders(token),
+    signal,
+  );
+  const payload: unknown = await response.json();
+  const raw = parseRelationshipsPayload(payload);
+  const relationships: OrganizationRelationship[] = [];
+  for (const entry of raw) {
+    const relationship = parseOrganizationRelationship(entry);
+    if (relationship) relationships.push(relationship);
+  }
+  return relationships;
 }
