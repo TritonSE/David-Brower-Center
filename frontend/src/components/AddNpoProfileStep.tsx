@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import styles from "./AddNpoPopup.module.css";
-import { LOCATION_OPTIONS, NPO_SIZE_OPTIONS, type NpoProfileValues } from "./addNpoShared";
+import { LOCATION_OPTIONS, NPO_SIZE_OPTIONS, type NpoProfileValues } from "./AddNpoShared";
 
 import type { TagMeta } from "@/api/tags";
 

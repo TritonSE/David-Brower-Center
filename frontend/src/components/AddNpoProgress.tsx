@@ -2,7 +2,7 @@
 
 import styles from "./AddNpoPopup.module.css";
 
-import type { AddNpoStep } from "./addNpoShared";
+import type { AddNpoStep } from "./AddNpoShared";
 
 type AddNpoProgressProps = {
   currentStep: AddNpoStep;

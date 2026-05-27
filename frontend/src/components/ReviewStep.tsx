@@ -4,9 +4,9 @@ import Image from "next/image";
 import { type ReactNode, useEffect, useMemo } from "react";
 
 import styles from "./AddNpoPopup.module.css";
-import { getOrgInitials, TIER_OPTIONS } from "./addNpoShared";
+import { getOrgInitials, TIER_OPTIONS } from "./AddNpoShared";
 
-import type { AddNpoStep, DraftRelationship, NpoProfileValues } from "./addNpoShared";
+import type { AddNpoStep, DraftRelationship, NpoProfileValues } from "./AddNpoShared";
 
 const IMG_EDIT = "/icons/manage/edit.svg";
 

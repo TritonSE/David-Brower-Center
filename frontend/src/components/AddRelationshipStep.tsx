@@ -10,7 +10,7 @@ import {
   TIER_OPTIONS,
   tierBadgeClassName,
   tierLabel,
-} from "./addNpoShared";
+} from "./AddNpoShared";
 
 import type { OrganizationListItem, OrganizationRelationshipTier } from "@/api/organization";
 

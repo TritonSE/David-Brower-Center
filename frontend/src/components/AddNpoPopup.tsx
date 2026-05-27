@@ -10,7 +10,7 @@ import {
   type AddNpoStep,
   createEmptyProfile,
   generateProjectId,
-} from "./addNpoShared";
+} from "./AddNpoShared";
 import AddRelationshipStep from "./AddRelationshipStep";
 import ReviewStep from "./ReviewStep";
 
