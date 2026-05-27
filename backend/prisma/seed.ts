@@ -4,7 +4,8 @@ import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
 
-import { PrismaClient } from "../src/generated/prisma/index.js";
+import { PrismaClient } from "../src/generated/prisma/client.js";
+import { getColorFor } from "../src/lib/tagColors.js";
 
 const cwd = process.cwd();
 const envPath = path.join(cwd, ".env");
@@ -16,112 +17,176 @@ const loadPath = fs.existsSync(envPath)
     : envPath;
 dotenv.config({ path: loadPath });
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not set. Set it in .env or .env.backend.");
+  throw new Error("DATABASE_URL is not set.");
 }
+
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
-const tags = [
-  {
-    name: "Climate Action",
-    description: "Environmental and climate focused work",
-  },
-  {
-    name: "Housing Justice",
-    description: "Housing access and affordability",
-  },
-  {
-    name: "Youth Advocacy",
-    description: "Youth led or youth focused initiatives",
-  },
-  {
-    name: "Food Security",
-    description: "Access to food and nutrition programs",
-  },
-  {
-    name: "Policy Research",
-    description: "Data driven policy work",
-  },
-];
+type OrgRelationship = {
+  partnerProjectId: string;
+  tier: "PRIMARY" | "SECONDARY" | "TERTIARY";
+};
 
-const dummyOrganizations = [
-  {
-    name: "Bay Area Environmental Council",
-    mission:
-      "To protect and restore the San Francisco Bay and its watershed through advocacy, education, and community action.",
-    city: "Oakland",
-    state: "California",
-    country: "United States",
-    latitude: 37.8044,
-    longitude: -122.2712,
-    min_budget: 500_000,
-    max_budget: 2_000_000,
-  },
-  {
-    name: "Central Valley Food Bank",
-    mission: "Fighting hunger by distributing food to families in need across the Central Valley.",
-    city: "Fresno",
-    state: "California",
-    country: "United States",
-    latitude: 36.7378,
-    longitude: -119.7871,
-    min_budget: 1_000_000,
-    max_budget: 5_000_000,
-  },
-  {
-    name: "Pacific Coast Marine Institute",
-    mission: "Research and education focused on marine ecosystems and sustainable fisheries.",
-    city: "San Diego",
-    state: "California",
-    country: "United States",
-    latitude: 32.7157,
-    longitude: -117.1611,
-    min_budget: 250_000,
-    max_budget: 1_500_000,
-  },
-  {
-    name: "East Bay Arts Collective",
-    mission: "Supporting local artists and making the arts accessible to underserved communities.",
-    city: "Berkeley",
-    state: "California",
-    country: "United States",
-    latitude: 37.8715,
-    longitude: -122.273,
-    min_budget: 100_000,
-    max_budget: 750_000,
-  },
-  {
-    name: "Sierra Nevada Land Trust",
-    mission:
-      "Conserving natural and working lands in the Sierra Nevada region for future generations.",
-    city: "Truckee",
-    state: "California",
-    country: "United States",
-    latitude: 39.328,
-    longitude: -120.1836,
-    min_budget: 300_000,
-    max_budget: 1_200_000,
-  },
-];
+type OrgData = {
+  projectId: string;
+  name: string;
+  sizeCategory?: string | null;
+  focus?: string;
+  website?: string | null;
+  relationships?: OrgRelationship[];
+};
+
+const dataPath = path.join(cwd, "prisma", "data", "organizations.json");
+const organizationsData = JSON.parse(fs.readFileSync(dataPath, "utf-8")) as OrgData[];
 
 async function main(): Promise<void> {
-  // Seed tags first
-  await prisma.tag.createMany({
-    data: tags,
-    skipDuplicates: true, // Don't error if tags already exist
-  });
-  console.info(`Seeded ${tags.length} tags.`);
+  console.info("Cleaning up existing data...");
 
-  // Seed organizations
-  const existing = await prisma.organization.findMany({ take: 1 });
-  if (existing.length > 0) {
-    console.info("Organizations table already has data; skipping seed.");
-    return;
+  await prisma.organizationRelationship.deleteMany({});
+  await prisma.organizationTag.deleteMany({});
+  await prisma.organization.deleteMany({});
+  await prisma.tag.deleteMany({});
+
+  console.info("Seeding organizations and tags...");
+
+  const tagNamesSeen = new Set<string>();
+
+  for (const org of organizationsData) {
+    const focusAreas: string[] = org.focus
+      ? org.focus
+          .split("|")
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    focusAreas.forEach((tagName) => tagNamesSeen.add(tagName));
+
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await prisma.organization.upsert({
+        where: { projectId: org.projectId },
+        update: {
+          name: org.name,
+          sizeCategory: org.sizeCategory ?? null,
+          website: org.website ?? null,
+          tags: {
+            deleteMany: {},
+            create: focusAreas.map((tagName: string) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName), visibility: "PUBLIC" },
+                },
+              },
+            })),
+          },
+        },
+        create: {
+          projectId: org.projectId,
+          name: org.name,
+          sizeCategory: org.sizeCategory ?? null,
+          website: org.website ?? null,
+          tags: {
+            create: focusAreas.map((tagName: string) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: { name: tagName, color: getColorFor(tagName), visibility: "PUBLIC" },
+                },
+              },
+            })),
+          },
+        },
+      });
+      console.info(`Seeded: ${org.name}`);
+    } catch (error) {
+      console.error(`Failed to seed ${org.name}:`, error);
+    }
   }
-  await prisma.organization.createMany({ data: dummyOrganizations });
-  console.info(`Seeded ${dummyOrganizations.length} organizations.`);
+
+  console.info("Seeding organization relationships...");
+
+  // Build a lookup map from projectId -> database id
+  const allOrgs = await prisma.organization.findMany({
+    select: { id: true, projectId: true },
+  });
+  const projectIdToId = new Map<string, string>(
+    allOrgs.map((o) => [o.projectId, o.id] as [string, string]),
+  );
+
+  let relationshipsCreated = 0;
+  let relationshipsFailed = 0;
+
+  for (const org of organizationsData) {
+    if (!org.relationships || org.relationships.length === 0) continue;
+
+    const npo1Id = projectIdToId.get(org.projectId);
+    if (!npo1Id) {
+      console.warn(
+        `⚠️  Could not find seeded org for projectId "${org.projectId}", skipping relationships`,
+      );
+      continue;
+    }
+
+    for (const rel of org.relationships) {
+      const npo2Id = projectIdToId.get(rel.partnerProjectId);
+      if (!npo2Id) {
+        console.warn(
+          `⚠️  Could not find partner org "${rel.partnerProjectId}" for "${org.name}", skipping`,
+        );
+        relationshipsFailed++;
+        continue;
+      }
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await prisma.organizationRelationship.upsert({
+          where: {
+            npo1Id_npo2Id_relationshipTier: {
+              npo1Id,
+              npo2Id,
+              relationshipTier: rel.tier,
+            },
+          },
+          update: {},
+          create: {
+            npo1Id,
+            npo2Id,
+            relationshipTier: rel.tier,
+          },
+        });
+        relationshipsCreated++;
+      } catch (error) {
+        console.error(
+          `❌ Failed to seed relationship ${org.name} -> ${rel.partnerProjectId} (${rel.tier}):`,
+          error,
+        );
+        relationshipsFailed++;
+      }
+    }
+  }
+
+  console.info(`Successfully seeded ${organizationsData.length} organizations.`);
+  console.info(
+    `Successfully seeded ${relationshipsCreated} relationships (${relationshipsFailed} failed).`,
+  );
+  console.info("Syncing tag colors with curated palette...");
+  await Promise.all(
+    [...tagNamesSeen].map(async (tagName) => {
+      try {
+        await prisma.tag.update({
+          where: { name: tagName },
+          data: { color: getColorFor(tagName) },
+        });
+      } catch (error) {
+        console.error(`Failed to update color for tag ${tagName}:`, error);
+      }
+    }),
+  );
+  console.info(`Synced ${tagNamesSeen.size} tag colors.`);
 }
 
 void main()

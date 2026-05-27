@@ -1,0 +1,848 @@
+[
+  {
+    "projectId": "DBC",
+    "name": "David Brower Center",
+    "sizeCategory": "Large",
+    "website": "https://davidbrowercenter.org",
+    "relationships": []
+  },
+  {
+    "projectId": "EII",
+    "name": "Earth Island Institute",
+    "sizeCategory": "Large",
+    "focus": "Conservation | Environmental Justice | International Initiatives",
+    "website": "https://www.earthisland.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-aia-east-bay",
+    "name": "AIA East Bay",
+    "sizeCategory": null,
+    "website": "https://aiaeb.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-berkeley-eci",
+    "name": "Berkeley Executive Coaching Institute",
+    "sizeCategory": null,
+    "website": "https://www.berkeleyeci.com",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-calflora",
+    "name": "Calflora",
+    "sizeCategory": "Small",
+    "focus": "Conservation | Environmental Education",
+    "website": "https://www.calflora.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-center-ecoliteracy",
+    "name": "Center for Ecoliteracy",
+    "sizeCategory": "Medium",
+    "focus": "Environmental Education | Sustainable Agriculture and Food Systems | Youth Empowerment",
+    "website": "https://www.ecoliteracy.org/home",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-center-good-food",
+    "name": "Center for Good Food Purchasing",
+    "sizeCategory": "Small",
+    "focus": "Sustainable Agriculture and Food Systems",
+    "website": "https://goodfoodpurchasing.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ennova",
+    "name": "Ennova Technologies",
+    "sizeCategory": null,
+    "website": "https://ennova-cfd.com",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-farmlink",
+    "name": "FarmLink",
+    "sizeCategory": "Large",
+    "focus": "Sustainable Agriculture and Food Systems | Environmental Justice",
+    "website": "https://www.californiafarmlink.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-golden-gate-bird",
+    "name": "Golden Gate Bird Alliance",
+    "sizeCategory": "Small",
+    "focus": "Conservation | Wildlife Protection | Environmental Education",
+    "website": "https://goldengatebirdalliance.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-gridlab",
+    "name": "GridLab",
+    "sizeCategory": "Large",
+    "website": "https://gridlab.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-just-cities",
+    "name": "Just Cities",
+    "sizeCategory": "Small",
+    "focus": "Environmental Justice | Community Resilience",
+    "website": "https://justcitiesinstitute.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-kitchen-table",
+    "name": "Kitchen Table Advisors",
+    "sizeCategory": "Large",
+    "focus": "Sustainable Agriculture and Food Systems | Community Resilience",
+    "website": "https://www.kitchentableadvisors.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-maplight",
+    "name": "MapLight",
+    "sizeCategory": "Medium",
+    "website": "https://www.maplight.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-new-energy-nexus",
+    "name": "New Energy Nexus",
+    "sizeCategory": "Large",
+    "website": "https://www.newenergynexus.com",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-other-minds",
+    "name": "Other Minds",
+    "sizeCategory": "Small",
+    "focus": "Environmental Arts | Environmental Education",
+    "website": "https://www.otherminds.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-sage",
+    "name": "SAGE",
+    "sizeCategory": "Grassroots",
+    "focus": "Sustainable Agriculture and Food Systems | Environmental Education",
+    "website": "https://sagecenter.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ucb-ccci",
+    "name": "UCB CCCI",
+    "sizeCategory": null,
+    "website": "https://www.law.berkeley.edu/research/clee/research/climate/ccci",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ucb-ciee",
+    "name": "UCB CIEE",
+    "sizeCategory": null,
+    "website": "https://uc-ciee.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ucb-path",
+    "name": "UCB PATH",
+    "sizeCategory": null,
+    "website": "https://uc-ciee.org",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ucb-safetrec",
+    "name": "UCB SafeTREC",
+    "sizeCategory": null,
+    "website": "https://safetrec.berkeley.edu/home",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "DBC-ucb-tsrc",
+    "name": "UCB Transportation Sustainability Research Center",
+    "sizeCategory": null,
+    "website": "https://tsrc.berkeley.edu",
+    "relationships": [{ "partnerProjectId": "DBC", "tier": "PRIMARY" }]
+  },
+  {
+    "projectId": "094",
+    "name": "A Local Empowered Response Team",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | Pollution and Toxics",
+    "website": "http://alertproject.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "020",
+    "name": "Alaska Clean Water Advocacy",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Oceans and Water | Pollution and Toxics",
+    "website": "http://www.acwa-alaska.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "081",
+    "name": "Alter Terra",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Community Resilience | Environmental Justice",
+    "website": "http://www.alterterra.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "076",
+    "name": "Armenia Environmental Network",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Pollution and Toxics | International Initiatives",
+    "website": "http://www.armenia-environment.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "026",
+    "name": "Baikal Watch",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Oceans and Water | International Initiatives",
+    "website": "https://secure.acceptiva.com/?cst=e74133",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "027",
+    "name": "Borneo Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Justice | International Initiatives",
+    "website": "http://borneoproject.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "109",
+    "name": "CA Institute for Community, Art & Nature",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Arts | Environmental Education | Indigenous Communities",
+    "website": "https://californiaican.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "112",
+    "name": "CA Trade Justice Coalition",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Environmental Justice",
+    "website": "http://catradejustice.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "132",
+    "name": "California Climate and Agricultural Network",
+    "sizeCategory": "Medium",
+    "focus": "Climate Change Solutions | Conservation | Sustainable Agriculture and Food Systems",
+    "website": "https://calclimateag.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "083",
+    "name": "California Urban Streams Partnership",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Community Resilience | Environmental Justice",
+    "website": "https://www.californiaurbanstreamspartnership.com/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "136",
+    "name": "Castanea Fellowship",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://www.castaneafellowship.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "119",
+    "name": "Conservation Kids",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Youth Empowerment",
+    "website": "https://www.conservationkids.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "104",
+    "name": "Cultivate Oregon",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://www.cultivateoregon.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "011",
+    "name": "Eco Equity",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives",
+    "website": "http://www.ecoequity.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "117",
+    "name": "Ecovet Global",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Wildlife Protection | Women's Environmental Leadership",
+    "website": "http://www.ecovetglobal.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "053",
+    "name": "Eco-Village Farm Learning Center",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Justice | Sustainable Agriculture and Food Systems | Youth Empowerment",
+    "website": "http://www.ecovillagefarm.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "114",
+    "name": "Energie Rich",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Justice | International Initiatives",
+    "website": "http://www.energierich.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "056",
+    "name": "Ethical Traveler",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | International Initiatives | Wildlife Protection",
+    "website": "http://www.ethicaltraveler.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "021",
+    "name": "Eurasian Wildlife and Peoples",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Justice | International Initiatives | Wildlife Protection",
+    "website": "https://www.ewandp.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "146",
+    "name": "Fish On",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Justice | Oceans and Water",
+    "website": "https://www.fishon.us/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "099",
+    "name": "Food Culture Collective",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Arts | Environmental Justice | Sustainable Agriculture and Food Systems",
+    "website": "https://foodculture.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "078",
+    "name": "Food Shift",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Sustainable Agriculture and Food Systems",
+    "website": "http://www.foodshift.net/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "144",
+    "name": "Fossil Fuel Non-Proliferation Treaty Initiative",
+    "sizeCategory": "Large",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives",
+    "website": "https://fossilfueltreaty.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "139",
+    "name": "Friends of Alemany Farm",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "http://www.alemanyfarm.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "088",
+    "name": "Friends of Muonde",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | International Initiatives | Sustainable Agriculture and Food Systems",
+    "website": "http://www.friendsofmuonde.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "142",
+    "name": "Garden for the Environment",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "https://www.gardenfortheenvironment.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "116",
+    "name": "Green Schoolyards America",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Education",
+    "website": "http://greenschoolyards.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "113",
+    "name": "Guias Unidos",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | International Initiatives | Youth Empowerment",
+    "website": "http://guiasunidos.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "007",
+    "name": "International Marine Mammal Project",
+    "sizeCategory": "Small",
+    "focus": "International Initiatives | Oceans and Water | Wildlife Protection",
+    "website": "https://savedolphins.eii.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "024",
+    "name": "John Muir Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Wildlife Protection",
+    "website": "http://www.johnmuirproject.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "103",
+    "name": "Junior Wildlife Rangers",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Wildlife Protection | Youth Empowerment",
+    "website": "http://www.juniorwildliferanger.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "107",
+    "name": "Kelly Creek Protection Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://extendputnampark.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "032",
+    "name": "Kids for the Bay",
+    "sizeCategory": "Small",
+    "focus": "Environmental Education | Oceans and Water | Youth Empowerment",
+    "website": "http://www.kidsforthebay.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "143",
+    "name": "Law Students for Climate Accountability",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Environmental Education | Environmental Justice",
+    "website": "https://www.ls4ca.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "118",
+    "name": "Mississippi Farm to School Network",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Education | Sustainable Agriculture and Food Systems",
+    "website": "http://www.mississippifarmtoschool.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "015",
+    "name": "Nature in the City",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://natureinthecity.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "123",
+    "name": "PGM ONE",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Arts | Environmental Justice",
+    "website": "https://www.pgmone.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "949",
+    "name": "Planet Earth Arts",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Arts | Environmental Justice",
+    "website": "http://www.planeteartharts.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "055",
+    "name": "Plastic Pollution Coalition",
+    "sizeCategory": "Large",
+    "focus": "Environmental Education | Environmental Justice | Oceans and Water | Pollution and Toxics",
+    "website": "http://plasticpollutioncoalition.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "058",
+    "name": "Project Coyote",
+    "sizeCategory": "Small",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "http://www.projectcoyote.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "110",
+    "name": "Public Lands Media",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Environmental Education | Wildlife Protection",
+    "website": "https://george-wuerthner-t3yb.squarespace.com/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "085",
+    "name": "Raptors Are the Solution",
+    "sizeCategory": "Small",
+    "focus": "Environmental Education | Pollution and Toxics | Wildlife Protection",
+    "website": "http://www.raptorsarethesolution.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "108",
+    "name": "Richmond Trees",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Education",
+    "website": "http://www.richmondtrees.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "140",
+    "name": "Rise St. James",
+    "sizeCategory": "Small",
+    "focus": "Community Resilience | Environmental Education | Environmental Justice | Pollution and Toxics",
+    "website": "https://www.risestjames.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "012",
+    "name": "Sacred Lands Film Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Environmental Justice | Indigenous Communities",
+    "website": "http://www.sacredland.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "054",
+    "name": "Save Our Soils",
+    "sizeCategory": "Grassroots",
+    "focus": "Oceans and Water | Pollution and Toxics | Sustainable Agriculture and Food Systems",
+    "website": "https://saveoursoil.us",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "069",
+    "name": "Serengeti Watch",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Indigenous Communities | International Initiatives | Wildlife Protection",
+    "website": "http://www.serengetiwatch.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "086",
+    "name": "Shark Stewards",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Oceans and Water | Wildlife Protection",
+    "website": "http://sharkstewards.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "096",
+    "name": "She Builds Power",
+    "sizeCategory": "Small",
+    "focus": "Environmental Justice | International Initiatives | Oceans and Water | Women's Environmental Leadership",
+    "website": "https://shebuildspower.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "147",
+    "name": "SIRGE Coalition",
+    "sizeCategory": "Medium",
+    "focus": "Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://www.sirgecoalition.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "042",
+    "name": "South Coast Habitat Restoration",
+    "sizeCategory": "Large",
+    "focus": "Conservation | Oceans and Water | Wildlife Protection",
+    "website": "http://www.schabitatrestoration.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "127",
+    "name": "Stop Fish Bombing",
+    "sizeCategory": "Grassroots",
+    "focus": "International Initiatives | Oceans and Water | Sustainable Agriculture and Food Systems",
+    "website": "https://www.sfbusa.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "145",
+    "name": "Tallgrass Institute",
+    "sizeCategory": "Grassroots",
+    "focus": "Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://tallgrassinstitute.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "098",
+    "name": "The Capacity Collaborative",
+    "sizeCategory": "Small",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Justice | Indigenous Communities",
+    "website": "https://www.thecapacitycollaborative.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "102",
+    "name": "Transition Earth",
+    "sizeCategory": "Grassroots",
+    "focus": "Conservation | Community Resilience | International Initiatives",
+    "website": "http://transition-earth.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "050",
+    "name": "Ultimate Civics",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Community Resilience | Environmental Education",
+    "website": "https://ultimatecivics.org",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "035",
+    "name": "Viva Sierra Gorda",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Community Resilience | International Initiatives",
+    "website": "http://planetacarbononeutral.org/en/home/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "122",
+    "name": "Wild Heritage",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Indigenous Communities",
+    "website": "https://wild-heritage.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "106",
+    "name": "Wild Oyster Project",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Oceans and Water | Wildlife Protection",
+    "website": "https://wildoysters.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "048",
+    "name": "WildFutures",
+    "sizeCategory": "Grassroots",
+    "focus": "Climate Change Solutions | Conservation | Wildlife Protection",
+    "website": "https://www.wildfutures.us",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "030",
+    "name": "Women's Earth Alliance",
+    "sizeCategory": "Large",
+    "focus": "Climate Change Solutions | Environmental Justice | International Initiatives | Women's Environmental Leadership",
+    "website": "https://womensearthalliance.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  },
+  {
+    "projectId": "074",
+    "name": "Youth Empowered Action Camp",
+    "sizeCategory": "Grassroots",
+    "focus": "Environmental Education | Youth Empowerment",
+    "website": "https://yeacamp.org/",
+    "relationships": [
+      { "partnerProjectId": "EII", "tier": "PRIMARY" },
+      { "partnerProjectId": "DBC", "tier": "SECONDARY" }
+    ]
+  }
+]

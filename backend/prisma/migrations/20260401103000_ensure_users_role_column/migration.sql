@@ -1,0 +1,2 @@
+ALTER TABLE "public"."users"
+  ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'admin';

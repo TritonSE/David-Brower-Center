@@ -1,0 +1,731 @@
+"use client";
+
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import AddNpoPopup, { type AddNpoInitialValues, type AddNpoValues } from "./AddNpoPopup";
+import {
+  FilterIcon,
+  LeafIcon,
+  LocationIcon,
+  MoneyIcon,
+  PeopleIcon,
+  SearchIcon,
+  SortArrowIcon,
+} from "./icons/AppIcons";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
+
+import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { APIResult } from "@/api/request";
+
+import {
+  createOrganization,
+  getImageUploadUrl,
+  getOrganizationById,
+  recordOrganizationImages,
+  updateOrganization,
+  uploadImageToStorage,
+} from "@/api/organization";
+import { useOrganizations } from "@/contexts/OrganizationsContext";
+
+const NOT_PROVIDED = "Not provided";
+const LOCATION_OPTIONS = new Set(["Berkeley", "Los Angeles", "San Jose", "Other"]);
+const NPO_SIZE_OPTIONS = new Set(["Grassroots", "Small", "Medium", "Large"]);
+
+function detailStringToFormValue(value: string): string {
+  return value === NOT_PROVIDED ? "" : value;
+}
+
+function detailLocationToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  return LOCATION_OPTIONS.has(raw) ? raw : "";
+}
+
+function detailNpoSizeToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  return NPO_SIZE_OPTIONS.has(raw) ? raw : "";
+}
+
+function detailBudgetToFormValue(value: string): string {
+  const raw = detailStringToFormValue(value);
+  if (!raw) return "";
+  // Backend stores budget as a formatted currency string (e.g. "$1,234.56");
+  // the input expects a plain decimal.
+  return raw.replace(/[^\d.]/g, "");
+}
+
+type ManageStatus = "published" | "draft";
+
+const IMG_EYE = "/icons/manage/eye.svg";
+const IMG_ADD = "/icons/manage/add-square.svg";
+const IMG_EDIT = "/icons/manage/edit.svg";
+const POPUP_FADE_DURATION_MS = 200;
+
+function classNames(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function generateProjectId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${slug || "npo"}-${Date.now().toString(36)}`;
+}
+
+function toOptionalString(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function formatBudgetSize(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+export default function ManagePage() {
+  const {
+    organizations,
+    isLoading,
+    error: loadError,
+    refetch: refetchOrganizations,
+  } = useOrganizations();
+
+  const [activeTab, setActiveTab] = useState<ManageStatus>("published");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+
+  const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
+  const [editingDetail, setEditingDetail] = useState<OrganizationDetail | null>(null);
+  const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
+  const [isCreatingNpo, setIsCreatingNpo] = useState(false);
+  const [addNpoError, setAddNpoError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const detailRequestIdRef = useRef(0);
+  const createAbortRef = useRef<AbortController | null>(null);
+  const editAbortRef = useRef<AbortController | null>(null);
+
+  const handleRetry = useCallback(() => {
+    void refetchOrganizations();
+  }, [refetchOrganizations]);
+
+  const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
+    detailAbortRef.current?.abort();
+    const abortController = new AbortController();
+    detailAbortRef.current = abortController;
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+
+    setIsDetailLoading(true);
+    setDetailError(null);
+    setActiveOrgDetail(null);
+
+    try {
+      const result: APIResult<OrganizationDetail> = await getOrganizationById(
+        organizationId,
+        abortController.signal,
+      );
+      if (result.success) {
+        if (detailRequestIdRef.current !== requestId) return;
+        setActiveOrgDetail(result.data);
+        return;
+      }
+      if (detailRequestIdRef.current !== requestId) return;
+      setDetailError(result.error || "Unable to load organization details.");
+    } catch (error) {
+      if (isAbortError(error) || detailRequestIdRef.current !== requestId) return;
+      setDetailError(getErrorMessage(error, "Unable to load organization details."));
+    } finally {
+      if (detailRequestIdRef.current === requestId) {
+        setIsDetailLoading(false);
+      }
+    }
+  }, []);
+  useEffect(() => () => detailAbortRef.current?.abort(), []);
+  useEffect(() => () => createAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!isCardVisible && selectedOrgId) {
+      const timer = setTimeout(() => {
+        setSelectedOrgId(null);
+        setActiveOrgDetail(null);
+        setDetailError(null);
+        setIsDetailLoading(false);
+      }, POPUP_FADE_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isCardVisible, selectedOrgId]);
+
+  const handleViewOrg = useCallback(
+    (orgId: string) => {
+      if (selectedOrgId === orgId && isCardVisible) {
+        detailAbortRef.current?.abort();
+        setIsCardVisible(false);
+        return;
+      }
+
+      setSelectedOrgId(orgId);
+      setIsCardVisible(true);
+      void fetchOrganizationDetail(orgId);
+    },
+    [fetchOrganizationDetail, isCardVisible, selectedOrgId],
+  );
+
+  const handleRetryDetail = useCallback(() => {
+    if (!selectedOrgId) return;
+    void fetchOrganizationDetail(selectedOrgId);
+  }, [fetchOrganizationDetail, selectedOrgId]);
+
+  const handleCloseCard = useCallback(() => {
+    detailAbortRef.current?.abort();
+    setIsCardVisible(false);
+  }, []);
+
+  const selectedRow = useMemo(
+    () => organizations.find((org) => org.id === selectedOrgId) ?? null,
+    [organizations, selectedOrgId],
+  );
+
+  const selectedCardProps = useMemo(() => {
+    if (!activeOrgDetail) return null;
+    return {
+      name: activeOrgDetail.name,
+      tags: [
+        {
+          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.focus,
+        },
+        {
+          icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
+          label: activeOrgDetail.size,
+        },
+        {
+          icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.budget,
+        },
+        {
+          icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
+          label: activeOrgDetail.location,
+        },
+      ],
+      description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
+      mission: activeOrgDetail.mission,
+    };
+  }, [activeOrgDetail]);
+
+  const publishedRows = useMemo(() => organizations, [organizations]);
+  const draftRows: OrganizationListItem[] = [];
+
+  const publishedCount = publishedRows.length;
+  const draftCount = draftRows.length;
+
+  const visibleRows = useMemo(() => {
+    const source = activeTab === "published" ? publishedRows : draftRows;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return source;
+    return source.filter((row) => row.name.toLowerCase().includes(query));
+  }, [activeTab, publishedRows, searchQuery]);
+
+  function handleToggleRow(rowId: string) {
+    setSelectedIds((current) =>
+      current.includes(rowId) ? current.filter((value) => value !== rowId) : [...current, rowId],
+    );
+  }
+
+  const handleCloseAddNpo = useCallback(() => {
+    createAbortRef.current?.abort();
+    setIsAddNpoOpen(false);
+    setEditingDetail(null);
+    setAddNpoError(null);
+    setIsCreatingNpo(false);
+    setUploadError(null);
+  }, []);
+
+  const handleEditOrg = useCallback(async (orgId: string) => {
+    editAbortRef.current?.abort();
+    const abortController = new AbortController();
+    editAbortRef.current = abortController;
+
+    setEditLoadingId(orgId);
+    setAddNpoError(null);
+
+    try {
+      const result = await getOrganizationById(orgId, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      if (!result.success) {
+        setAddNpoError(result.error || "Unable to load organization for editing.");
+        return;
+      }
+
+      setEditingDetail(result.data);
+      setIsAddNpoOpen(true);
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setAddNpoError(getErrorMessage(error, "Unable to load organization for editing."));
+    } finally {
+      if (editAbortRef.current === abortController) {
+        editAbortRef.current = null;
+        setEditLoadingId(null);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => editAbortRef.current?.abort(), []);
+
+  const handleSubmitNpo = useCallback(
+    async (values: AddNpoValues) => {
+      const name = values.title.trim();
+      if (!name) {
+        setAddNpoError("NPO name is required.");
+        return;
+      }
+
+      createAbortRef.current?.abort();
+      const abortController = new AbortController();
+      createAbortRef.current = abortController;
+
+      setIsCreatingNpo(true);
+      setAddNpoError(null);
+
+      const existingTagIds = values.focusAreas
+        .filter((tag) => !tag.isCustom && tag.id)
+        .map((tag) => tag.id as string);
+      const customTagNames = values.focusAreas
+        .filter((tag) => tag.isCustom)
+        .map((tag) => tag.name.trim())
+        .filter(Boolean);
+
+      const editingId = editingDetail?.id ?? null;
+      const failureMessage = editingId ? "Unable to update NPO." : "Unable to create NPO.";
+
+      try {
+        const description = toOptionalString(values.description);
+
+        const result = editingId
+          ? await updateOrganization(
+              editingId,
+              {
+                name,
+                sizeCategory: toOptionalString(values.npoSize),
+                location: toOptionalString(values.location),
+                budget: formatBudgetSize(values.budgetSize),
+                description,
+                tags: existingTagIds,
+                tagNames: customTagNames,
+              },
+              abortController.signal,
+            )
+          : await createOrganization(
+              {
+                name,
+                projectId: generateProjectId(name),
+                sizeCategory: toOptionalString(values.npoSize),
+                location: toOptionalString(values.location),
+                budget: formatBudgetSize(values.budgetSize),
+                description,
+                tags: existingTagIds,
+                tagNames: customTagNames,
+              },
+              abortController.signal,
+            );
+
+        if (!result.success) {
+          setAddNpoError(result.error || failureMessage);
+          return;
+        }
+
+        const targetId = result.data.id;
+        if (values.mediaFiles.length > 0) {
+          // Record each image immediately after upload so a mid-batch failure
+          // leaves nothing orphaned in Storage that isn't referenced by the DB.
+          for (const file of values.mediaFiles) {
+            // eslint-disable-next-line no-await-in-loop
+            const urlResult = await getImageUploadUrl(targetId, file.name);
+            if (!urlResult.success) {
+              setUploadError(`Failed to get upload URL: ${urlResult.error}`);
+              return;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await uploadImageToStorage(urlResult.data.uploadUrl, file);
+            // eslint-disable-next-line no-await-in-loop
+            const recordResult = await recordOrganizationImages(targetId, [
+              urlResult.data.publicUrl,
+            ]);
+            if (!recordResult.success) {
+              setUploadError(`Failed to save image URL: ${recordResult.error}`);
+              return;
+            }
+          }
+        }
+
+        setIsAddNpoOpen(false);
+        setEditingDetail(null);
+        await refetchOrganizations();
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setAddNpoError(getErrorMessage(error, failureMessage));
+      } finally {
+        if (createAbortRef.current === abortController) {
+          createAbortRef.current = null;
+          setIsCreatingNpo(false);
+        }
+      }
+    },
+    [editingDetail, refetchOrganizations],
+  );
+
+  const addNpoInitialValues = useMemo<AddNpoInitialValues | undefined>(() => {
+    if (!editingDetail) return undefined;
+    return {
+      title: editingDetail.name,
+      description: detailStringToFormValue(editingDetail.description),
+      location: detailLocationToFormValue(editingDetail.location),
+      npoSize: detailNpoSizeToFormValue(editingDetail.size),
+      budgetSize: detailBudgetToFormValue(editingDetail.budget),
+      focusAreas: editingDetail.tags.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        isCustom: false,
+      })),
+    };
+  }, [editingDetail]);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
+        Loading organizations...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 shadow-sm">
+        <p className="text-sm text-[#484848]">{loadError}</p>
+        <button
+          className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+          type="button"
+          onClick={handleRetry}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <section className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]">
+        <div className="flex flex-col gap-[36px]">
+          <div className="flex items-center justify-between gap-[24px] pr-[13px]">
+            <div className="flex items-center gap-[8px]">
+              <label className="relative block w-[240px] md:w-[363px]">
+                <span className="sr-only">Search NPO</span>
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+                  <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+                </span>
+                <input
+                  type="search"
+                  placeholder="Search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
+                />
+              </label>
+
+              <button
+                type="button"
+                aria-label="Open filters"
+                className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
+              >
+                <FilterIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="inline-flex cursor-pointer items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
+              onClick={() => {
+                setEditingDetail(null);
+                setAddNpoError(null);
+                setIsAddNpoOpen(true);
+              }}
+            >
+              <Image src={IMG_ADD} alt="" width={18} height={18} className="h-[18px] w-[18px]" />
+              <span>Add NPO</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-[24px]">
+            <div className="flex items-center gap-[17px]">
+              <button
+                type="button"
+                onClick={() => setActiveTab("published")}
+                className={classNames(
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
+                  activeTab === "published" ? "text-black" : "text-[#484848]",
+                )}
+              >
+                Published ({publishedCount})
+                <span
+                  className={classNames(
+                    "absolute bottom-0 left-0 h-px bg-black transition-all",
+                    activeTab === "published" ? "w-full" : "w-0",
+                  )}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("draft")}
+                className={classNames(
+                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
+                  activeTab === "draft" ? "text-black" : "text-[#484848]",
+                )}
+              >
+                Drafts ({draftCount})
+                <span
+                  className={classNames(
+                    "absolute bottom-0 left-0 h-px bg-black transition-all",
+                    activeTab === "draft" ? "w-full" : "w-0",
+                  )}
+                />
+              </button>
+            </div>
+
+            <div className="flex flex-col">
+              <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
+                <div className="flex items-center">
+                  <div className="flex w-1/3 shrink-0 items-center gap-2">
+                    <span className="inline-flex items-center justify-center">
+                      <SortArrowIcon className="h-3 w-3 text-[#1f1f1f]" />
+                    </span>
+                    <span>NPO</span>
+                  </div>
+                  <span className="flex-1 text-center whitespace-nowrap">Last Updated</span>
+                  <span className="flex-1" />
+                </div>
+              </div>
+
+              <div>
+                {visibleRows.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-[#6c6c6c]">
+                    {searchQuery.trim()
+                      ? "No organizations match your search."
+                      : "No organizations found."}
+                  </div>
+                ) : (
+                  visibleRows.map((row, index) => {
+                    const striped = index % 2 === 0;
+                    const selected = selectedIds.includes(row.id);
+
+                    return (
+                      <div
+                        key={row.id}
+                        className={classNames(
+                          "border-b border-[#b4b4b4] py-3",
+                          striped ? "bg-[#f2f9f8]" : "bg-white",
+                        )}
+                      >
+                        <div className="flex items-center px-4">
+                          <div className="flex w-1/3 shrink-0 items-center gap-[10px]">
+                            <label className="flex h-5 w-5 cursor-pointer items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => handleToggleRow(row.id)}
+                                className="h-5 w-5 rounded-[3px] border border-[#909090] accent-[#3b9a9a]"
+                                aria-label={`Select ${row.name}`}
+                              />
+                            </label>
+                            <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] tracking-[0.28px] text-black">
+                              {row.name}
+                            </span>
+                          </div>
+
+                          <span className="flex-1 text-center font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] leading-5 text-[#484848] whitespace-nowrap">
+                            {formatDate(row.updatedAt)}
+                          </span>
+
+                          <div className="flex flex-1 items-center justify-end gap-8">
+                            <button
+                              type="button"
+                              aria-label={`View ${row.name}`}
+                              onClick={() => handleViewOrg(row.id)}
+                            >
+                              <span className="flex h-[22px] w-[22px] items-center justify-center">
+                                <Image
+                                  src={IMG_EYE}
+                                  alt=""
+                                  width={22}
+                                  height={22}
+                                  className="block h-[18px] w-[22px] object-contain"
+                                />
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Edit ${row.name}`}
+                              disabled={editLoadingId !== null}
+                              onClick={() => void handleEditOrg(row.id)}
+                            >
+                              <span className="flex h-[22px] w-[22px] items-center justify-center">
+                                <Image
+                                  src={IMG_EDIT}
+                                  alt=""
+                                  width={20}
+                                  height={20}
+                                  className="block h-[20px] w-[20px] object-contain"
+                                />
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div
+        className={`pointer-events-none fixed inset-0 z-20 flex items-center justify-end px-4 py-8 md:px-8 lg:px-10 transition-opacity duration-200 ${
+          isCardVisible && selectedOrgId ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {selectedOrgId ? (
+          <div
+            className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
+            style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
+          >
+            {selectedCardProps ? (
+              <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
+            ) : (
+              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={handleCloseCard}
+                  className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#6c6c6c] transition-colors hover:bg-black/10 hover:text-black"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                  {selectedRow?.name ?? "Organization"}
+                </h1>
+
+                {isDetailLoading ? (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    Loading organization details...
+                  </p>
+                ) : detailError ? (
+                  <div className="mt-3 space-y-3">
+                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                      {detailError}
+                    </p>
+                    <button
+                      className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+                      type="button"
+                      onClick={handleRetryDetail}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                    No organization details available.
+                  </p>
+                )}
+              </section>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      <AddNpoPopup
+        open={isAddNpoOpen}
+        onClose={handleCloseAddNpo}
+        onNext={(values) => void handleSubmitNpo(values)}
+        mode={editingDetail ? "edit" : "create"}
+        initialValues={addNpoInitialValues}
+        isSubmitting={isCreatingNpo}
+        errorMessage={addNpoError}
+      />
+
+      {uploadError ? (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-md">
+          {uploadError}
+          <button
+            type="button"
+            className="ml-3 font-semibold underline"
+            onClick={() => setUploadError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}

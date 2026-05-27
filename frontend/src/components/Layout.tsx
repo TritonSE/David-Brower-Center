@@ -1,6 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+
+import { type AuthContextValue, useAuth } from "../contexts/AuthContext";
 
 import Navbar from "./Navbar";
 import ProfileButton from "./ProfileButton";
@@ -10,21 +12,33 @@ import type { ReactNode } from "react";
 
 type LayoutProps = {
   children: ReactNode;
-  isAdmin?: boolean;
-  isSignedIn?: boolean;
 };
 
-export default function Layout({ children, isAdmin = false, isSignedIn = false }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
+  const auth: AuthContextValue = useAuth();
+  const { isSignedIn, user, signOut } = auth;
   const pathname = usePathname();
-  const showHeader = pathname !== "/sign-in";
+  const router = useRouter();
+  const showHeader = pathname !== "/signIn";
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/signIn");
+  };
+
+  const displayName = user?.email ?? "User";
 
   return (
     <div className="min-h-screen bg-slate-100 p-5">
       {showHeader && (
         <header className="flex items-center justify-between gap-4">
-          <Navbar isAdmin={isAdmin} />
+          <Navbar isSignedIn={isSignedIn} />
           {isSignedIn ? (
-            <ProfileButton name="Jane Doe" avatarSrc="/small-Maria.png" />
+            <ProfileButton
+              name={displayName}
+              avatarSrc="/small-Maria.png"
+              onSignOut={() => void handleSignOut()}
+            />
           ) : (
             <SignInButton />
           )}
