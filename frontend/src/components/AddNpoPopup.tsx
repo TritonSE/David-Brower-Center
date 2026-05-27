@@ -90,7 +90,7 @@ export default function AddNpoPopup({
       let npo1Id = existingOrgId;
 
       if (!npo1Id) {
-        const createdOrg = await createOrganization({
+        const createResult = await createOrganization({
           name: addNpoState.profile.title.trim(),
           projectId: generateProjectId(addNpoState.profile.title),
           ...(addNpoState.profile.website.trim()
@@ -99,11 +99,23 @@ export default function AddNpoPopup({
           ...(addNpoState.profile.npoSize.trim()
             ? { sizeCategory: addNpoState.profile.npoSize.trim() }
             : {}),
+          ...(addNpoState.profile.location.trim()
+            ? { location: addNpoState.profile.location.trim() }
+            : {}),
+          ...(addNpoState.profile.budgetSize.trim()
+            ? { budget: addNpoState.profile.budgetSize.trim() }
+            : {}),
+          ...(addNpoState.profile.description.trim()
+            ? { description: addNpoState.profile.description.trim() }
+            : {}),
           ...(addNpoState.profile.focusAreas.length > 0
-            ? { tagIds: addNpoState.profile.focusAreas.map((focusArea) => focusArea.id) }
+            ? { tags: addNpoState.profile.focusAreas.map((focusArea) => focusArea.id) }
             : {}),
         });
-        npo1Id = createdOrg.id;
+        if (!createResult.success) {
+          throw new Error(createResult.error || "Unable to create organization.");
+        }
+        npo1Id = createResult.data.id;
       }
 
       if (addNpoState.relationships.length > 0 && npo1Id) {

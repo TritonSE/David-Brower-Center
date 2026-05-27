@@ -1,9 +1,7 @@
-import { get, handleAPIError, isAbortError, post } from "./request";
+import { authHeaders, getAccessToken } from "./auth";
+import { get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
-import type { Session } from "@supabase/supabase-js";
-
-import { supabase } from "@/services/supabase";
 
 const NOT_PROVIDED = "Not provided";
 
@@ -19,6 +17,17 @@ function toOptionalString(value: unknown): string | null {
 
 function toFallbackString(value: unknown): string {
   return toOptionalString(value) ?? NOT_PROVIDED;
+}
+
+function toTagFocus(tags: OrganizationTag[]): string {
+  return tags.length > 0 ? tags.map((tag) => tag.name).join(" | ") : NOT_PROVIDED;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => toOptionalString(item))
+    .filter((item): item is string => item !== null);
 }
 
 function parseOrganizationsPayload(payload: unknown): unknown[] {
@@ -84,6 +93,7 @@ export type OrganizationListItem = {
   id: string;
   name: string;
   focus: string;
+  images: string[];
   year: string;
   updatedAt: string;
   tags: OrganizationTag[];
@@ -97,14 +107,6 @@ export type OrganizationRelationship = {
   npo2Id: string;
   relationshipTier: OrganizationRelationshipTier;
   relationshipType: string | null;
-};
-
-export type CreateOrganizationInput = {
-  name: string;
-  projectId: string;
-  website?: string;
-  sizeCategory?: string;
-  tagIds?: string[];
 };
 
 export type CreateRelationshipInput = {
@@ -127,8 +129,21 @@ export type OrganizationDetail = {
   budget: string;
   location: string;
   description: string;
+  images: string[];
   mission: string;
   tags: OrganizationTag[];
+};
+
+export type CreateOrganizationValues = {
+  name: string;
+  projectId: string;
+  website?: string | null;
+  sizeCategory?: string | null;
+  location?: string | null;
+  budget?: string | null;
+  description?: string | null;
+  tags?: string[];
+  tagNames?: string[];
 };
 
 function parseOrganizationTag(value: unknown): OrganizationTag | null {
@@ -154,13 +169,17 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     throw new Error("[/api/organizations] Expected each organization item to be an object.");
   }
 
+  const tags = parseOrganizationTagList(value.tags);
+  const focus = toFallbackString(value.focus);
+
   return {
     id: getRequiredString(value.id, "/api/organizations", "id"),
     name: getRequiredString(value.name, "/api/organizations", "name"),
-    focus: toFallbackString(value.focus),
+    focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
+    images: toStringArray(value.images),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
-    tags: parseOrganizationTagList(value.tags),
+    tags,
   };
 }
 
@@ -169,18 +188,100 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     throw new Error("[/api/organizations/:id] Expected organization detail to be an object.");
   }
 
+  const tags = parseOrganizationTagList(value.tags);
+  const focus = toFallbackString(value.focus);
+
   return {
     id: getRequiredString(value.id, "/api/organizations/:id", "id"),
     name: getRequiredString(value.name, "/api/organizations/:id", "name"),
-    focus: toFallbackString(value.focus),
+    focus: focus === NOT_PROVIDED ? toTagFocus(tags) : focus,
     year: toFallbackString(value.year),
-    size: toFallbackString(value.size),
+    size: toFallbackString(value.size ?? value.sizeCategory),
     budget: toFallbackString(value.budget),
     location: toFallbackString(value.location),
     description: toFallbackString(value.description),
+    images: toStringArray(value.images),
     mission: toFallbackString(value.mission),
-    tags: parseOrganizationTagList(value.tags),
+    tags,
   };
+}
+
+export type ImageUploadUrlResult = {
+  uploadUrl: string;
+  path: string;
+  publicUrl: string;
+};
+
+function parseImageUploadUrlResult(payload: unknown): ImageUploadUrlResult {
+  if (!isRecord(payload)) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Unexpected response shape.");
+  }
+  const uploadUrl = toOptionalString(payload.uploadUrl);
+  const path = toOptionalString(payload.path);
+  const publicUrl = toOptionalString(payload.publicUrl);
+  if (!uploadUrl || !path || !publicUrl) {
+    throw new Error("[/api/organizations/:id/images/upload-url] Missing fields in response.");
+  }
+  return { uploadUrl, path, publicUrl };
+}
+
+export async function getImageUploadUrl(
+  organizationId: string,
+  filename: string,
+  signal?: AbortSignal,
+): Promise<APIResult<ImageUploadUrlResult>> {
+  try {
+    const token = await getAccessToken();
+    const response = await post(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images/upload-url`,
+      { filename },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    return { success: true, data: parseImageUploadUrlResult(payload) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
+}
+
+export async function uploadImageToStorage(
+  uploadUrl: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.status.toString()} ${response.statusText}`);
+  }
+}
+
+export async function recordOrganizationImages(
+  organizationId: string,
+  urls: string[],
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(organizationId)}/images`,
+      { urls },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return handleAPIError(error);
+  }
 }
 
 export async function getOrganizations(
@@ -263,53 +364,37 @@ export async function getOrganizationById(
   }
 }
 
-async function getAccessToken(): Promise<string> {
-  const { data, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) {
-    throw new Error(sessionError.message);
-  }
-  const session = data.session as Session | null;
-  const accessToken = session?.access_token;
-  if (typeof accessToken !== "string" || accessToken.length === 0) {
-    throw new Error("You must be signed in to create organizations or relationships.");
-  }
-  return accessToken;
-}
-
-function authHeaders(token: string): Record<string, string> {
-  return {
-    Accept: "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-function parseCreatedOrganizationPayload(payload: unknown): OrganizationListItem {
-  if (!isRecord(payload)) {
-    throw new Error("[/api/organizations] Unexpected create response shape.");
-  }
-  const organization = isRecord(payload.organization) ? payload.organization : payload;
-  return parseOrganizationListItem(organization);
-}
-
 export async function createOrganization(
-  input: CreateOrganizationInput,
+  input: CreateOrganizationValues,
   signal?: AbortSignal,
-): Promise<OrganizationListItem> {
-  const token = await getAccessToken();
-  const response = await post(
-    "/api/organizations",
-    {
-      name: input.name.trim(),
-      projectId: input.projectId.trim(),
-      ...(input.website !== undefined ? { website: input.website } : {}),
-      ...(input.sizeCategory !== undefined ? { sizeCategory: input.sizeCategory } : {}),
-      ...(input.tagIds && input.tagIds.length > 0 ? { tags: input.tagIds } : {}),
-    },
-    authHeaders(token),
-    signal,
-  );
-  const payload: unknown = await response.json();
-  return parseCreatedOrganizationPayload(payload);
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await post(
+      "/api/organizations",
+      {
+        name: input.name,
+        projectId: input.projectId,
+        ...(input.website !== undefined ? { website: input.website } : {}),
+        sizeCategory: input.sizeCategory,
+        location: input.location,
+        budget: input.budget,
+        description: input.description,
+        tags: input.tags ?? [],
+        tagNames: input.tagNames ?? [],
+      },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
 }
 
 export async function createOrganizationRelationships(
@@ -340,4 +425,46 @@ export async function createOrganizationRelationships(
     if (relationship) relationships.push(relationship);
   }
   return relationships;
+}
+
+export type UpdateOrganizationValues = {
+  name: string;
+  sizeCategory?: string | null;
+  location?: string | null;
+  budget?: string | null;
+  description?: string | null;
+  tags?: string[];
+  tagNames?: string[];
+};
+
+export async function updateOrganization(
+  id: string,
+  input: UpdateOrganizationValues,
+  signal?: AbortSignal,
+): Promise<APIResult<OrganizationDetail>> {
+  try {
+    const token = await getAccessToken();
+    const response = await patch(
+      `/api/organizations/${encodeURIComponent(id)}`,
+      {
+        name: input.name,
+        sizeCategory: input.sizeCategory,
+        location: input.location,
+        budget: input.budget,
+        description: input.description,
+        tags: input.tags ?? [],
+        tagNames: input.tagNames ?? [],
+      },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const organization = parseOrganizationPayload(payload);
+    return { success: true, data: parseOrganizationDetail(organization) };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
 }

@@ -14,7 +14,7 @@ import {
   SearchIcon,
   SortArrowIcon,
 } from "./icons/AppIcons";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
 import type { APIResult } from "@/api/request";
@@ -186,6 +186,7 @@ export default function ManagePage() {
         },
       ],
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
