@@ -28,8 +28,8 @@ import type { OrganizationDetail, OrganizationListItem } from "@/api/organizatio
 import type { APIResult } from "@/api/request";
 import type { TagRecord } from "@/api/tags";
 
-import { deleteTag } from "@/api/tags";
 import { getOrganizationById } from "@/api/organization";
+import { deleteTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 

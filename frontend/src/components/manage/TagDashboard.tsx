@@ -15,8 +15,10 @@ import {
 
 import InlineToast from "./InlineToast";
 import TagRow from "./TagRow";
+
 import type { AssignedOrganization, ManageTag, ManageTagDraft } from "./types";
 import type { TagRecord, TagVisibility } from "@/api/tags";
+
 import { proximaFontStyle } from "@/styles/fontStyles";
 
 export const STATIC_TAGS: ManageTag[] = [
