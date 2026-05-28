@@ -1,15 +1,15 @@
 "use client";
-
 import { useRef, useState } from "react";
 
 import AddTagPopup from "../AddTagPopup";
-import { ChevronRightIcon, EditPencilIcon, PlusSmallIcon } from "../icons/AppIcons";
+import { ManageCaretIcon, ManageEditIcon } from "../icons/AppIcons";
 
 import AssignedOrganizationList from "./AssignedOrganizationList";
 import AssignOrganizationsDialog from "./AssignOrganizationsDialog";
-import type { InlineToastAction } from "./InlineToast";
 
+import type { InlineToastAction } from "./InlineToast";
 import type { AssignedOrganization, ManageTag, ManageTagDraft } from "./types";
+
 import { proximaFontStyle, rubikFontStyle } from "@/styles/fontStyles";
 
 type ToastConfig = {
@@ -19,6 +19,7 @@ type ToastConfig = {
 
 type TagRowProps = {
   availableOrganizations: AssignedOrganization[];
+  highlightState?: "none" | "fresh" | "fading";
   onShowSuccessToast: (toast: ToastConfig) => void;
   onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
   tag: ManageTag;
@@ -29,8 +30,15 @@ function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+const actionButtonClassName =
+  "font-proxima inline-flex items-center justify-center gap-[10px] rounded-[40px] border border-[#b4b4b4] bg-white px-[16px] py-[8px] text-[13px] leading-none font-medium whitespace-nowrap text-[#3b9a9a] transition-colors hover:border-[#3b9a9a]";
+
+const assignIconClassName = "inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center";
+const editIconClassName = "inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center";
+
 export default function TagRow({
   availableOrganizations,
+  highlightState = "none",
   onShowSuccessToast,
   onTagOrganizationsUpdated,
   onTagUpdated,
@@ -46,7 +54,14 @@ export default function TagRow({
 
   return (
     <>
-      <div ref={rowRef} className="border-b border-[#b4b4b4] bg-[#f2f9f8]" style={proximaFontStyle}>
+      <div
+        ref={rowRef}
+        className={classNames(
+          "border-b border-[#b4b4b4] transition-colors duration-[800ms]",
+          highlightState === "fresh" ? "bg-[#cdebeb]" : "bg-[#f2f9f8]",
+        )}
+        style={proximaFontStyle}
+      >
         <div className="flex flex-col gap-3 px-8 py-3 md:flex-row md:items-center md:gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -56,9 +71,9 @@ export default function TagRow({
               onClick={() => setIsExpanded((current) => !current)}
               className="flex h-6 w-6 shrink-0 items-center justify-center text-black transition-colors hover:text-[#3b9a9a]"
             >
-              <ChevronRightIcon
+              <ManageCaretIcon
                 className={classNames(
-                  "h-[18px] w-[18px] transition-transform",
+                  "h-6 w-6 transition-transform",
                   isExpanded ? "rotate-90" : "rotate-0",
                 )}
               />
@@ -85,20 +100,37 @@ export default function TagRow({
             <button
               ref={assignButtonRef}
               type="button"
-              className="font-proxima inline-flex items-center gap-[8px] rounded-[40px] border border-[#b4b4b4] bg-white px-[16px] py-[8px] text-[13px] font-medium text-[#3b9a9a] transition-colors hover:border-[#3b9a9a]"
+              className={actionButtonClassName}
               onClick={() => setIsAssignOpen(true)}
             >
-              <PlusSmallIcon className="h-[10px] w-[10px]" />
-              Assign NPOs
+              <span className={assignIconClassName} aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" className="h-[13px] w-[13px] text-[#3b9a9a]">
+                  <path
+                    d="M12 4.5V19.5"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M4.5 12H19.5"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <span>Assign NPOs</span>
             </button>
             <button
               ref={editButtonRef}
               type="button"
-              className="font-proxima inline-flex items-center gap-[8px] rounded-[40px] border border-[#b4b4b4] bg-white px-[16px] py-[8px] text-[13px] font-medium text-[#3b9a9a] transition-colors hover:border-[#3b9a9a]"
+              className={actionButtonClassName}
               onClick={() => setIsEditOpen(true)}
             >
-              <EditPencilIcon className="h-[14px] w-[14px]" />
-              Edit Tag
+              <span className={editIconClassName} aria-hidden="true">
+                <ManageEditIcon className="h-[14px] w-[14px] text-[#3b9a9a]" />
+              </span>
+              <span>Edit Tag</span>
             </button>
           </div>
         </div>

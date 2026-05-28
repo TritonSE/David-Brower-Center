@@ -35,7 +35,7 @@
 
 .title {
   margin: 0;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-weight: 600;
   font-size: 25px;
   line-height: normal;
@@ -65,7 +65,7 @@
 }
 
 .caption {
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-weight: 400;
   font-size: 12px;
   line-height: 1.5;
@@ -74,7 +74,7 @@
 }
 
 .sectionLabel {
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-weight: 700;
   font-size: 14px;
   line-height: 1.5;
@@ -92,7 +92,7 @@
   border-radius: 4px;
   border: 1px solid #d9d9d9;
   padding: 8px 12px;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 20px;
   color: #000;
@@ -115,7 +115,7 @@
 
 .fieldError {
   margin: 0;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 12px;
   color: #fb2c36;
 }
@@ -188,7 +188,7 @@
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -204,7 +204,7 @@
 
 .submitError {
   margin: 0;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: #fb2c36;
 }
@@ -223,7 +223,7 @@
   border-radius: 40px;
   background: #3b9a9a;
   color: #fff;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
   line-height: 32px;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { FilterIcon, SearchIcon } from "../icons/AppIcons";
 
@@ -14,6 +14,7 @@ type AssignOrganizationsDialogProps = {
   open: boolean;
   onClose: () => void;
   onSave: (organizations: AssignedOrganization[]) => void;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
   tagName: string;
 };
 
@@ -60,9 +61,11 @@ export default function AssignOrganizationsDialog({
   open,
   onClose,
   onSave,
+  restoreFocusRef,
   tagName,
 }: AssignOrganizationsDialogProps) {
   const searchId = useId();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -76,6 +79,11 @@ export default function AssignOrganizationsDialog({
     setSearchQuery("");
     setSelectedIds(assignedOrganizations.map((organization) => organization.id));
   }, [assignedOrganizations, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -143,6 +151,7 @@ export default function AssignOrganizationsDialog({
             </span>
             <input
               id={searchId}
+              ref={searchInputRef}
               type="search"
               placeholder="Search organizations"
               value={searchQuery}
@@ -212,6 +221,7 @@ export default function AssignOrganizationsDialog({
                 selectedIds.includes(organization.id),
               );
               onSave(selectedOrganizations);
+              requestAnimationFrame(() => restoreFocusRef?.current?.focus());
             }}
           >
             Save

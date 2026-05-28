@@ -4,6 +4,8 @@ import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons"
 
 import type { ReactElement } from "react";
 
+import { proximaFontStyle, rubikFontStyle } from "@/styles/fontStyles";
+
 type Tag = {
   icon: ReactElement;
   label: string;
@@ -69,7 +71,10 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
   };
 
   return (
-    <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+    <section
+      className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]"
+      style={proximaFontStyle}
+    >
       {content.onClose && (
         <button
           type="button"
@@ -94,7 +99,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         </button>
       )}
 
-      <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+      <h1 className="font-proxima text-[28px]/[normal] font-bold text-black sm:text-[32px]">
         {content.name}
       </h1>
 
@@ -103,7 +108,10 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
           <div key={`${index}-${tag.label}`} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
               {tag.icon}
-              <span className="font-['Rubik',Arial,sans-serif] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
+              <span
+                className="font-rubik text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]"
+                style={rubikFontStyle}
+              >
                 {tag.label}
               </span>
             </div>
@@ -148,7 +156,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[15px]/[normal] font-normal text-white">
+              <span className="font-proxima text-[15px]/[normal] font-normal text-white">
                 {content.moreCountLabel}
               </span>
             </div>
@@ -158,19 +166,15 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[12px] space-y-[10px]">
         <div>
-          <h2 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px]/[normal] font-bold text-black">
-            Description
-          </h2>
-          <p className="mt-1 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px]/[normal] font-normal text-[#484848]">
+          <h2 className="font-proxima text-[16px]/[normal] font-bold text-black">Description</h2>
+          <p className="font-proxima mt-1 text-[14px]/[normal] font-normal text-[#484848]">
             {content.description}
           </p>
         </div>
 
         <div>
-          <h2 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px]/[normal] font-bold text-black">
-            Mission
-          </h2>
-          <p className="mt-1 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px]/[normal] font-normal text-[#484848]">
+          <h2 className="font-proxima text-[16px]/[normal] font-bold text-black">Mission</h2>
+          <p className="font-proxima mt-1 text-[14px]/[normal] font-normal text-[#484848]">
             {content.mission}
           </p>
         </div>
@@ -179,14 +183,14 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
       <div className="mt-[14px] flex items-center justify-between gap-3">
         <button
           type="button"
-          className="rounded-[40px] border border-[#d9d9d9] bg-white px-6 py-1 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px]/[32px] font-normal text-[#3b9a9a]"
+          className="font-proxima rounded-[40px] border border-[#d9d9d9] bg-white px-6 py-1 text-[16px]/[32px] font-normal text-[#3b9a9a]"
         >
           {content.previousLabel}
         </button>
 
         <button
           type="button"
-          className="rounded-[40px] bg-[#3b9a9a] px-6 py-1 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px]/[32px] font-normal text-white"
+          className="font-proxima rounded-[40px] bg-[#3b9a9a] px-6 py-1 text-[16px]/[32px] font-normal text-white"
         >
           {content.nextLabel}
         </button>

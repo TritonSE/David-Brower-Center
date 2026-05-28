@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { type RefObject, useEffect, useId, useRef, useState } from "react";
 
 import styles from "./AddTagPopup.module.css";
 
@@ -19,6 +19,7 @@ type AddTagPopupProps = {
   open: boolean;
   onClose: () => void;
   onSaveLocal?: (values: TagFormValues) => void;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
   onSuccess?: (tag: TagRecord) => void;
 };
 
@@ -36,10 +37,12 @@ export default function AddTagPopup({
   open,
   onClose,
   onSaveLocal,
+  restoreFocusRef,
   onSuccess,
 }: AddTagPopupProps) {
   const nameId = useId();
   const colorInputRef = useRef<HTMLInputElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(DEFAULT_TAG_COLOR);
@@ -59,6 +62,11 @@ export default function AddTagPopup({
     setSubmitError(null);
     setIsSubmitting(false);
   }, [initialValues, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    requestAnimationFrame(() => nameInputRef.current?.focus());
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -109,6 +117,7 @@ export default function AddTagPopup({
         visibility,
       });
       onClose();
+      requestAnimationFrame(() => restoreFocusRef?.current?.focus());
       return;
     }
 
@@ -122,6 +131,7 @@ export default function AddTagPopup({
       });
       onSuccess?.(tag);
       onClose();
+      requestAnimationFrame(() => restoreFocusRef?.current?.focus());
     } catch (error: unknown) {
       const message =
         error instanceof Error && error.message.trim().length > 0
@@ -142,7 +152,7 @@ export default function AddTagPopup({
 
   if (!open) return null;
 
-  const presetColors = PRESET_TAG_COLORS as readonly string[];
+  const presetColors = Array.from(new Set(PRESET_TAG_COLORS)) as readonly string[];
   const dialogTitle = mode === "edit" ? "Edit Tag" : "Add Tag";
   const saveLabel = mode === "edit" ? "Save Changes" : "Save";
 
@@ -184,6 +194,7 @@ export default function AddTagPopup({
           </label>
           <input
             id={nameId}
+            ref={nameInputRef}
             className={`${styles.input} ${nameError ? styles.inputError : ""}`}
             placeholder="Tag Name..."
             value={name}

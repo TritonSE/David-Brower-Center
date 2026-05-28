@@ -32,7 +32,7 @@
 
 .title {
   margin: 0;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 24px;
   font-weight: 600;
   color: #000;
@@ -40,7 +40,7 @@
 
 .subtitle {
   margin: 6px 0 0;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: #6c6c6c;
 }
@@ -70,7 +70,7 @@
 
 .count {
   margin: 0;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: #484848;
 }
@@ -113,7 +113,7 @@
 
 .name {
   display: block;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
   font-weight: 600;
   color: #000;
@@ -122,7 +122,7 @@
 .website {
   display: block;
   margin-top: 4px;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: #6c6c6c;
 }
@@ -134,7 +134,7 @@
   justify-content: center;
   padding: 24px;
   text-align: center;
-  font-family: "Rubik", sans-serif;
+  font-family: var(--font-rubik), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   color: #6c6c6c;
 }
@@ -150,7 +150,7 @@
 .saveButton {
   border-radius: 40px;
   padding: 10px 22px;
-  font-family: "Proxima Nova", var(--font-sans);
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;

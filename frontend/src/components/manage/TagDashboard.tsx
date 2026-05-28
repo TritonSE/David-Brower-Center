@@ -1,20 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import AddTagPopup from "../AddTagPopup";
 import {
-  LockIcon,
+  ManageDraftLockIcon,
+  ManageFilterIcon,
+  ManagePublishedIcon,
+  ManageSearchIcon,
+  ManageSortIcon,
+  ManageTagFillIcon,
   PlusSmallIcon,
-  PublicGlobeIcon,
-  SearchIcon,
-  TagFilledIcon,
-  TuneFilterIcon,
 } from "../icons/AppIcons";
 
 import InlineToast from "./InlineToast";
 import TagRow from "./TagRow";
-
 import type { AssignedOrganization, ManageTag, ManageTagDraft } from "./types";
 import type { TagRecord, TagVisibility } from "@/api/tags";
 import { proximaFontStyle } from "@/styles/fontStyles";
@@ -67,6 +67,11 @@ type ToastState = {
   message: string;
 };
 
+type NewTagHighlightPhase = "fresh" | "fading";
+
+const NEW_TAG_HIGHLIGHT_HOLD_MS = 800;
+const NEW_TAG_HIGHLIGHT_FADE_MS = 800;
+
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
@@ -75,17 +80,17 @@ const visibilityFilters = [
   {
     label: "All",
     value: "all",
-    icon: TagFilledIcon,
+    icon: ManageTagFillIcon,
   },
   {
     label: "Published",
     value: "public",
-    icon: PublicGlobeIcon,
+    icon: ManagePublishedIcon,
   },
   {
     label: "Drafts",
     value: "private",
-    icon: LockIcon,
+    icon: ManageDraftLockIcon,
   },
 ] as const;
 
@@ -101,6 +106,30 @@ export default function TagDashboard({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeVisibilityFilter, setActiveVisibilityFilter] = useState<VisibilityFilter>("all");
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [newTagHighlight, setNewTagHighlight] = useState<{
+    phase: NewTagHighlightPhase;
+    tagId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!newTagHighlight) return;
+
+    if (newTagHighlight.phase === "fresh") {
+      const fadeTimer = window.setTimeout(() => {
+        setNewTagHighlight((current) =>
+          current?.tagId === newTagHighlight.tagId ? { ...current, phase: "fading" } : current,
+        );
+      }, NEW_TAG_HIGHLIGHT_HOLD_MS);
+
+      return () => window.clearTimeout(fadeTimer);
+    }
+
+    const clearTimer = window.setTimeout(() => {
+      setNewTagHighlight((current) => (current?.tagId === newTagHighlight.tagId ? null : current));
+    }, NEW_TAG_HIGHLIGHT_FADE_MS);
+
+    return () => window.clearTimeout(clearTimer);
+  }, [newTagHighlight]);
 
   const filteredTags = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -124,23 +153,23 @@ export default function TagDashboard({
           <label className="relative block w-[240px] md:w-[363px]">
             <span className="sr-only">Search tags</span>
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-              <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+              <ManageSearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
             </span>
             <input
               type="search"
               placeholder="Search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
+              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[16px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
             />
           </label>
 
           <button
             type="button"
             aria-label="Filter tags"
-            className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4] bg-white text-[#6c6c6c]"
+            className="ml-[-4px] flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4] bg-white text-[#6c6c6c]"
           >
-            <TuneFilterIcon className="h-[18px] w-[18px]" />
+            <ManageFilterIcon className="h-[20px] w-[20px]" />
           </button>
 
           {visibilityFilters.map((filter) => {
@@ -153,13 +182,18 @@ export default function TagDashboard({
                 aria-pressed={activeVisibilityFilter === filter.value}
                 onClick={() => setActiveVisibilityFilter(filter.value as VisibilityFilter)}
                 className={classNames(
-                  "font-proxima inline-flex items-center gap-[2px] rounded-[10px] border px-[8px] py-[8px] text-[16px] leading-none font-normal",
+                  "font-proxima inline-flex items-center gap-[4px] rounded-[10px] border px-[10px] py-[8px] text-[16px] leading-none font-normal",
                   activeVisibilityFilter === filter.value
                     ? "border-[#3b9a9a] bg-[rgba(156,204,204,0.5)] text-[#2c7d7d]"
-                    : "border-[#d9d9d9] bg-white text-[#6c6c6c]",
+                    : "border-[#b4b4b4] bg-white text-[#6c6c6c]",
                 )}
               >
-                <Icon className="h-[19px] w-[19px]" />
+                <Icon
+                  className={classNames(
+                    "h-[19px] w-[19px] shrink-0",
+                    activeVisibilityFilter === filter.value ? "text-[#2c7d7d]" : "text-[#9ccccc]",
+                  )}
+                />
                 {filter.label}
               </button>
             );
@@ -182,15 +216,7 @@ export default function TagDashboard({
           <div className="border-b border-black px-8 py-4">
             <div className="font-proxima flex items-center gap-[4px] text-[16px] font-normal text-black">
               <span className="inline-flex items-center justify-center text-[#1f1f1f]">
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden="true"
-                  className="h-[14px] w-[14px]"
-                >
-                  <path d="m8 3 4 5H4l4-5Z" fill="currentColor" />
-                  <path d="M8 13V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
+                <ManageSortIcon className="h-[14px] w-[13px]" />
               </span>
               <span>Tag Name</span>
             </div>
@@ -217,6 +243,9 @@ export default function TagDashboard({
               filteredTags.map((tag) => (
                 <TagRow
                   availableOrganizations={availableOrganizations}
+                  highlightState={
+                    newTagHighlight?.tagId === tag.id ? newTagHighlight.phase : "none"
+                  }
                   key={tag.id}
                   onShowSuccessToast={(nextToast) => setToast(nextToast)}
                   onTagOrganizationsUpdated={onTagOrganizationsUpdated}
@@ -237,6 +266,7 @@ export default function TagDashboard({
         }}
         onSuccess={(tag) => {
           onTagCreated(tag);
+          setNewTagHighlight({ tagId: tag.id, phase: "fresh" });
           setToast({ message: "Tag has been added." });
         }}
         restoreFocusRef={createTagButtonRef}

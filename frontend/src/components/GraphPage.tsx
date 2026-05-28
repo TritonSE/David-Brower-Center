@@ -21,6 +21,7 @@ import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagra
 
 import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
+import { proximaFontStyle } from "@/styles/fontStyles";
 
 const GraphCanvas = dynamic<GraphCanvasProps>(async () => (await import("reagraph")).GraphCanvas, {
   ssr: false,
@@ -659,7 +660,10 @@ export default function GraphPage() {
             {selectedCardProps ? (
               <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
             ) : (
-              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+              <section
+                className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]"
+                style={proximaFontStyle}
+              >
                 <button
                   type="button"
                   aria-label="Close"
@@ -669,7 +673,7 @@ export default function GraphPage() {
                   ✕
                 </button>
 
-                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                <h1 className="font-proxima text-[28px]/[normal] font-bold text-black sm:text-[32px]">
                   {selectedOrganization?.name ?? "Organization"}
                 </h1>
 
