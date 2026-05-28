@@ -87,4 +87,39 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+router.delete("/:tagId", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tagId } = req.params;
+
+    if (typeof tagId !== "string" || tagId.trim().length === 0) {
+      return next(createError(400, "Tag id is required"));
+    }
+
+    const existingTag = await prisma.tag.findUnique({
+      where: { id: tagId },
+      select: { id: true },
+    });
+
+    if (!existingTag) {
+      return next(createError(404, "Tag not found"));
+    }
+
+    await prisma.$transaction([
+      prisma.organizationTag.deleteMany({
+        where: { tagId },
+      }),
+      prisma.tag.delete({
+        where: { id: tagId },
+      }),
+    ]);
+
+    return res.status(200).json({ tagId });
+  } catch (err: unknown) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+      return next(createError(404, "Tag not found"));
+    }
+    return next(err);
+  }
+});
+
 export default router;

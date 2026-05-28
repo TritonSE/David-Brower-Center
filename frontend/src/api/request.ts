@@ -79,7 +79,12 @@ async function assertOk(response: Response): Promise<void> {
   try {
     const text = await response.text();
     if (text) {
-      message += `: ${text}`;
+      const trimmed = text.trim();
+      const htmlPreMatch = trimmed.match(/<pre>([\s\S]*?)<\/pre>/i);
+      const htmlTitleMatch = trimmed.match(/<title>([\s\S]*?)<\/title>/i);
+      const normalizedText = htmlPreMatch?.[1] ?? htmlTitleMatch?.[1] ?? trimmed;
+      const compactText = normalizedText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      message += `: ${compactText || trimmed}`;
     }
   } catch {
     // ignore response text parse errors

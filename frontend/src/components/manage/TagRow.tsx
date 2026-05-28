@@ -21,6 +21,7 @@ type TagRowProps = {
   availableOrganizations: AssignedOrganization[];
   highlightState?: "none" | "fresh" | "fading";
   onShowSuccessToast: (toast: ToastConfig) => void;
+  onTagDeleted: (tagId: string) => Promise<void>;
   onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
   tag: ManageTag;
   onTagUpdated: (tagId: string, updates: ManageTagDraft) => void;
@@ -40,6 +41,7 @@ export default function TagRow({
   availableOrganizations,
   highlightState = "none",
   onShowSuccessToast,
+  onTagDeleted,
   onTagOrganizationsUpdated,
   onTagUpdated,
   tag,
@@ -169,6 +171,12 @@ export default function TagRow({
         onClose={() => {
           setIsEditOpen(false);
           requestAnimationFrame(() => editButtonRef.current?.focus());
+        }}
+        onDelete={async () => {
+          await onTagDeleted(tag.id);
+          setIsEditOpen(false);
+          requestAnimationFrame(() => editButtonRef.current?.focus());
+          onShowSuccessToast({ message: "Tag has been deleted." });
         }}
         onSaveLocal={(updates) => onTagUpdated(tag.id, updates)}
         restoreFocusRef={editButtonRef}

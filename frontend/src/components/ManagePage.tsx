@@ -28,6 +28,7 @@ import type { OrganizationDetail, OrganizationListItem } from "@/api/organizatio
 import type { APIResult } from "@/api/request";
 import type { TagRecord } from "@/api/tags";
 
+import { deleteTag } from "@/api/tags";
 import { getOrganizationById } from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
@@ -49,6 +50,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim(),
+  );
 }
 
 function formatDate(dateString: string): string {
@@ -243,6 +250,14 @@ export default function ManagePage() {
     },
     [],
   );
+
+  const handleTagDeleted = useCallback(async (tagId: string) => {
+    if (looksLikeUuid(tagId)) {
+      await deleteTag(tagId);
+    }
+
+    setManageTags((current) => current.filter((tag) => tag.id !== tagId));
+  }, []);
 
   if (isLoading) {
     return (
@@ -451,6 +466,7 @@ export default function ManagePage() {
                 availableOrganizations={availableTagOrganizations}
                 tags={manageTags}
                 onTagCreated={handleTagCreated}
+                onTagDeleted={handleTagDeleted}
                 onTagOrganizationsUpdated={handleTagOrganizationsUpdated}
                 onTagUpdated={handleTagUpdated}
               />

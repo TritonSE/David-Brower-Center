@@ -1,4 +1,4 @@
-import { get, post } from "./request";
+import { del, get, post } from "./request";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -178,4 +178,25 @@ export async function createTag(input: CreateTagInput, signal?: AbortSignal): Pr
   );
   const payload: unknown = await response.json();
   return parseCreateTagPayload(payload);
+}
+
+export async function deleteTag(tagId: string, signal?: AbortSignal): Promise<string> {
+  const trimmedTagId = tagId.trim();
+  if (trimmedTagId.length === 0) {
+    throw new Error("Tag id is required.");
+  }
+
+  const response = await del(
+    `/api/tags/${encodeURIComponent(trimmedTagId)}`,
+    { Accept: "application/json" },
+    undefined,
+    signal,
+  );
+  const payload: unknown = await response.json();
+
+  if (!isRecord(payload) || toNonEmptyString(payload.tagId) !== trimmedTagId) {
+    throw new Error("[/api/tags] Unexpected delete response shape.");
+  }
+
+  return trimmedTagId;
 }

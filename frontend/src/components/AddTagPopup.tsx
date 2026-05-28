@@ -3,6 +3,7 @@
 import { type RefObject, useEffect, useId, useRef, useState } from "react";
 
 import styles from "./AddTagPopup.module.css";
+import { TrashIcon } from "./icons/AppIcons";
 
 import { createTag, type TagRecord, type TagVisibility } from "@/api/tags";
 import { DEFAULT_TAG_COLOR, PRESET_TAG_COLORS } from "@/constants/tagColors";
@@ -18,6 +19,7 @@ type AddTagPopupProps = {
   mode?: "create" | "edit";
   open: boolean;
   onClose: () => void;
+  onDelete?: () => Promise<void> | void;
   onSaveLocal?: (values: TagFormValues) => void;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   onSuccess?: (tag: TagRecord) => void;
@@ -36,6 +38,7 @@ export default function AddTagPopup({
   mode = "create",
   open,
   onClose,
+  onDelete,
   onSaveLocal,
   restoreFocusRef,
   onSuccess,
@@ -51,6 +54,8 @@ export default function AddTagPopup({
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +66,8 @@ export default function AddTagPopup({
     setVisibilityError(null);
     setSubmitError(null);
     setIsSubmitting(false);
+    setIsDeleteConfirmOpen(false);
+    setIsDeleting(false);
   }, [initialValues, open]);
 
   useEffect(() => {
@@ -71,14 +78,24 @@ export default function AddTagPopup({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (isDeleteConfirmOpen) {
+        setIsDeleteConfirmOpen(false);
+        return;
+      }
+      onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [isDeleteConfirmOpen, onClose, open]);
 
   const handleOverlayMouseDown = (event: React.MouseEvent) => {
-    if (event.target === event.currentTarget) onClose();
+    if (event.target !== event.currentTarget) return;
+    if (isDeleteConfirmOpen) {
+      setIsDeleteConfirmOpen(false);
+      return;
+    }
+    onClose();
   };
 
   const validate = (): boolean => {
@@ -103,7 +120,7 @@ export default function AddTagPopup({
   };
 
   const handleSave = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isDeleting) return;
     if (!validate()) return;
 
     setSubmitError(null);
@@ -140,6 +157,26 @@ export default function AddTagPopup({
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting || isSubmitting) return;
+
+    setSubmitError(null);
+    setIsDeleting(true);
+
+    try {
+      await onDelete();
+      setIsDeleteConfirmOpen(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to delete tag. Please try again.";
+      setSubmitError(message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -199,7 +236,7 @@ export default function AddTagPopup({
             placeholder="Tag Name..."
             value={name}
             onChange={(event) => setName(event.target.value)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDeleting}
           />
           {nameError ? <p className={styles.fieldError}>{nameError}</p> : null}
         </div>
@@ -218,7 +255,7 @@ export default function AddTagPopup({
                   aria-label={`Select color ${presetColor}`}
                   aria-pressed={isSelected}
                   onClick={() => setColor(presetColor)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isDeleting}
                 />
               );
             })}
@@ -227,7 +264,7 @@ export default function AddTagPopup({
               className={styles.addColorButton}
               aria-label="Choose custom color"
               onClick={() => colorInputRef.current?.click()}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeleting}
             >
               <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
                 <circle cx="15" cy="15" r="14" stroke="currentColor" strokeWidth="1.5" />
@@ -261,7 +298,7 @@ export default function AddTagPopup({
                 className={styles.radio}
                 checked={visibility === "public"}
                 onChange={() => setVisibility("public")}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDeleting}
               />
               Public
             </label>
@@ -272,7 +309,7 @@ export default function AddTagPopup({
                 className={styles.radio}
                 checked={visibility === "private"}
                 onChange={() => setVisibility("private")}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDeleting}
               />
               Private
             </label>
@@ -283,16 +320,79 @@ export default function AddTagPopup({
         {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
 
         <footer className={styles.footer}>
+          {mode === "edit" ? (
+            <button
+              type="button"
+              className={styles.deleteButton}
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              aria-label="Delete tag"
+              disabled={isSubmitting || isDeleting}
+            >
+              <TrashIcon className={styles.deleteIcon} />
+              <span>Delete Tag</span>
+            </button>
+          ) : null}
+
+          <div className={styles.footerSpacer} />
+
           <button
             type="button"
             className={styles.saveButton}
             onClick={() => void handleSave()}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDeleting}
           >
             {isSubmitting ? "Saving..." : saveLabel}
           </button>
         </footer>
       </div>
+
+      {isDeleteConfirmOpen ? (
+        <div
+          className={styles.confirmOverlay}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsDeleteConfirmOpen(false);
+            }
+          }}
+        >
+          <div
+            className={styles.confirmDialog}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-tag-title"
+            aria-describedby="delete-tag-description"
+          >
+            <div className={styles.confirmContent}>
+              <h3 id="delete-tag-title" className={styles.confirmTitle}>
+                Delete Tag
+              </h3>
+              <p id="delete-tag-description" className={styles.confirmDescription}>
+                Are you sure you want to delete this tag? It will be removed from any NPOs it’s
+                assigned to.
+              </p>
+            </div>
+
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelButton}
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.confirmDeleteButton}
+                onClick={() => void handleDelete()}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

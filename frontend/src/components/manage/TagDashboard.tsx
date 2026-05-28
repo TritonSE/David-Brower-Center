@@ -54,6 +54,7 @@ type TagDashboardProps = {
   availableOrganizations: AssignedOrganization[];
   tags: ManageTag[];
   onTagCreated: (tag: TagRecord) => void;
+  onTagDeleted: (tagId: string) => Promise<void>;
   onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
   onTagUpdated: (tagId: string, updates: ManageTagDraft) => void;
 };
@@ -97,6 +98,7 @@ const visibilityFilters = [
 export default function TagDashboard({
   availableOrganizations,
   onTagCreated,
+  onTagDeleted,
   onTagOrganizationsUpdated,
   onTagUpdated,
   tags,
@@ -248,6 +250,7 @@ export default function TagDashboard({
                   }
                   key={tag.id}
                   onShowSuccessToast={(nextToast) => setToast(nextToast)}
+                  onTagDeleted={onTagDeleted}
                   onTagOrganizationsUpdated={onTagOrganizationsUpdated}
                   onTagUpdated={onTagUpdated}
                   tag={tag}
