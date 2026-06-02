@@ -89,10 +89,11 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
 router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
-    if (!id) {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || rawId.length === 0) {
       return next(createError(400, "Missing tag ID"));
     }
+    const id: string = rawId;
     const tag = await prisma.tag.delete({
       where: { id },
     });
