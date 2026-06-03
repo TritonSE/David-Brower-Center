@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import AddNpoPopup, { type AddNpoInitialValues, type AddNpoValues } from "./AddNpoPopup";
+import AddNpoPopup from "./AddNpoPopup";
+import AddNpoSuccessMessage from "./AddNpoSuccessMessage";
 import {
   LeafIcon,
   LocationIcon,
@@ -28,14 +29,7 @@ import type { OrganizationDetail } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 import type { TagRecord } from "@/api/tags";
 
-import {
-  createOrganization,
-  getImageUploadUrl,
-  getOrganizationById,
-  recordOrganizationImages,
-  updateOrganization,
-  uploadImageToStorage,
-} from "@/api/organization";
+import { getOrganizationById } from "@/api/organization";
 import { deleteTag, getManageTags, updateTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
@@ -43,29 +37,9 @@ import { proximaFontStyle } from "@/styles/fontStyles";
 type ManageMode = "npos" | "tags";
 
 const NOT_PROVIDED = "Not provided";
-const LOCATION_OPTIONS = new Set(["Berkeley", "Los Angeles", "San Jose", "Other"]);
-const NPO_SIZE_OPTIONS = new Set(["Grassroots", "Small", "Medium", "Large"]);
 
 function detailStringToFormValue(value: string): string {
   return value === NOT_PROVIDED ? "" : value;
-}
-
-function detailLocationToFormValue(value: string): string {
-  const raw = detailStringToFormValue(value);
-  return LOCATION_OPTIONS.has(raw) ? raw : "";
-}
-
-function detailNpoSizeToFormValue(value: string): string {
-  const raw = detailStringToFormValue(value);
-  return NPO_SIZE_OPTIONS.has(raw) ? raw : "";
-}
-
-function detailBudgetToFormValue(value: string): string {
-  const raw = detailStringToFormValue(value);
-  if (!raw) return "";
-  // Backend stores budget as a formatted currency string (e.g. "$1,234.56");
-  // the input expects a plain decimal.
-  return raw.replace(/[^\d.]/g, "");
 }
 
 const POPUP_FADE_DURATION_MS = 200;
@@ -89,36 +63,6 @@ function looksLikeUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value.trim(),
   );
-}
-
-function generateProjectId(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return `${slug || "npo"}-${Date.now().toString(36)}`;
-}
-
-function toOptionalString(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function formatBudgetSize(value: string): string | null {
-  const normalized = value.trim();
-  if (!normalized) return null;
-
-  const amount = Number(normalized);
-  if (!Number.isFinite(amount)) return null;
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 }
 
 function formatDate(dateString: string): string {
@@ -156,13 +100,10 @@ export default function ManagePage() {
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
   const [editingDetail, setEditingDetail] = useState<OrganizationDetail | null>(null);
   const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
-  const [isCreatingNpo, setIsCreatingNpo] = useState(false);
-  const [addNpoError, setAddNpoError] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
-  const createAbortRef = useRef<AbortController | null>(null);
   const editAbortRef = useRef<AbortController | null>(null);
 
   const handleRetry = useCallback(() => {
@@ -225,7 +166,6 @@ export default function ManagePage() {
     }
   }, []);
   useEffect(() => () => detailAbortRef.current?.abort(), []);
-  useEffect(() => () => createAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!isCardVisible && selectedOrgId) {
@@ -370,12 +310,8 @@ export default function ManagePage() {
   }, []);
 
   const handleCloseAddNpo = useCallback(() => {
-    createAbortRef.current?.abort();
     setIsAddNpoOpen(false);
     setEditingDetail(null);
-    setAddNpoError(null);
-    setIsCreatingNpo(false);
-    setUploadError(null);
   }, []);
 
   const handleEditOrg = useCallback(async (orgId: string) => {
@@ -384,14 +320,13 @@ export default function ManagePage() {
     editAbortRef.current = abortController;
 
     setEditLoadingId(orgId);
-    setAddNpoError(null);
 
     try {
       const result = await getOrganizationById(orgId, abortController.signal);
       if (abortController.signal.aborted) return;
 
       if (!result.success) {
-        setAddNpoError(result.error || "Unable to load organization for editing.");
+        setToastMessage(result.error || "Unable to load organization for editing.");
         return;
       }
 
@@ -399,7 +334,7 @@ export default function ManagePage() {
       setIsAddNpoOpen(true);
     } catch (error) {
       if (isAbortError(error)) return;
-      setAddNpoError(getErrorMessage(error, "Unable to load organization for editing."));
+      setToastMessage(getErrorMessage(error, "Unable to load organization for editing."));
     } finally {
       if (editAbortRef.current === abortController) {
         editAbortRef.current = null;
@@ -409,124 +344,6 @@ export default function ManagePage() {
   }, []);
 
   useEffect(() => () => editAbortRef.current?.abort(), []);
-
-  const handleSubmitNpo = useCallback(
-    async (values: AddNpoValues) => {
-      const name = values.title.trim();
-      if (!name) {
-        setAddNpoError("NPO name is required.");
-        return;
-      }
-
-      createAbortRef.current?.abort();
-      const abortController = new AbortController();
-      createAbortRef.current = abortController;
-
-      setIsCreatingNpo(true);
-      setAddNpoError(null);
-
-      const existingTagIds = values.focusAreas
-        .filter((tag) => !tag.isCustom && tag.id)
-        .map((tag) => tag.id as string);
-      const customTagNames = values.focusAreas
-        .filter((tag) => tag.isCustom)
-        .map((tag) => tag.name.trim())
-        .filter(Boolean);
-
-      const editingId = editingDetail?.id ?? null;
-      const failureMessage = editingId ? "Unable to update NPO." : "Unable to create NPO.";
-
-      try {
-        const description = toOptionalString(values.description);
-
-        const result = editingId
-          ? await updateOrganization(
-              editingId,
-              {
-                name,
-                sizeCategory: toOptionalString(values.npoSize),
-                location: toOptionalString(values.location),
-                budget: formatBudgetSize(values.budgetSize),
-                description,
-                tags: existingTagIds,
-                tagNames: customTagNames,
-              },
-              abortController.signal,
-            )
-          : await createOrganization(
-              {
-                name,
-                projectId: generateProjectId(name),
-                sizeCategory: toOptionalString(values.npoSize),
-                location: toOptionalString(values.location),
-                budget: formatBudgetSize(values.budgetSize),
-                description,
-                tags: existingTagIds,
-                tagNames: customTagNames,
-              },
-              abortController.signal,
-            );
-
-        if (!result.success) {
-          setAddNpoError(result.error || failureMessage);
-          return;
-        }
-
-        const targetId = result.data.id;
-        if (values.mediaFiles.length > 0) {
-          // Record each image immediately after upload so a mid-batch failure
-          // leaves nothing orphaned in Storage that isn't referenced by the DB.
-          for (const file of values.mediaFiles) {
-            // eslint-disable-next-line no-await-in-loop
-            const urlResult = await getImageUploadUrl(targetId, file.name);
-            if (!urlResult.success) {
-              setUploadError(`Failed to get upload URL: ${urlResult.error}`);
-              return;
-            }
-            // eslint-disable-next-line no-await-in-loop
-            await uploadImageToStorage(urlResult.data.uploadUrl, file);
-            // eslint-disable-next-line no-await-in-loop
-            const recordResult = await recordOrganizationImages(targetId, [
-              urlResult.data.publicUrl,
-            ]);
-            if (!recordResult.success) {
-              setUploadError(`Failed to save image URL: ${recordResult.error}`);
-              return;
-            }
-          }
-        }
-
-        setIsAddNpoOpen(false);
-        setEditingDetail(null);
-        await refetchOrganizations();
-      } catch (error) {
-        if (isAbortError(error)) return;
-        setAddNpoError(getErrorMessage(error, failureMessage));
-      } finally {
-        if (createAbortRef.current === abortController) {
-          createAbortRef.current = null;
-          setIsCreatingNpo(false);
-        }
-      }
-    },
-    [editingDetail, refetchOrganizations],
-  );
-
-  const addNpoInitialValues = useMemo<AddNpoInitialValues | undefined>(() => {
-    if (!editingDetail) return undefined;
-    return {
-      title: editingDetail.name,
-      description: detailStringToFormValue(editingDetail.description),
-      location: detailLocationToFormValue(editingDetail.location),
-      npoSize: detailNpoSizeToFormValue(editingDetail.size),
-      budgetSize: detailBudgetToFormValue(editingDetail.budget),
-      focusAreas: editingDetail.tags.map((tag) => ({
-        id: tag.id,
-        name: tag.name,
-        isCustom: false,
-      })),
-    };
-  }, [editingDetail]);
 
   if (isLoading) {
     return (
@@ -637,7 +454,6 @@ export default function ManagePage() {
                     className="font-proxima inline-flex items-center gap-[12px] text-[17px] font-semibold text-[#3b9a9a]"
                     onClick={() => {
                       setEditingDetail(null);
-                      setAddNpoError(null);
                       setIsAddNpoOpen(true);
                     }}
                   >
@@ -814,24 +630,22 @@ export default function ManagePage() {
       <AddNpoPopup
         open={isAddNpoOpen}
         onClose={handleCloseAddNpo}
-        onNext={(values) => void handleSubmitNpo(values)}
-        mode={editingDetail ? "edit" : "create"}
-        initialValues={addNpoInitialValues}
-        isSubmitting={isCreatingNpo}
-        errorMessage={addNpoError}
+        organizations={organizations}
+        existingOrgId={editingDetail?.id ?? null}
+        initialTitle={editingDetail?.name ?? ""}
+        initialDescription={editingDetail ? detailStringToFormValue(editingDetail.description) : ""}
+        onRefetch={() => void refetchOrganizations()}
+        onPublished={(orgName) =>
+          setToastMessage(
+            editingDetail
+              ? `${orgName} relationships have been saved`
+              : `${orgName} has been added`,
+          )
+        }
       />
 
-      {uploadError ? (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-md">
-          {uploadError}
-          <button
-            type="button"
-            className="ml-3 font-semibold underline"
-            onClick={() => setUploadError(null)}
-          >
-            Dismiss
-          </button>
-        </div>
+      {toastMessage ? (
+        <AddNpoSuccessMessage message={toastMessage} onDismiss={() => setToastMessage(null)} />
       ) : null}
     </div>
   );

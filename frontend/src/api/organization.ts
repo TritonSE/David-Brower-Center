@@ -109,6 +109,17 @@ export type OrganizationRelationship = {
   relationshipType: string | null;
 };
 
+export type CreateRelationshipInput = {
+  npo2Id: string;
+  relationshipTier: OrganizationRelationshipTier;
+  relationshipType?: string;
+};
+
+export type CreateOrganizationRelationshipsInput = {
+  npo1Id: string;
+  relationships: CreateRelationshipInput[];
+};
+
 export type OrganizationDetail = {
   id: string;
   name: string;
@@ -126,6 +137,7 @@ export type OrganizationDetail = {
 export type CreateOrganizationValues = {
   name: string;
   projectId: string;
+  website?: string | null;
   sizeCategory?: string | null;
   location?: string | null;
   budget?: string | null;
@@ -363,6 +375,7 @@ export async function createOrganization(
       {
         name: input.name,
         projectId: input.projectId,
+        ...(input.website !== undefined ? { website: input.website } : {}),
         sizeCategory: input.sizeCategory,
         location: input.location,
         budget: input.budget,
@@ -382,6 +395,36 @@ export async function createOrganization(
     }
     return handleAPIError(error);
   }
+}
+
+export async function createOrganizationRelationships(
+  input: CreateOrganizationRelationshipsInput,
+  signal?: AbortSignal,
+): Promise<OrganizationRelationship[]> {
+  const token = await getAccessToken();
+  const response = await post(
+    "/api/organizations/relationships",
+    {
+      npo1Id: input.npo1Id,
+      relationships: input.relationships.map((relationship) => ({
+        npo2Id: relationship.npo2Id,
+        relationshipTier: relationship.relationshipTier,
+        ...(relationship.relationshipType !== undefined
+          ? { relationshipType: relationship.relationshipType }
+          : {}),
+      })),
+    },
+    authHeaders(token),
+    signal,
+  );
+  const payload: unknown = await response.json();
+  const raw = parseRelationshipsPayload(payload);
+  const relationships: OrganizationRelationship[] = [];
+  for (const entry of raw) {
+    const relationship = parseOrganizationRelationship(entry);
+    if (relationship) relationships.push(relationship);
+  }
+  return relationships;
 }
 
 export type UpdateOrganizationValues = {
