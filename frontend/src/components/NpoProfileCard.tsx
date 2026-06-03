@@ -1,8 +1,40 @@
 import Image from "next/image";
 
+import RelationshipViewCard, { type RelatedNpo } from "../app/components/RelationshipViewCard";
+
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 
 import type { ReactElement } from "react";
+
+const sampleRelatedOrganizations: RelatedNpo[] = [
+  {
+    id: "related-1",
+    name: "42 Inc.",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Technology", "Environmental"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/861edd85-fd7b-4c4d-9083-1fe0707442aa",
+  },
+  {
+    id: "related-2",
+    name: "American Institute of Architects",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Transportation", "Social/Government"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/4536375a-46ca-49dc-b179-cde1b912280c",
+  },
+  {
+    id: "related-3",
+    name: "Berkeley Executive Coaching Institute",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Social/Government", "Environmental"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/abf36315-21d6-49ab-84f8-06501ef3c53a",
+  },
+];
 
 type Tag = {
   icon: ReactElement;
@@ -20,8 +52,6 @@ type NpoProfileCardProps = {
     morePreview: string;
   };
   moreCountLabel: string;
-  previousLabel: string;
-  nextLabel: string;
   onClose?: () => void;
 };
 
@@ -82,8 +112,6 @@ const defaultContent: NpoProfileCardProps = {
     morePreview: imgMorePreview,
   },
   moreCountLabel: "+ 4 More",
-  previousLabel: "Previous",
-  nextLabel: "Next",
 };
 
 export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
@@ -219,21 +247,9 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         </div>
       </div>
 
-      <div className="mt-[14px] flex items-center justify-between gap-3">
-        <button
-          type="button"
-          className="rounded-[40px] border border-[#d9d9d9] bg-white px-6 py-1 font-[var(--font-proxima)] text-[16px]/[32px] font-normal text-[#3b9a9a]"
-        >
-          {content.previousLabel}
-        </button>
+      <hr className="my-[20px] border-t border-[#d9d9d9]" />
 
-        <button
-          type="button"
-          className="rounded-[40px] bg-[#3b9a9a] px-6 py-1 font-[var(--font-proxima)] text-[16px]/[32px] font-normal text-white"
-        >
-          {content.nextLabel}
-        </button>
-      </div>
+      <RelationshipViewCard organizations={sampleRelatedOrganizations} />
     </section>
   );
 }

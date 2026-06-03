@@ -3,8 +3,11 @@ import { type NextFunction, type Request, type Response, Router } from "express"
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin, supabaseAuth } from "../lib/supabaseClients";
+import { getRequestAuthUser, requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type AuthUserResult = {
   data: { user: { id: string; email?: string | null } } | null;
@@ -14,6 +17,7 @@ type AuthUserResult = {
 type UserRow = {
   supabase_user_id: string;
   email: string;
+  name: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
@@ -40,9 +44,18 @@ function isValidEmail(value: string): boolean {
 }
 
 function profileResponse(profile: UserRow) {
+  const displayName =
+    [profile.first_name, profile.last_name]
+      .map((namePart) => namePart?.trim())
+      .filter(Boolean)
+      .join(" ") ||
+    profile.name ||
+    "";
+
   return {
     id: profile.supabase_user_id,
     email: profile.email,
+    name: displayName,
     firstName: profile.first_name ?? "",
     lastName: profile.last_name ?? "",
     phone: profile.phone ?? "",
@@ -94,6 +107,33 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
       },
     });
     return res.status(200).json(profileResponse(created));
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+/** GET /api/users/:id */
+router.get("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || !USER_ID_PATTERN.test(rawId)) {
+      return res.status(400).json({ error: "A valid user id is required." });
+    }
+
+    const requester = getRequestAuthUser(req);
+    if (rawId === requester.supabase_user_id) {
+      return res.status(403).json({ error: "Use /api/users/profile to view your own profile." });
+    }
+
+    const profile = await prisma.user.findUnique({
+      where: { supabase_user_id: rawId },
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: "User profile not found." });
+    }
+
+    return res.status(200).json(profileResponse(profile));
   } catch (err: unknown) {
     next(err);
   }
