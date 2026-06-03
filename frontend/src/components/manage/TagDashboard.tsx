@@ -57,8 +57,11 @@ type TagDashboardProps = {
   tags: ManageTag[];
   onTagCreated: (tag: TagRecord) => void;
   onTagDeleted: (tagId: string) => Promise<void>;
-  onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
-  onTagUpdated: (tagId: string, updates: ManageTagDraft) => void;
+  onTagOrganizationsUpdated: (
+    tagId: string,
+    organizations: AssignedOrganization[],
+  ) => Promise<void>;
+  onTagUpdated: (tagId: string, updates: ManageTagDraft) => Promise<void>;
 };
 
 type VisibilityFilter = "all" | TagVisibility;
@@ -86,12 +89,12 @@ const visibilityFilters = [
     icon: ManageTagFillIcon,
   },
   {
-    label: "Published",
+    label: "Public",
     value: "public",
     icon: ManagePublishedIcon,
   },
   {
-    label: "Drafts",
+    label: "Private",
     value: "private",
     icon: ManageDraftLockIcon,
   },

@@ -1,4 +1,5 @@
-import { del, get, post } from "./request";
+import { authHeaders, getAccessToken } from "./auth";
+import { del, get, patch, post } from "./request";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -213,6 +214,86 @@ export async function createTag(input: CreateTagInput, signal?: AbortSignal): Pr
   );
   const payload: unknown = await response.json();
   return parseCreateTagPayload(payload);
+}
+
+export type AssignedOrganizationRecord = {
+  id: string;
+  name: string;
+  website: string | null;
+};
+
+export type ManageTagRecord = TagRecord & {
+  assignedOrganizations: AssignedOrganizationRecord[];
+};
+
+function parseAssignedOrganization(value: unknown): AssignedOrganizationRecord | null {
+  if (!isRecord(value)) return null;
+  const source = isRecord(value.organization) ? value.organization : value;
+  const id = toNonEmptyString(source.id);
+  const name = toNonEmptyString(source.name);
+  if (!id || !name) return null;
+  const website = typeof source.website === "string" ? source.website : null;
+  return { id, name, website };
+}
+
+function parseAssignedOrganizations(value: unknown): AssignedOrganizationRecord[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: AssignedOrganizationRecord[] = [];
+  for (const entry of value) {
+    const parsed = parseAssignedOrganization(entry);
+    if (!parsed || seen.has(parsed.id)) continue;
+    seen.add(parsed.id);
+    result.push(parsed);
+  }
+  return result;
+}
+
+function parseManageTagRecord(value: unknown): ManageTagRecord {
+  const tag = parseTagRecord(value);
+  const assignedOrganizations = isRecord(value)
+    ? parseAssignedOrganizations(value.organizations)
+    : [];
+  return { ...tag, assignedOrganizations };
+}
+
+export async function getManageTags(signal?: AbortSignal): Promise<ManageTagRecord[]> {
+  const response = await get("/api/tags", { Accept: "application/json" }, signal);
+  const payload: unknown = await response.json();
+  const rawTags = parseTagsPayload(payload);
+  return rawTags.map(parseManageTagRecord);
+}
+
+export type UpdateTagInput = {
+  name?: string;
+  color?: string;
+  description?: string | null;
+  visibility?: TagVisibility;
+  organizationIds?: string[];
+};
+
+export async function updateTag(
+  tagId: string,
+  updates: UpdateTagInput,
+  signal?: AbortSignal,
+): Promise<ManageTagRecord> {
+  const trimmedTagId = tagId.trim();
+  if (trimmedTagId.length === 0) {
+    throw new Error("Tag id is required.");
+  }
+
+  const token = await getAccessToken();
+  const response = await patch(
+    `/api/tags/${encodeURIComponent(trimmedTagId)}`,
+    updates,
+    authHeaders(token),
+    signal,
+  );
+  const payload: unknown = await response.json();
+  if (!isRecord(payload) || !isRecord(payload.tag)) {
+    throw new Error("[/api/tags] Unexpected update response shape.");
+  }
+  return parseManageTagRecord(payload.tag);
 }
 
 export async function deleteTag(tagId: string, signal?: AbortSignal): Promise<string> {

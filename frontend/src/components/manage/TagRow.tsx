@@ -22,9 +22,12 @@ type TagRowProps = {
   highlightState?: "none" | "fresh" | "fading";
   onShowSuccessToast: (toast: ToastConfig) => void;
   onTagDeleted: (tagId: string) => Promise<void>;
-  onTagOrganizationsUpdated: (tagId: string, organizations: AssignedOrganization[]) => void;
+  onTagOrganizationsUpdated: (
+    tagId: string,
+    organizations: AssignedOrganization[],
+  ) => Promise<void>;
   tag: ManageTag;
-  onTagUpdated: (tagId: string, updates: ManageTagDraft) => void;
+  onTagUpdated: (tagId: string, updates: ManageTagDraft) => Promise<void>;
 };
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -146,7 +149,7 @@ export default function TagRow({
             <AssignedOrganizationList
               organizations={tag.assignedOrganizations}
               onRemoveOrganization={(organizationId) => {
-                onTagOrganizationsUpdated(
+                void onTagOrganizationsUpdated(
                   tag.id,
                   tag.assignedOrganizations.filter(
                     (organization) => organization.id !== organizationId,
@@ -178,7 +181,7 @@ export default function TagRow({
           requestAnimationFrame(() => editButtonRef.current?.focus());
           onShowSuccessToast({ message: "Tag has been deleted." });
         }}
-        onSaveLocal={(updates) => onTagUpdated(tag.id, updates)}
+        onSaveLocal={(updates) => void onTagUpdated(tag.id, updates)}
         restoreFocusRef={editButtonRef}
       />
 
@@ -191,7 +194,7 @@ export default function TagRow({
           requestAnimationFrame(() => assignButtonRef.current?.focus());
         }}
         onSave={(organizations) => {
-          onTagOrganizationsUpdated(tag.id, organizations);
+          void onTagOrganizationsUpdated(tag.id, organizations);
           setIsAssignOpen(false);
           onShowSuccessToast({
             message: "NPOs have been assigned to tag.",

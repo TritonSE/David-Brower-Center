@@ -15,7 +15,7 @@ import {
   MoneyIcon,
   PeopleIcon,
 } from "./icons/AppIcons";
-import TagDashboard, { STATIC_TAGS } from "./manage/TagDashboard";
+import TagDashboard from "./manage/TagDashboard";
 import {
   type AssignedOrganization,
   type ManageTag,
@@ -24,7 +24,7 @@ import {
 } from "./manage/types";
 import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
-import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { OrganizationDetail } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 import type { TagRecord } from "@/api/tags";
 
@@ -36,7 +36,7 @@ import {
   updateOrganization,
   uploadImageToStorage,
 } from "@/api/organization";
-import { deleteTag } from "@/api/tags";
+import { deleteTag, getManageTags, updateTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 
@@ -145,7 +145,7 @@ export default function ManagePage() {
   const [activeManageMode, setActiveManageMode] = useState<ManageMode>("npos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [manageTags, setManageTags] = useState<ManageTag[]>(STATIC_TAGS);
+  const [manageTags, setManageTags] = useState<ManageTag[]>([]);
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
@@ -168,6 +168,29 @@ export default function ManagePage() {
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
   }, [refetchOrganizations]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    void (async () => {
+      try {
+        const tags = await getManageTags(abortController.signal);
+        if (abortController.signal.aborted) return;
+        setManageTags(
+          tags.map((tag) => ({
+            id: tag.id,
+            name: tag.name,
+            color: tag.color,
+            visibility: tag.visibility,
+            assignedOrganizations: tag.assignedOrganizations,
+          })),
+        );
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Failed to load tags", error);
+      }
+    })();
+    return () => abortController.abort();
+  }, []);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -307,17 +330,33 @@ export default function ManagePage() {
     ]);
   }, []);
 
-  const handleTagUpdated = useCallback((tagId: string, updates: ManageTagDraft) => {
-    setManageTags((current) =>
-      current.map((tag) => (tag.id === tagId ? { ...tag, ...updates } : tag)),
-    );
+  const handleTagUpdated = useCallback(async (tagId: string, updates: ManageTagDraft) => {
+    try {
+      await updateTag(tagId, {
+        name: updates.name,
+        color: updates.color,
+        visibility: updates.visibility,
+      });
+      setManageTags((current) =>
+        current.map((tag) => (tag.id === tagId ? { ...tag, ...updates } : tag)),
+      );
+    } catch (error) {
+      console.error("Failed to update tag", error);
+    }
   }, []);
 
   const handleTagOrganizationsUpdated = useCallback(
-    (tagId: string, assignedOrganizations: AssignedOrganization[]) => {
-      setManageTags((current) =>
-        current.map((tag) => (tag.id === tagId ? { ...tag, assignedOrganizations } : tag)),
-      );
+    async (tagId: string, assignedOrganizations: AssignedOrganization[]) => {
+      try {
+        await updateTag(tagId, {
+          organizationIds: assignedOrganizations.map((organization) => organization.id),
+        });
+        setManageTags((current) =>
+          current.map((tag) => (tag.id === tagId ? { ...tag, assignedOrganizations } : tag)),
+        );
+      } catch (error) {
+        console.error("Failed to update tag organizations", error);
+      }
     },
     [],
   );
