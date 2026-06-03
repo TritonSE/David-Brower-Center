@@ -1,22 +1,32 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AddNpoPopup, { type AddNpoInitialValues, type AddNpoValues } from "./AddNpoPopup";
 import {
-  FilterIcon,
   LeafIcon,
   LocationIcon,
+  ManageAddIcon,
+  ManageEditIcon,
+  ManageEyeIcon,
+  ManageFilterIcon,
+  ManageSearchIcon,
+  ManageSortIcon,
   MoneyIcon,
   PeopleIcon,
-  SearchIcon,
-  SortArrowIcon,
 } from "./icons/AppIcons";
+import TagDashboard from "./manage/TagDashboard";
+import {
+  type AssignedOrganization,
+  type ManageTag,
+  type ManageTagDraft,
+  toManageTag,
+} from "./manage/types";
 import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
-import type { OrganizationDetail, OrganizationListItem } from "@/api/organization";
+import type { OrganizationDetail } from "@/api/organization";
 import type { APIResult } from "@/api/request";
+import type { TagRecord } from "@/api/tags";
 
 import {
   createOrganization,
@@ -26,7 +36,11 @@ import {
   updateOrganization,
   uploadImageToStorage,
 } from "@/api/organization";
+import { deleteTag, getManageTags, updateTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
+import { proximaFontStyle } from "@/styles/fontStyles";
+
+type ManageMode = "npos" | "tags";
 
 const NOT_PROVIDED = "Not provided";
 const LOCATION_OPTIONS = new Set(["Berkeley", "Los Angeles", "San Jose", "Other"]);
@@ -54,11 +68,6 @@ function detailBudgetToFormValue(value: string): string {
   return raw.replace(/[^\d.]/g, "");
 }
 
-type ManageStatus = "published" | "draft";
-
-const IMG_EYE = "/icons/manage/eye.svg";
-const IMG_ADD = "/icons/manage/add-square.svg";
-const IMG_EDIT = "/icons/manage/edit.svg";
 const POPUP_FADE_DURATION_MS = 200;
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -74,6 +83,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim(),
+  );
 }
 
 function generateProjectId(name: string): string {
@@ -127,9 +142,10 @@ export default function ManagePage() {
     refetch: refetchOrganizations,
   } = useOrganizations();
 
-  const [activeTab, setActiveTab] = useState<ManageStatus>("published");
+  const [activeManageMode, setActiveManageMode] = useState<ManageMode>("npos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [manageTags, setManageTags] = useState<ManageTag[]>([]);
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
@@ -152,6 +168,29 @@ export default function ManagePage() {
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
   }, [refetchOrganizations]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    void (async () => {
+      try {
+        const tags = await getManageTags(abortController.signal);
+        if (abortController.signal.aborted) return;
+        setManageTags(
+          tags.map((tag) => ({
+            id: tag.id,
+            name: tag.name,
+            color: tag.color,
+            visibility: tag.visibility,
+            assignedOrganizations: tag.assignedOrganizations,
+          })),
+        );
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Failed to load tags", error);
+      }
+    })();
+    return () => abortController.abort();
+  }, []);
 
   const fetchOrganizationDetail = useCallback(async (organizationId: string) => {
     detailAbortRef.current?.abort();
@@ -259,24 +298,76 @@ export default function ManagePage() {
     };
   }, [activeOrgDetail]);
 
-  const publishedRows = useMemo(() => organizations, [organizations]);
-  const draftRows: OrganizationListItem[] = [];
-
-  const publishedCount = publishedRows.length;
-  const draftCount = draftRows.length;
+  const npoCount = organizations.length;
+  const tagCount = manageTags.length;
+  const availableTagOrganizations = useMemo<AssignedOrganization[]>(
+    () =>
+      organizations.map((organization) => ({
+        id: organization.id,
+        name: organization.name,
+        website: null,
+      })),
+    [organizations],
+  );
 
   const visibleRows = useMemo(() => {
-    const source = activeTab === "published" ? publishedRows : draftRows;
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return source;
-    return source.filter((row) => row.name.toLowerCase().includes(query));
-  }, [activeTab, publishedRows, searchQuery]);
+    if (!query) return organizations;
+    return organizations.filter((row) => row.name.toLowerCase().includes(query));
+  }, [organizations, searchQuery]);
 
   function handleToggleRow(rowId: string) {
     setSelectedIds((current) =>
       current.includes(rowId) ? current.filter((value) => value !== rowId) : [...current, rowId],
     );
   }
+
+  const handleTagCreated = useCallback((tag: TagRecord) => {
+    const nextTag = toManageTag(tag);
+    setManageTags((current: ManageTag[]) => [
+      nextTag,
+      ...current.filter((existingTag) => existingTag.id !== nextTag.id),
+    ]);
+  }, []);
+
+  const handleTagUpdated = useCallback(async (tagId: string, updates: ManageTagDraft) => {
+    try {
+      await updateTag(tagId, {
+        name: updates.name,
+        color: updates.color,
+        visibility: updates.visibility,
+      });
+      setManageTags((current) =>
+        current.map((tag) => (tag.id === tagId ? { ...tag, ...updates } : tag)),
+      );
+    } catch (error) {
+      console.error("Failed to update tag", error);
+    }
+  }, []);
+
+  const handleTagOrganizationsUpdated = useCallback(
+    async (tagId: string, assignedOrganizations: AssignedOrganization[]) => {
+      try {
+        await updateTag(tagId, {
+          organizationIds: assignedOrganizations.map((organization) => organization.id),
+        });
+        setManageTags((current) =>
+          current.map((tag) => (tag.id === tagId ? { ...tag, assignedOrganizations } : tag)),
+        );
+      } catch (error) {
+        console.error("Failed to update tag organizations", error);
+      }
+    },
+    [],
+  );
+
+  const handleTagDeleted = useCallback(async (tagId: string) => {
+    if (looksLikeUuid(tagId)) {
+      await deleteTag(tagId);
+    }
+
+    setManageTags((current) => current.filter((tag) => tag.id !== tagId));
+  }, []);
 
   const handleCloseAddNpo = useCallback(() => {
     createAbortRef.current?.abort();
@@ -462,177 +553,192 @@ export default function ManagePage() {
 
   return (
     <div>
-      <section className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]">
+      <section
+        className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]"
+        style={proximaFontStyle}
+      >
         <div className="flex flex-col gap-[36px]">
-          <div className="flex items-center justify-between gap-[24px] pr-[13px]">
-            <div className="flex items-center gap-[8px]">
-              <label className="relative block w-[240px] md:w-[363px]">
-                <span className="sr-only">Search NPO</span>
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-                  <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
-                </span>
-                <input
-                  type="search"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
-                />
-              </label>
-
-              <button
-                type="button"
-                aria-label="Open filters"
-                className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
-              >
-                <FilterIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex cursor-pointer items-center gap-[12px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[17px] font-semibold text-[#3b9a9a]"
-              onClick={() => {
-                setEditingDetail(null);
-                setAddNpoError(null);
-                setIsAddNpoOpen(true);
-              }}
-            >
-              <Image src={IMG_ADD} alt="" width={18} height={18} className="h-[18px] w-[18px]" />
-              <span>Add NPO</span>
-            </button>
+          <div className="flex items-center justify-between gap-[24px]">
+            <h1 className="font-proxima text-[24px] font-semibold tracking-[0.48px] text-black">
+              Dashboard
+            </h1>
+            <div className="h-4 flex-1" />
           </div>
 
           <div className="flex flex-col gap-[24px]">
-            <div className="flex items-center gap-[17px]">
+            <div className="flex items-center gap-[17px] border-b border-[#d9d9d9] pb-[8px]">
               <button
                 type="button"
-                onClick={() => setActiveTab("published")}
+                onClick={() => setActiveManageMode("npos")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
-                  activeTab === "published" ? "text-black" : "text-[#484848]",
+                  "font-proxima relative pb-[1px] text-[16px] leading-6",
+                  activeManageMode === "npos"
+                    ? "font-semibold text-[#3b9a9a]"
+                    : "font-normal text-[#484848]",
                 )}
               >
-                Published ({publishedCount})
+                NPOs ({npoCount})
                 <span
                   className={classNames(
-                    "absolute bottom-0 left-0 h-px bg-black transition-all",
-                    activeTab === "published" ? "w-full" : "w-0",
+                    "absolute bottom-[-9px] left-0 h-px bg-[#3b9a9a] transition-all",
+                    activeManageMode === "npos" ? "w-full" : "w-0",
                   )}
                 />
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab("draft")}
+                onClick={() => setActiveManageMode("tags")}
                 className={classNames(
-                  "relative pb-[1px] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[16px] leading-6 cursor-pointer",
-                  activeTab === "draft" ? "text-black" : "text-[#484848]",
+                  "font-proxima relative pb-[1px] text-[16px] leading-6",
+                  activeManageMode === "tags"
+                    ? "font-semibold text-[#3b9a9a]"
+                    : "font-normal text-[#484848]",
                 )}
               >
-                Drafts ({draftCount})
+                Tags ({tagCount})
                 <span
                   className={classNames(
-                    "absolute bottom-0 left-0 h-px bg-black transition-all",
-                    activeTab === "draft" ? "w-full" : "w-0",
+                    "absolute bottom-[-9px] left-0 h-px bg-[#3b9a9a] transition-all",
+                    activeManageMode === "tags" ? "w-full" : "w-0",
                   )}
                 />
               </button>
             </div>
 
-            <div className="flex flex-col">
-              <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
-                <div className="flex items-center">
-                  <div className="flex w-1/3 shrink-0 items-center gap-2">
-                    <span className="inline-flex items-center justify-center">
-                      <SortArrowIcon className="h-3 w-3 text-[#1f1f1f]" />
-                    </span>
-                    <span>NPO</span>
+            {activeManageMode === "npos" ? (
+              <>
+                <div className="flex items-center justify-between gap-[24px] pr-[13px]">
+                  <div className="flex items-center gap-[8px]">
+                    <label className="relative block w-[240px] md:w-[363px]">
+                      <span className="sr-only">Search NPO</span>
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+                        <ManageSearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+                      </span>
+                      <input
+                        type="search"
+                        placeholder="Search"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[16px] font-normal text-[#484848] placeholder:text-[#6c6c6c] outline-none"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      aria-label="Open filters"
+                      className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
+                    >
+                      <ManageFilterIcon className="h-[20px] w-[20px] text-[#6c6c6c]" />
+                    </button>
                   </div>
-                  <span className="flex-1 text-center whitespace-nowrap">Last Updated</span>
-                  <span className="flex-1" />
+
+                  <button
+                    type="button"
+                    className="font-proxima inline-flex items-center gap-[12px] text-[17px] font-semibold text-[#3b9a9a]"
+                    onClick={() => {
+                      setEditingDetail(null);
+                      setAddNpoError(null);
+                      setIsAddNpoOpen(true);
+                    }}
+                  >
+                    <ManageAddIcon className="h-[18px] w-[18px]" />
+                    <span>Add NPO</span>
+                  </button>
                 </div>
-              </div>
 
-              <div>
-                {visibleRows.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-[#6c6c6c]">
-                    {searchQuery.trim()
-                      ? "No organizations match your search."
-                      : "No organizations found."}
-                  </div>
-                ) : (
-                  visibleRows.map((row, index) => {
-                    const striped = index % 2 === 0;
-                    const selected = selectedIds.includes(row.id);
-
-                    return (
-                      <div
-                        key={row.id}
-                        className={classNames(
-                          "border-b border-[#b4b4b4] py-3",
-                          striped ? "bg-[#f2f9f8]" : "bg-white",
-                        )}
-                      >
-                        <div className="flex items-center px-4">
-                          <div className="flex w-1/3 shrink-0 items-center gap-[10px]">
-                            <label className="flex h-5 w-5 cursor-pointer items-center justify-center">
-                              <input
-                                type="checkbox"
-                                checked={selected}
-                                onChange={() => handleToggleRow(row.id)}
-                                className="h-5 w-5 rounded-[3px] border border-[#909090] accent-[#3b9a9a]"
-                                aria-label={`Select ${row.name}`}
-                              />
-                            </label>
-                            <span className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] tracking-[0.28px] text-black">
-                              {row.name}
-                            </span>
-                          </div>
-
-                          <span className="flex-1 text-center font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] leading-5 text-[#484848] whitespace-nowrap">
-                            {formatDate(row.updatedAt)}
-                          </span>
-
-                          <div className="flex flex-1 items-center justify-end gap-8">
-                            <button
-                              type="button"
-                              aria-label={`View ${row.name}`}
-                              onClick={() => handleViewOrg(row.id)}
-                            >
-                              <span className="flex h-[22px] w-[22px] items-center justify-center">
-                                <Image
-                                  src={IMG_EYE}
-                                  alt=""
-                                  width={22}
-                                  height={22}
-                                  className="block h-[18px] w-[22px] object-contain"
-                                />
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Edit ${row.name}`}
-                              disabled={editLoadingId !== null}
-                              onClick={() => void handleEditOrg(row.id)}
-                            >
-                              <span className="flex h-[22px] w-[22px] items-center justify-center">
-                                <Image
-                                  src={IMG_EDIT}
-                                  alt=""
-                                  width={20}
-                                  height={20}
-                                  className="block h-[20px] w-[20px] object-contain"
-                                />
-                              </span>
-                            </button>
-                          </div>
-                        </div>
+                <div className="flex flex-col">
+                  <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
+                    <div className="flex items-center">
+                      <div className="flex w-1/3 shrink-0 items-center gap-2">
+                        <span className="inline-flex items-center justify-center">
+                          <ManageSortIcon className="h-[14px] w-[13px] text-[#1f1f1f]" />
+                        </span>
+                        <span>NPO</span>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                      <span className="flex-1 text-center whitespace-nowrap">Last Updated</span>
+                      <span className="flex-1" />
+                    </div>
+                  </div>
+
+                  <div>
+                    {visibleRows.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-[#6c6c6c]">
+                        {searchQuery.trim()
+                          ? "No organizations match your search."
+                          : "No organizations found."}
+                      </div>
+                    ) : (
+                      visibleRows.map((row, index) => {
+                        const striped = index % 2 === 0;
+                        const selected = selectedIds.includes(row.id);
+
+                        return (
+                          <div
+                            key={row.id}
+                            className={classNames(
+                              "border-b border-[#b4b4b4] py-3",
+                              striped ? "bg-[#f2f9f8]" : "bg-white",
+                            )}
+                          >
+                            <div className="flex items-center px-4">
+                              <div className="flex w-1/3 shrink-0 items-center gap-[10px]">
+                                <label className="flex h-5 w-5 cursor-pointer items-center justify-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => handleToggleRow(row.id)}
+                                    className="h-5 w-5 rounded-[3px] border border-[#909090] accent-[#3b9a9a]"
+                                    aria-label={`Select ${row.name}`}
+                                  />
+                                </label>
+                                <span className="font-proxima text-[14px] tracking-[0.28px] text-black">
+                                  {row.name}
+                                </span>
+                              </div>
+
+                              <span className="font-proxima flex-1 text-center text-[14px] leading-5 text-[#484848] whitespace-nowrap">
+                                {formatDate(row.updatedAt)}
+                              </span>
+
+                              <div className="flex flex-1 items-center justify-end gap-8">
+                                <button
+                                  type="button"
+                                  aria-label={`View ${row.name}`}
+                                  onClick={() => handleViewOrg(row.id)}
+                                >
+                                  <span className="flex h-[22px] w-[22px] items-center justify-center">
+                                    <ManageEyeIcon className="block h-[18px] w-[22px]" />
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Edit ${row.name}`}
+                                  disabled={editLoadingId !== null}
+                                  onClick={() => void handleEditOrg(row.id)}
+                                >
+                                  <span className="flex h-[22px] w-[22px] items-center justify-center">
+                                    <ManageEditIcon className="block h-[20px] w-[20px] text-[#6c6c6c]" />
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <TagDashboard
+                availableOrganizations={availableTagOrganizations}
+                tags={manageTags}
+                onTagCreated={handleTagCreated}
+                onTagDeleted={handleTagDeleted}
+                onTagOrganizationsUpdated={handleTagOrganizationsUpdated}
+                onTagUpdated={handleTagUpdated}
+              />
+            )}
           </div>
         </div>
       </section>
@@ -650,7 +756,10 @@ export default function ManagePage() {
             {selectedCardProps ? (
               <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
             ) : (
-              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+              <section
+                className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]"
+                style={proximaFontStyle}
+              >
                 <button
                   type="button"
                   aria-label="Close"
@@ -672,19 +781,17 @@ export default function ManagePage() {
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
-                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                <h1 className="font-proxima text-[28px]/[normal] font-bold text-black sm:text-[32px]">
                   {selectedRow?.name ?? "Organization"}
                 </h1>
 
                 {isDetailLoading ? (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                  <p className="font-proxima mt-3 text-sm text-[#484848]">
                     Loading organization details...
                   </p>
                 ) : detailError ? (
                   <div className="mt-3 space-y-3">
-                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                      {detailError}
-                    </p>
+                    <p className="font-proxima text-sm text-[#484848]">{detailError}</p>
                     <button
                       className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
                       type="button"
@@ -694,7 +801,7 @@ export default function ManagePage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                  <p className="font-proxima mt-3 text-sm text-[#484848]">
                     No organization details available.
                   </p>
                 )}

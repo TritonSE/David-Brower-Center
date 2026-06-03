@@ -33,6 +33,15 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const tags = await prisma.tag.findMany({
       orderBy: { name: "asc" },
+      include: {
+        organizations: {
+          include: {
+            organization: {
+              select: { id: true, name: true, website: true },
+            },
+          },
+        },
+      },
     });
     return res.status(200).json({ tags });
   } catch {
@@ -88,20 +97,35 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
+router.delete("/:tagId", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const rawId: unknown = req.params.id;
-    if (typeof rawId !== "string" || rawId.length === 0) {
-      return next(createError(400, "Missing tag ID"));
+    const { tagId } = req.params;
+
+    if (typeof tagId !== "string" || tagId.trim().length === 0) {
+      return next(createError(400, "Tag id is required"));
     }
-    const id: string = rawId;
-    const tag = await prisma.tag.delete({
-      where: { id },
+
+    const existingTag = await prisma.tag.findUnique({
+      where: { id: tagId },
+      select: { id: true },
     });
 
-    return res.status(200).json({ tag });
+    if (!existingTag) {
+      return next(createError(404, "Tag not found"));
+    }
+
+    await prisma.$transaction([
+      prisma.organizationTag.deleteMany({
+        where: { tagId },
+      }),
+      prisma.tag.delete({
+        where: { id: tagId },
+      }),
+    ]);
+
+    return res.status(200).json({ tagId });
   } catch (err: unknown) {
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "P2025") {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
       return next(createError(404, "Tag not found"));
     }
     return next(err);
@@ -110,11 +134,15 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
 
 /**
  * PATCH /api/tags/:tagID
- * Update organizations assigned to a tag.
+ * Partially update a tag. Any subset of fields may be provided.
  *
- * Body:
+ * Body (all optional, at least one required):
  * {
- *   organizationIds: string[]
+ *   name?: string,
+ *   color?: string,                    // hex like "#A8C5F2"
+ *   description?: string | null,
+ *   visibility?: "public" | "private",
+ *   organizationIds?: string[]
  * }
  */
 router.patch(
@@ -124,56 +152,105 @@ router.patch(
     try {
       const { tagID } = req.params;
 
-      if (!tagID || typeof tagID !== "string") {
+      if (typeof tagID !== "string" || tagID.length === 0) {
         return next(createError(400, "Invalid tag ID"));
       }
 
-      const { organizationIds } = req.body as {
-        organizationIds?: unknown;
-      };
+      if (!isRecord(req.body)) {
+        return next(createError(400, "Request body must be a JSON object"));
+      }
 
-      // Validate request body
-      if (!Array.isArray(organizationIds)) {
-        return next(createError(400, "'organizationIds' must be an array"));
+      const body = req.body;
+      const hasName = "name" in body;
+      const hasColor = "color" in body;
+      const hasDescription = "description" in body;
+      const hasVisibility = "visibility" in body;
+      const hasOrganizationIds = "organizationIds" in body;
+
+      if (!hasName && !hasColor && !hasDescription && !hasVisibility && !hasOrganizationIds) {
+        return next(createError(400, "Request body must include at least one updatable field"));
+      }
+
+      const tagUpdate: {
+        name?: string;
+        color?: string;
+        description?: string | null;
+        visibility?: "PUBLIC" | "PRIVATE";
+      } = {};
+
+      if (hasName) {
+        if (typeof body.name !== "string" || body.name.trim().length === 0) {
+          return next(createError(400, "'name' must be a non-empty string"));
+        }
+        tagUpdate.name = body.name.trim();
+      }
+
+      if (hasColor) {
+        if (typeof body.color !== "string" || !HEX_COLOR_PATTERN.test(body.color.trim())) {
+          return next(createError(400, "'color' must be a hex string like '#A8C5F2'"));
+        }
+        tagUpdate.color = body.color.trim();
+      }
+
+      if (hasDescription) {
+        if (body.description === null) {
+          tagUpdate.description = null;
+        } else if (typeof body.description === "string") {
+          tagUpdate.description = body.description.trim() || null;
+        } else {
+          return next(createError(400, "'description' must be a string or null"));
+        }
+      }
+
+      if (hasVisibility) {
+        const visibility = parseVisibility(body.visibility);
+        if (!visibility) {
+          return next(createError(400, "'visibility' must be either 'public' or 'private'"));
+        }
+        tagUpdate.visibility = visibility;
+      }
+
+      let nextOrganizationIds: string[] | null = null;
+      if (hasOrganizationIds) {
+        if (!Array.isArray(body.organizationIds)) {
+          return next(createError(400, "'organizationIds' must be an array"));
+        }
+        nextOrganizationIds = body.organizationIds.map((id) => String(id));
       }
 
       // Verify tag exists
-      const existingTag = await prisma.tag.findUnique({
-        where: {
-          id: tagID,
-        },
-      });
-
+      const existingTag = await prisma.tag.findUnique({ where: { id: tagID } });
       if (!existingTag) {
         return next(createError(404, "Tag not found"));
       }
 
-      // Replace existing organization assignments
-      await prisma.$transaction([
-        prisma.organizationTag.deleteMany({
-          where: {
-            tagId: tagID,
-          },
-        }),
+      const operations: Prisma.PrismaPromise<unknown>[] = [];
+      if (Object.keys(tagUpdate).length > 0) {
+        operations.push(prisma.tag.update({ where: { id: tagID }, data: tagUpdate }));
+      }
+      if (nextOrganizationIds !== null) {
+        operations.push(
+          prisma.organizationTag.deleteMany({ where: { tagId: tagID } }),
+          prisma.organizationTag.createMany({
+            data: nextOrganizationIds.map((organizationId) => ({
+              organizationId,
+              tagId: tagID,
+            })),
+            skipDuplicates: true,
+          }),
+        );
+      }
 
-        prisma.organizationTag.createMany({
-          data: organizationIds.map((organizationId) => ({
-            organizationId: String(organizationId),
-            tagId: tagID,
-          })),
-          skipDuplicates: true,
-        }),
-      ]);
+      if (operations.length > 0) {
+        await prisma.$transaction(operations);
+      }
 
-      // Return updated tag
       const updatedTag = await prisma.tag.findUnique({
-        where: {
-          id: tagID,
-        },
+        where: { id: tagID },
         include: {
           organizations: {
             include: {
-              organization: true,
+              organization: { select: { id: true, name: true, website: true } },
             },
           },
         },
@@ -181,7 +258,10 @@ router.patch(
 
       return res.status(200).json({ tag: updatedTag });
     } catch (err: unknown) {
-      next(err);
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return next(createError(409, "A tag with this name already exists"));
+      }
+      return next(err);
     }
   },
 );

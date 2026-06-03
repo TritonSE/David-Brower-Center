@@ -3,7 +3,6 @@ export const PRESET_TAG_COLORS = [
   "#B07496",
   "#A178AB",
   "#8D7FB9",
-  "#8D7FB9",
   "#7587BF",
   "#5A8FBB",
   "#3B9A9A",
@@ -16,4 +15,4 @@ export const PRESET_TAG_COLORS = [
   "#B97373",
 ] as const;
 
-export const DEFAULT_TAG_COLOR = PRESET_TAG_COLORS[5];
+export const DEFAULT_TAG_COLOR = "#5A8FBB";

@@ -12,6 +12,7 @@ import type { APIResult } from "@/api/request";
 
 import { getOrganizationById } from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
+import { proximaFontStyle } from "@/styles/fontStyles";
 const POPUP_FADE_DURATION_MS = 200;
 
 function isAbortError(error: unknown): boolean {
@@ -197,7 +198,10 @@ export default function HomePage() {
             {selectedCardProps ? (
               <NpoProfileCard {...selectedCardProps} onClose={handleCloseCard} />
             ) : (
-              <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
+              <section
+                className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]"
+                style={proximaFontStyle}
+              >
                 <button
                   type="button"
                   aria-label="Close"
@@ -220,19 +224,17 @@ export default function HomePage() {
                   </svg>
                 </button>
 
-                <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+                <h1 className="font-proxima text-[28px]/[normal] font-bold text-black sm:text-[32px]">
                   {selectedRow?.name ?? "Organization"}
                 </h1>
 
                 {isDetailLoading ? (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                  <p className="font-proxima mt-3 text-sm text-[#484848]">
                     Loading organization details...
                   </p>
                 ) : detailError ? (
                   <div className="mt-3 space-y-3">
-                    <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
-                      {detailError}
-                    </p>
+                    <p className="font-proxima text-sm text-[#484848]">{detailError}</p>
                     <button
                       className="rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
                       type="button"
@@ -242,7 +244,7 @@ export default function HomePage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-3 font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-sm text-[#484848]">
+                  <p className="font-proxima mt-3 text-sm text-[#484848]">
                     No organization details available.
                   </p>
                 )}
