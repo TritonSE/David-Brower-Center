@@ -55,7 +55,6 @@
   align-items: center;
   gap: 0;
   padding-bottom: 12px;
-  border-bottom: 1px solid #d9d9d9;
 }
 
 .stepItem {
@@ -70,13 +69,13 @@
 }
 
 .stepCircle {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: 1.5px solid #b4b4b4;
   color: #909090;
@@ -97,7 +96,7 @@
 
 .stepLabel {
   font-family: "Proxima Nova", var(--font-sans);
-  font-size: 14px;
+  font-size: 16px;
   color: #909090;
   white-space: nowrap;
 }

@@ -42,7 +42,7 @@ export default function AddNpoProgress({ currentStep }: AddNpoProgressProps) {
               aria-current={isActive ? "step" : undefined}
             >
               {isComplete ? (
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <path
                     d="M2.5 7L5.5 10L11.5 4"
                     stroke="currentColor"
