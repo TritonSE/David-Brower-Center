@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { Row } from "./NpoListView";
 import type { OrganizationDetail } from "@/api/organization";
@@ -156,6 +156,7 @@ export default function HomePage() {
         },
       ],
       description: activeOrgDetail.description,
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
@@ -191,7 +192,7 @@ export default function HomePage() {
       >
         {selectedOrgId ? (
           <div
-            className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
+            className="pointer-events-auto max-h-[calc(100vh-64px)] max-w-160 overflow-y-auto rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
             style={{ transform: isCardVisible ? "translateY(0)" : "translateY(8px)" }}
           >
             {selectedCardProps ? (

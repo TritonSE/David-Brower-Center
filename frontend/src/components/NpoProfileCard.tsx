@@ -1,10 +1,40 @@
 import Image from "next/image";
 
+import RelationshipViewCard, { type RelatedNpo } from "../app/components/RelationshipViewCard";
+
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 
 import type { ReactElement } from "react";
 
-import { proximaFontStyle, rubikFontStyle } from "@/styles/fontStyles";
+const sampleRelatedOrganizations: RelatedNpo[] = [
+  {
+    id: "related-1",
+    name: "42 Inc.",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Technology", "Environmental"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/861edd85-fd7b-4c4d-9083-1fe0707442aa",
+  },
+  {
+    id: "related-2",
+    name: "American Institute of Architects",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Transportation", "Social/Government"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/4536375a-46ca-49dc-b179-cde1b912280c",
+  },
+  {
+    id: "related-3",
+    name: "Berkeley Executive Coaching Institute",
+    sizeLabel: "Mid Sized",
+    budgetLabel: "100k",
+    locationLabel: "Berkeley, CA",
+    tags: ["Social/Government", "Environmental"],
+    logoUrl: "https://www.figma.com/api/mcp/asset/abf36315-21d6-49ab-84f8-06501ef3c53a",
+  },
+];
 
 type Tag = {
   icon: ReactElement;
@@ -22,14 +52,41 @@ type NpoProfileCardProps = {
     morePreview: string;
   };
   moreCountLabel: string;
-  previousLabel: string;
-  nextLabel: string;
   onClose?: () => void;
 };
+
+export function getNpoProfileCardImageProps(
+  images: string[],
+): Partial<Pick<NpoProfileCardProps, "images" | "moreCountLabel">> {
+  const primary = images[0] ?? "";
+  const secondary = images[1] ?? "";
+  const morePreview = images[2] ?? "";
+  const remainingImageCount = images.length - 3;
+
+  return {
+    images: {
+      primary,
+      secondary,
+      morePreview,
+    },
+    moreCountLabel: remainingImageCount > 0 ? `+ ${remainingImageCount} More` : "",
+  };
+}
 
 const imgPrimary = "/images/dbc-primary.svg";
 const imgSecondary = "/images/dbc-secondary.svg";
 const imgMorePreview = "/images/dbc-more-preview.svg";
+
+function ImagePlaceholder() {
+  return (
+    <div
+      aria-hidden
+      className="flex h-full w-full items-center justify-center bg-[#e5e5e5] font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[12px] font-normal text-[#6c6c6c]"
+    >
+      No image
+    </div>
+  );
+}
 
 const defaultContent: NpoProfileCardProps = {
   name: "David Brower Center",
@@ -55,8 +112,6 @@ const defaultContent: NpoProfileCardProps = {
     morePreview: imgMorePreview,
   },
   moreCountLabel: "+ 4 More",
-  previousLabel: "Previous",
-  nextLabel: "Next",
 };
 
 export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
@@ -71,10 +126,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
   };
 
   return (
-    <section
-      className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]"
-      style={proximaFontStyle}
-    >
+    <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
       {content.onClose && (
         <button
           type="button"
@@ -99,7 +151,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         </button>
       )}
 
-      <h1 className="font-proxima text-[28px]/[normal] font-bold text-black sm:text-[32px]">
+      <h1 className="font-[var(--font-proxima)] text-[28px]/[normal] font-bold text-black sm:text-[32px]">
         {content.name}
       </h1>
 
@@ -108,10 +160,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
           <div key={`${index}-${tag.label}`} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
               {tag.icon}
-              <span
-                className="font-rubik text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]"
-                style={rubikFontStyle}
-              >
+              <span className="font-[var(--font-rubik)] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
                 {tag.label}
               </span>
             </div>
@@ -124,77 +173,83 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <div className="mt-[10px] flex w-full flex-col gap-[10px] sm:h-[240px] sm:flex-row">
         <div className="h-[220px] w-full overflow-hidden rounded-[12px] sm:h-[240px] sm:w-[369px]">
-          <Image
-            alt="David Brower Center building"
-            src={content.images.primary}
-            width={738}
-            height={480}
-            sizes="(min-width: 640px) 369px, 100vw"
-            className="h-full w-full object-cover"
-          />
+          {content.images.primary ? (
+            <Image
+              alt={`Photo of ${content.name}`}
+              src={content.images.primary}
+              width={738}
+              height={480}
+              sizes="(min-width: 640px) 369px, 100vw"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <ImagePlaceholder />
+          )}
         </div>
 
         <div className="flex w-full flex-row gap-[10px] sm:w-[159px] sm:flex-col">
           <div className="h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[144px] sm:w-[159px]">
-            <Image
-              alt="David Brower Center interior"
-              src={content.images.secondary}
-              width={318}
-              height={288}
-              sizes="(min-width: 640px) 159px, 50vw"
-              className="h-full w-full object-cover"
-            />
+            {content.images.secondary ? (
+              <Image
+                alt={`Photo of ${content.name}`}
+                src={content.images.secondary}
+                width={318}
+                height={288}
+                sizes="(min-width: 640px) 159px, 50vw"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ImagePlaceholder />
+            )}
           </div>
 
           <div className="relative h-[124px] w-1/2 overflow-hidden rounded-[12px] sm:h-[86px] sm:w-[159px]">
-            <Image
-              alt="Additional gallery images"
-              src={content.images.morePreview}
-              width={318}
-              height={172}
-              sizes="(min-width: 640px) 159px, 50vw"
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <span className="font-proxima text-[15px]/[normal] font-normal text-white">
-                {content.moreCountLabel}
-              </span>
-            </div>
+            {content.images.morePreview ? (
+              <Image
+                alt={`Photo of ${content.name}`}
+                src={content.images.morePreview}
+                width={318}
+                height={172}
+                sizes="(min-width: 640px) 159px, 50vw"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ImagePlaceholder />
+            )}
+            {content.moreCountLabel ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <span className="font-[var(--font-proxima)] text-[15px]/[normal] font-normal text-white">
+                  {content.moreCountLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
       <div className="mt-[12px] space-y-[10px]">
         <div>
-          <h2 className="font-proxima text-[16px]/[normal] font-bold text-black">Description</h2>
-          <p className="font-proxima mt-1 text-[14px]/[normal] font-normal text-[#484848]">
+          <h2 className="font-[var(--font-proxima)] text-[16px]/[normal] font-bold text-black">
+            Description
+          </h2>
+          <p className="mt-1 font-[var(--font-proxima)] text-[14px]/[normal] font-normal text-[#484848]">
             {content.description}
           </p>
         </div>
 
         <div>
-          <h2 className="font-proxima text-[16px]/[normal] font-bold text-black">Mission</h2>
-          <p className="font-proxima mt-1 text-[14px]/[normal] font-normal text-[#484848]">
+          <h2 className="font-[var(--font-proxima)] text-[16px]/[normal] font-bold text-black">
+            Mission
+          </h2>
+          <p className="mt-1 font-[var(--font-proxima)] text-[14px]/[normal] font-normal text-[#484848]">
             {content.mission}
           </p>
         </div>
       </div>
 
-      <div className="mt-[14px] flex items-center justify-between gap-3">
-        <button
-          type="button"
-          className="font-proxima rounded-[40px] border border-[#d9d9d9] bg-white px-6 py-1 text-[16px]/[32px] font-normal text-[#3b9a9a]"
-        >
-          {content.previousLabel}
-        </button>
+      <hr className="my-[20px] border-t border-[#d9d9d9]" />
 
-        <button
-          type="button"
-          className="font-proxima rounded-[40px] bg-[#3b9a9a] px-6 py-1 text-[16px]/[32px] font-normal text-white"
-        >
-          {content.nextLabel}
-        </button>
-      </div>
+      <RelationshipViewCard organizations={sampleRelatedOrganizations} />
     </section>
   );
 }

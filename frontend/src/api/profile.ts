@@ -1,8 +1,5 @@
+import { authHeaders, getAccessToken } from "./auth";
 import { get, patch } from "./request";
-
-import type { Session } from "@supabase/supabase-js";
-
-import { supabase } from "@/services/supabase";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -14,24 +11,10 @@ function toOptionalString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-async function getAccessToken(): Promise<string> {
-  const { data, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) {
-    throw new Error(sessionError.message);
-  }
-  // `getSession()` types `session` as `AuthSession`, which omits `access_token`; the
-  // runtime value includes the JWT on the full `Session` shape.
-  const session = data.session as Session | null;
-  const accessToken = session?.access_token;
-  if (typeof accessToken !== "string" || accessToken.length === 0) {
-    throw new Error("You must be signed in to view or edit your profile.");
-  }
-  return accessToken;
-}
-
 export type Profile = {
   id: string;
   email: string;
+  name: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -45,6 +28,7 @@ function parseProfilePayload(payload: unknown): Profile {
 
   const id = toOptionalString(payload.id);
   const email = toOptionalString(payload.email);
+  const name = toOptionalString(payload.name) ?? "";
   const firstName = toOptionalString(payload.firstName) ?? "";
   const lastName = toOptionalString(payload.lastName) ?? "";
   const phone = toOptionalString(payload.phone) ?? "";
@@ -57,6 +41,7 @@ function parseProfilePayload(payload: unknown): Profile {
   return {
     id,
     email,
+    name: name || [firstName, lastName].filter(Boolean).join(" "),
     firstName,
     lastName,
     phone,
@@ -64,16 +49,20 @@ function parseProfilePayload(payload: unknown): Profile {
   };
 }
 
-function authHeaders(token: string): Record<string, string> {
-  return {
-    Accept: "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
 export async function getProfile(signal?: AbortSignal): Promise<Profile> {
   const token = await getAccessToken();
   const response = await get("/api/users/profile", authHeaders(token), signal);
+  const payload: unknown = await response.json();
+  return parseProfilePayload(payload);
+}
+
+export async function getUserProfileById(userId: string, signal?: AbortSignal): Promise<Profile> {
+  const token = await getAccessToken();
+  const response = await get(
+    `/api/users/${encodeURIComponent(userId)}`,
+    authHeaders(token),
+    signal,
+  );
   const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }

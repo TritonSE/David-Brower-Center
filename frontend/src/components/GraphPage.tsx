@@ -13,7 +13,7 @@ import {
   PeopleIcon,
   SearchIcon,
 } from "./icons/AppIcons";
-import NpoProfileCard from "./NpoProfileCard";
+import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
 import type { APIResult } from "@/api/request";
 import type React from "react";
@@ -456,7 +456,7 @@ export default function GraphPage() {
       ],
 
       description: activeOrgDetail.description,
-
+      ...getNpoProfileCardImageProps(activeOrgDetail.images),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
@@ -652,7 +652,7 @@ export default function GraphPage() {
         {selectedOrgId ? (
           <div
             ref={popupCardRef}
-            className="pointer-events-auto max-w-160 rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
+            className="pointer-events-auto max-h-[calc(100vh-64px)] max-w-160 overflow-y-auto rounded-[30px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.1)] transition-transform duration-200"
             style={{
               transform: isCardVisible ? "translateY(0)" : "translateY(8px)",
             }}

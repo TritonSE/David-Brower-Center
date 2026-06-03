@@ -184,7 +184,7 @@ export default function TagDashboard({
                 key={filter.value}
                 type="button"
                 aria-pressed={activeVisibilityFilter === filter.value}
-                onClick={() => setActiveVisibilityFilter(filter.value as VisibilityFilter)}
+                onClick={() => setActiveVisibilityFilter(filter.value)}
                 className={classNames(
                   "font-proxima inline-flex items-center gap-[4px] rounded-[10px] border px-[10px] py-[8px] text-[16px] leading-none font-normal",
                   activeVisibilityFilter === filter.value

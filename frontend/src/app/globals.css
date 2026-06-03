@@ -10,6 +10,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-proxima: var(--font-geist-sans);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,6 +21,8 @@
 }
 
 body {
+  --font-proxima: var(--font-geist-sans);
+
   background: var(--background);
   color: var(--foreground);
   font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;

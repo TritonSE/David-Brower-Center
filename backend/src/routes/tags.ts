@@ -4,6 +4,7 @@ import createError from "http-errors";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { getColorFor } from "../lib/tagColors";
+import { requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
 
@@ -121,5 +122,83 @@ router.delete("/:tagId", async (req: Request, res: Response, next: NextFunction)
     return next(err);
   }
 });
+
+/**
+ * PATCH /api/tags/:tagID
+ * Update organizations assigned to a tag.
+ *
+ * Body:
+ * {
+ *   organizationIds: string[]
+ * }
+ */
+router.patch(
+  "/:tagID",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tagID } = req.params;
+
+      if (!tagID || typeof tagID !== "string") {
+        return next(createError(400, "Invalid tag ID"));
+      }
+
+      const { organizationIds } = req.body as {
+        organizationIds?: unknown;
+      };
+
+      // Validate request body
+      if (!Array.isArray(organizationIds)) {
+        return next(createError(400, "'organizationIds' must be an array"));
+      }
+
+      // Verify tag exists
+      const existingTag = await prisma.tag.findUnique({
+        where: {
+          id: tagID,
+        },
+      });
+
+      if (!existingTag) {
+        return next(createError(404, "Tag not found"));
+      }
+
+      // Replace existing organization assignments
+      await prisma.$transaction([
+        prisma.organizationTag.deleteMany({
+          where: {
+            tagId: tagID,
+          },
+        }),
+
+        prisma.organizationTag.createMany({
+          data: organizationIds.map((organizationId) => ({
+            organizationId: String(organizationId),
+            tagId: tagID,
+          })),
+          skipDuplicates: true,
+        }),
+      ]);
+
+      // Return updated tag
+      const updatedTag = await prisma.tag.findUnique({
+        where: {
+          id: tagID,
+        },
+        include: {
+          organizations: {
+            include: {
+              organization: true,
+            },
+          },
+        },
+      });
+
+      return res.status(200).json({ tag: updatedTag });
+    } catch (err: unknown) {
+      next(err);
+    }
+  },
+);
 
 export default router;
