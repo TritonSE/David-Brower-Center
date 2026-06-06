@@ -96,6 +96,9 @@ export type OrganizationListItem = {
   images: string[];
   year: string;
   updatedAt: string;
+  size: string;
+  budget: string;
+  location: string;
   tags: OrganizationTag[];
 };
 
@@ -179,6 +182,9 @@ function parseOrganizationListItem(value: unknown): OrganizationListItem {
     images: toStringArray(value.images),
     year: toFallbackString(value.year),
     updatedAt: toFallbackString(value.updatedAt),
+    size: toFallbackString(value.size ?? value.sizeCategory),
+    budget: toFallbackString(value.budget),
+    location: toFallbackString(value.location),
     tags,
   };
 }

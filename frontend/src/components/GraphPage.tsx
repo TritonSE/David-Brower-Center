@@ -434,6 +434,7 @@ export default function GraphPage() {
     if (!activeOrgDetail) return null;
 
     return {
+      organizationId: activeOrgDetail.id,
       name: activeOrgDetail.name,
 
       tags: [

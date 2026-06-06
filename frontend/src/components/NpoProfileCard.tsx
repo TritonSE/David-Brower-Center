@@ -1,40 +1,84 @@
 import Image from "next/image";
+import { useMemo } from "react";
 
-import RelationshipViewCard, { type RelatedNpo } from "../app/components/RelationshipViewCard";
+import RelationshipViewCard, {
+  type RelatedNpo,
+  type RelationshipTier,
+} from "../app/components/RelationshipViewCard";
 
 import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 
+import type {
+  OrganizationListItem,
+  OrganizationRelationship,
+  OrganizationRelationshipTier,
+} from "@/api/organization";
 import type { ReactElement } from "react";
 
-const sampleRelatedOrganizations: RelatedNpo[] = [
-  {
-    id: "related-1",
-    name: "42 Inc.",
-    sizeLabel: "Mid Sized",
-    budgetLabel: "100k",
-    locationLabel: "Berkeley, CA",
-    tags: ["Technology", "Environmental"],
-    logoUrl: "https://www.figma.com/api/mcp/asset/861edd85-fd7b-4c4d-9083-1fe0707442aa",
-  },
-  {
-    id: "related-2",
-    name: "American Institute of Architects",
-    sizeLabel: "Mid Sized",
-    budgetLabel: "100k",
-    locationLabel: "Berkeley, CA",
-    tags: ["Transportation", "Social/Government"],
-    logoUrl: "https://www.figma.com/api/mcp/asset/4536375a-46ca-49dc-b179-cde1b912280c",
-  },
-  {
-    id: "related-3",
-    name: "Berkeley Executive Coaching Institute",
-    sizeLabel: "Mid Sized",
-    budgetLabel: "100k",
-    locationLabel: "Berkeley, CA",
-    tags: ["Social/Government", "Environmental"],
-    logoUrl: "https://www.figma.com/api/mcp/asset/abf36315-21d6-49ab-84f8-06501ef3c53a",
-  },
-];
+import { useOrganizations } from "@/contexts/OrganizationsContext";
+
+const TIER_BY_BACKEND: Record<OrganizationRelationshipTier, RelationshipTier> = {
+  PRIMARY: "primary",
+  SECONDARY: "secondary",
+  TERTIARY: "tertiary",
+};
+
+const EMPTY_TIERED_NPOS: Record<RelationshipTier, RelatedNpo[]> = {
+  primary: [],
+  secondary: [],
+  tertiary: [],
+};
+
+function organizationToRelatedNpo(organization: OrganizationListItem): RelatedNpo {
+  return {
+    id: organization.id,
+    name: organization.name,
+    sizeLabel: organization.size,
+    budgetLabel: organization.budget,
+    locationLabel: organization.location,
+    tags: organization.tags.map((tag) => tag.name),
+    logoUrl: organization.images[0],
+  };
+}
+
+function buildRelatedNposByTier(
+  organizationId: string,
+  organizations: OrganizationListItem[],
+  relationships: OrganizationRelationship[],
+): Record<RelationshipTier, RelatedNpo[]> {
+  const orgsById = new Map(organizations.map((organization) => [organization.id, organization]));
+  const seenByTier: Record<RelationshipTier, Set<string>> = {
+    primary: new Set(),
+    secondary: new Set(),
+    tertiary: new Set(),
+  };
+  const result: Record<RelationshipTier, RelatedNpo[]> = {
+    primary: [],
+    secondary: [],
+    tertiary: [],
+  };
+
+  for (const relationship of relationships) {
+    const partnerId =
+      relationship.npo1Id === organizationId
+        ? relationship.npo2Id
+        : relationship.npo2Id === organizationId
+          ? relationship.npo1Id
+          : null;
+    if (!partnerId || partnerId === organizationId) continue;
+
+    const tier = TIER_BY_BACKEND[relationship.relationshipTier];
+    if (seenByTier[tier].has(partnerId)) continue;
+
+    const partner = orgsById.get(partnerId);
+    if (!partner) continue;
+
+    seenByTier[tier].add(partnerId);
+    result[tier].push(organizationToRelatedNpo(partner));
+  }
+
+  return result;
+}
 
 type Tag = {
   icon: ReactElement;
@@ -42,6 +86,7 @@ type Tag = {
 };
 
 type NpoProfileCardProps = {
+  organizationId?: string;
   name: string;
   tags: Tag[];
   description: string;
@@ -124,6 +169,18 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
       ...props.images,
     },
   };
+
+  const {
+    organizations,
+    relationships,
+    isLoading: areOrganizationsLoading,
+    error: organizationsError,
+  } = useOrganizations();
+
+  const relatedNposByTier = useMemo(() => {
+    if (!content.organizationId) return EMPTY_TIERED_NPOS;
+    return buildRelatedNposByTier(content.organizationId, organizations, relationships);
+  }, [content.organizationId, organizations, relationships]);
 
   return (
     <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
@@ -249,7 +306,11 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
 
       <hr className="my-[20px] border-t border-[#d9d9d9]" />
 
-      <RelationshipViewCard organizations={sampleRelatedOrganizations} />
+      <RelationshipViewCard
+        organizationsByTier={relatedNposByTier}
+        isLoading={Boolean(content.organizationId) && areOrganizationsLoading}
+        errorMessage={content.organizationId ? organizationsError : null}
+      />
     </section>
   );
 }

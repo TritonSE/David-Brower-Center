@@ -213,6 +213,7 @@ export default function ManagePage() {
   const selectedCardProps = useMemo(() => {
     if (!activeOrgDetail) return null;
     return {
+      organizationId: activeOrgDetail.id,
       name: activeOrgDetail.name,
       tags: [
         {

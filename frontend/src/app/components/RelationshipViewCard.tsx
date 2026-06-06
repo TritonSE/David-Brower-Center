@@ -17,9 +17,11 @@ export type RelatedNpo = {
 };
 
 type RelationshipViewCardProps = {
-  organizations: RelatedNpo[];
+  organizationsByTier: Record<RelationshipTier, RelatedNpo[]>;
   initialTier?: RelationshipTier;
   onTierChange?: (tier: RelationshipTier) => void;
+  isLoading?: boolean;
+  errorMessage?: string | null;
   className?: string;
 };
 
@@ -30,15 +32,16 @@ const tierButtons: { value: RelationshipTier; label: string }[] = [
 ];
 
 export default function RelationshipViewCard({
-  organizations,
+  organizationsByTier,
   initialTier = "primary",
   onTierChange,
+  isLoading = false,
+  errorMessage = null,
   className,
 }: RelationshipViewCardProps) {
   const [activeTier, setActiveTier] = useState<RelationshipTier>(initialTier);
 
-  // All tabs intentionally use the same data until relationship-strength mapping is available.
-  const visibleOrganizations = organizations;
+  const visibleOrganizations = organizationsByTier[activeTier] ?? [];
 
   return (
     <section className={`w-full ${className ?? ""}`.trim()}>
@@ -76,9 +79,23 @@ export default function RelationshipViewCard({
 
       <div className="mt-6 w-full rounded-[16px] border border-[#d9d9d9] bg-white p-4">
         <div className="flex h-[576px] flex-col gap-[10px] overflow-y-auto pr-1">
-          {visibleOrganizations.map((organization) => (
-            <RelatedNpoItemCard key={organization.id} organization={organization} />
-          ))}
+          {isLoading ? (
+            <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] text-[#6c6c6c]">
+              Loading related NPOs...
+            </p>
+          ) : errorMessage ? (
+            <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] text-[#a23b3b]">
+              {errorMessage}
+            </p>
+          ) : visibleOrganizations.length === 0 ? (
+            <p className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[14px] text-[#6c6c6c]">
+              No {activeTier} related NPOs.
+            </p>
+          ) : (
+            visibleOrganizations.map((organization) => (
+              <RelatedNpoItemCard key={organization.id} organization={organization} />
+            ))
+          )}
         </div>
       </div>
     </section>
