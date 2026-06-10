@@ -47,17 +47,10 @@ type AuthApi = {
   ) => AuthListenerResponse;
   signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResponse>;
   signOut: () => Promise<AuthSignOutResponse>;
-  signUp: (credentials: { email: string; password: string }) => Promise<AuthResponse>;
-};
-
-type RpcResponse<T> = {
-  data: T | null;
-  error: AuthErrorLike | null;
 };
 
 export type SupabaseClientLike = {
   auth: AuthApi;
-  rpc: <T>(fn: string, args: Record<string, unknown>) => Promise<RpcResponse<T>>;
 };
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
