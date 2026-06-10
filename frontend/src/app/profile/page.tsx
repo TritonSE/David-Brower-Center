@@ -8,12 +8,13 @@ import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type SyntheticEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 
-import { getProfile, type Profile, updateProfile } from "@/api/profile";
+import { getProfile, type Profile, updateProfile, updateProfilePhoto } from "@/api/profile";
 import { isAbortError } from "@/api/request";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,7 +123,12 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getPhotoBounds(naturalWidth: number, naturalHeight: number, zoom: number) {
+function getPhotoBounds(
+  naturalWidth: number,
+  naturalHeight: number,
+  zoom: number,
+  stage: PhotoSize,
+) {
   const baseScale = Math.max(
     photoCropStage.cropSize / naturalWidth,
     photoCropStage.cropSize / naturalHeight,
@@ -130,8 +136,8 @@ function getPhotoBounds(naturalWidth: number, naturalHeight: number, zoom: numbe
   const scale = baseScale * zoom;
   const width = naturalWidth * scale;
   const height = naturalHeight * scale;
-  const cropLeft = (photoCropStage.width - photoCropStage.cropSize) / 2;
-  const cropTop = (photoCropStage.height - photoCropStage.cropSize) / 2;
+  const cropLeft = (stage.width - photoCropStage.cropSize) / 2;
+  const cropTop = (stage.height - photoCropStage.cropSize) / 2;
 
   return {
     width,
@@ -145,8 +151,13 @@ function getPhotoBounds(naturalWidth: number, naturalHeight: number, zoom: numbe
   };
 }
 
-function clampPhotoPosition(position: PhotoPosition, naturalSize: PhotoSize, zoom: number) {
-  const bounds = getPhotoBounds(naturalSize.width, naturalSize.height, zoom);
+function clampPhotoPosition(
+  position: PhotoPosition,
+  naturalSize: PhotoSize,
+  zoom: number,
+  stage: PhotoSize,
+) {
+  const bounds = getPhotoBounds(naturalSize.width, naturalSize.height, zoom, stage);
 
   return {
     x: clamp(position.x, bounds.minX, bounds.maxX),
@@ -154,16 +165,17 @@ function clampPhotoPosition(position: PhotoPosition, naturalSize: PhotoSize, zoo
   };
 }
 
-function getCenteredPhotoPosition(naturalSize: PhotoSize, zoom: number) {
-  const bounds = getPhotoBounds(naturalSize.width, naturalSize.height, zoom);
+function getCenteredPhotoPosition(naturalSize: PhotoSize, zoom: number, stage: PhotoSize) {
+  const bounds = getPhotoBounds(naturalSize.width, naturalSize.height, zoom, stage);
 
   return clampPhotoPosition(
     {
-      x: (photoCropStage.width - bounds.width) / 2,
-      y: (photoCropStage.height - bounds.height) / 2,
+      x: (stage.width - bounds.width) / 2,
+      y: (stage.height - bounds.height) / 2,
     },
     naturalSize,
     zoom,
+    stage,
   );
 }
 
@@ -213,6 +225,7 @@ export default function AdminProfile() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoStageRef = useRef<HTMLDivElement>(null);
   const photoPreviewRef = useRef<HTMLImageElement>(null);
   const photoDragRef = useRef<{
     startX: number;
@@ -236,6 +249,8 @@ export default function AdminProfile() {
   const [photoPosition, setPhotoPosition] = useState<PhotoPosition>({ x: 0, y: 0 });
   const [photoZoom, setPhotoZoom] = useState(minPhotoZoom);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
   const [focusedPasswordField, setFocusedPasswordField] = useState<PasswordField | null>(null);
   const [passwordToast, setPasswordToast] = useState<{
@@ -247,6 +262,17 @@ export default function AdminProfile() {
   const [signOutReason, setSignOutReason] = useState<SignOutReason>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activeProfile = isEditing ? draftProfile : profile;
+
+  // The crop stage is responsive (CSS width: 100%), so read its real rendered
+  // size rather than assuming the design-time dimensions. The crop circle is
+  // centered in the stage, so an inaccurate width shifts the saved crop.
+  const getPhotoStageSize = useCallback((): PhotoSize => {
+    const stage = photoStageRef.current;
+    if (!stage) {
+      return { width: photoCropStage.width, height: photoCropStage.height };
+    }
+    return { width: stage.clientWidth, height: stage.clientHeight };
+  }, []);
 
   useEffect(() => {
     if (isAuthLoading) {
@@ -269,6 +295,9 @@ export default function AdminProfile() {
         const form = profileToForm(apiProfile);
         setProfile(form);
         setDraftProfile(form);
+        if (apiProfile.profilePicture) {
+          setProfilePhotoSrc(apiProfile.profilePicture);
+        }
       })
       .catch((error: unknown) => {
         if (cancelled || isAbortError(error)) return;
@@ -328,6 +357,7 @@ export default function AdminProfile() {
           },
           naturalSize,
           photoZoom,
+          getPhotoStageSize(),
         ),
       );
     }
@@ -344,7 +374,7 @@ export default function AdminProfile() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDraggingPhoto, photoNaturalSize, photoZoom]);
+  }, [isDraggingPhoto, photoNaturalSize, photoZoom, getPhotoStageSize]);
 
   function startEditing() {
     setDraftProfile(profile);
@@ -397,6 +427,7 @@ export default function AdminProfile() {
     setPhotoPosition({ x: 0, y: 0 });
     setPhotoZoom(minPhotoZoom);
     setIsDraggingPhoto(false);
+    setPhotoError(null);
     photoDragRef.current = null;
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
@@ -446,7 +477,7 @@ export default function AdminProfile() {
     };
 
     setPhotoNaturalSize(nextNaturalSize);
-    setPhotoPosition(getCenteredPhotoPosition(nextNaturalSize, minPhotoZoom));
+    setPhotoPosition(getCenteredPhotoPosition(nextNaturalSize, minPhotoZoom, getPhotoStageSize()));
     setPhotoZoom(minPhotoZoom);
   }
 
@@ -458,12 +489,19 @@ export default function AdminProfile() {
       return;
     }
 
+    const stage = getPhotoStageSize();
     const currentBounds = getPhotoBounds(
       photoNaturalSize.width,
       photoNaturalSize.height,
       photoZoom,
+      stage,
     );
-    const nextBounds = getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, clampedZoom);
+    const nextBounds = getPhotoBounds(
+      photoNaturalSize.width,
+      photoNaturalSize.height,
+      clampedZoom,
+      stage,
+    );
     const centerX = photoPosition.x + currentBounds.width / 2;
     const centerY = photoPosition.y + currentBounds.height / 2;
 
@@ -476,6 +514,7 @@ export default function AdminProfile() {
         },
         photoNaturalSize,
         clampedZoom,
+        stage,
       ),
     );
   }
@@ -495,13 +534,18 @@ export default function AdminProfile() {
     setIsDraggingPhoto(true);
   }
 
-  function savePhotoChanges() {
-    if (!photoDraftSrc || !photoNaturalSize || !photoPreviewRef.current) {
+  async function savePhotoChanges() {
+    if (!photoDraftSrc || !photoNaturalSize || !photoPreviewRef.current || isSavingPhoto) {
       return;
     }
 
     const outputSize = 320;
-    const bounds = getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, photoZoom);
+    const bounds = getPhotoBounds(
+      photoNaturalSize.width,
+      photoNaturalSize.height,
+      photoZoom,
+      getPhotoStageSize(),
+    );
     const scaleToCanvas = outputSize / photoCropStage.cropSize;
     const canvas = document.createElement("canvas");
     canvas.width = outputSize;
@@ -524,10 +568,22 @@ export default function AdminProfile() {
       bounds.height * scaleToCanvas,
     );
 
-    setProfilePhotoSrc(canvas.toDataURL("image/png"));
-    setIsPhotoModalOpen(false);
-    resetPhotoEditor();
-    setIsPhotoSuccessOpen(true);
+    const dataUrl = canvas.toDataURL("image/png");
+
+    setIsSavingPhoto(true);
+    setPhotoError(null);
+
+    try {
+      const updated = await updateProfilePhoto(dataUrl);
+      setProfilePhotoSrc(updated.profilePicture || dataUrl);
+      setIsPhotoModalOpen(false);
+      resetPhotoEditor();
+      setIsPhotoSuccessOpen(true);
+    } catch (error: unknown) {
+      setPhotoError(error instanceof Error ? error.message : "Failed to save profile photo.");
+    } finally {
+      setIsSavingPhoto(false);
+    }
   }
 
   function openChangePassword() {
@@ -1049,7 +1105,7 @@ export default function AdminProfile() {
                   <button
                     type="button"
                     className="save-btn-inline password-modal-save"
-                    onClick={savePhotoChanges}
+                    onClick={() => void savePhotoChanges()}
                     disabled
                   >
                     Save Changes
@@ -1059,6 +1115,7 @@ export default function AdminProfile() {
             ) : (
               <>
                 <div
+                  ref={photoStageRef}
                   className={`photo-editor-stage ${isDraggingPhoto ? "photo-editor-stage-dragging" : ""}`}
                   onMouseDown={beginPhotoDrag}
                 >
@@ -1070,8 +1127,8 @@ export default function AdminProfile() {
                       alt="Profile photo preview"
                       className="photo-editor-image"
                       style={{
-                        width: `${getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, photoZoom).width}px`,
-                        height: `${getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, photoZoom).height}px`,
+                        width: `${getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, photoZoom, getPhotoStageSize()).width}px`,
+                        height: `${getPhotoBounds(photoNaturalSize.width, photoNaturalSize.height, photoZoom, getPhotoStageSize()).height}px`,
                         transform: `translate(${photoPosition.x}px, ${photoPosition.y}px)`,
                       }}
                       draggable={false}
@@ -1123,11 +1180,14 @@ export default function AdminProfile() {
                   <button
                     type="button"
                     className="save-btn-inline password-modal-save"
-                    onClick={savePhotoChanges}
+                    onClick={() => void savePhotoChanges()}
+                    disabled={isSavingPhoto}
                   >
-                    Save Changes
+                    {isSavingPhoto ? "Saving…" : "Save Changes"}
                   </button>
                 </div>
+
+                {photoError && <p className="form-error">{photoError}</p>}
               </>
             )}
           </div>

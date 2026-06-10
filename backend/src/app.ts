@@ -34,7 +34,8 @@ app.use(
   }),
 );
 
-app.use(express.json());
+// Raised from the 100kb default to accommodate base64-encoded profile pictures.
+app.use(express.json({ limit: "8mb" }));
 
 app.use(log);
 

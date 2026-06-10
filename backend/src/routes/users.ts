@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
@@ -50,6 +52,62 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const PROFILE_PICTURE_BUCKET = "images";
+const PROFILE_PICTURE_PREFIX = "profile-pictures";
+const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
+const IMAGE_DATA_URL_PATTERN = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=]+)$/;
+
+type DecodedImage = { buffer: Buffer; contentType: string; extension: string };
+
+function decodeImageDataUrl(value: unknown): DecodedImage | null {
+  if (typeof value !== "string") return null;
+  const match = IMAGE_DATA_URL_PATTERN.exec(value.trim());
+  if (!match) return null;
+
+  const contentType = match[1];
+  const base64 = match[2];
+  if (!contentType || !base64) return null;
+
+  const buffer = Buffer.from(base64, "base64");
+  if (buffer.length === 0 || buffer.length > MAX_PROFILE_PICTURE_BYTES) return null;
+
+  const extension =
+    contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+  return { buffer, contentType, extension };
+}
+
+async function uploadProfilePicture(userId: string, image: DecodedImage): Promise<string> {
+  const path = `${PROFILE_PICTURE_PREFIX}/${userId}.${image.extension}`;
+
+  const upload = async () =>
+    supabaseAdmin.storage
+      .from(PROFILE_PICTURE_BUCKET)
+      .upload(path, image.buffer, { contentType: image.contentType, upsert: true });
+
+  let { error } = await upload();
+
+  // The storage bucket is created by migration only when Supabase Storage is
+  // present at migrate time; ensure it exists, then retry once.
+  if (error && /bucket not found/i.test(error.message)) {
+    const { error: createBucketError } = await supabaseAdmin.storage.createBucket(
+      PROFILE_PICTURE_BUCKET,
+      { public: true },
+    );
+    if (createBucketError && !/already exists/i.test(createBucketError.message)) {
+      throw createError(502, `Failed to create storage bucket: ${createBucketError.message}`);
+    }
+    ({ error } = await upload());
+  }
+
+  if (error) {
+    throw createError(502, `Failed to upload profile picture: ${error.message}`);
+  }
+
+  const { data } = supabaseAdmin.storage.from(PROFILE_PICTURE_BUCKET).getPublicUrl(path);
+  // Cache-bust so the new image replaces the previous one at the same path.
+  return `${data.publicUrl}?v=${Date.now().toString()}`;
+}
+
 function userResponse(user: UserRow) {
   return {
     id: user.supabase_user_id,
@@ -80,6 +138,7 @@ function profileResponse(profile: UserRow) {
     firstName: profile.first_name ?? "",
     lastName: profile.last_name ?? "",
     phone: profile.phone ?? "",
+    profilePicture: profile.profile_picture ?? "",
     role: profile.role,
   };
 }
@@ -346,6 +405,41 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         return res.status(409).json({ error: "That email is already in use." });
+      }
+      throw err;
+    }
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+/** PATCH /api/users/profile/photo */
+router.patch("/profile/photo", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const auth = await authenticate(req);
+    if (!auth.ok) {
+      return res.status(auth.status).json({ error: auth.error });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const image = decodeImageDataUrl(body.image);
+    if (!image) {
+      return res.status(400).json({
+        error: "image must be a base64-encoded PNG, JPEG, or WebP data URL up to 5MB.",
+      });
+    }
+
+    const publicUrl = await uploadProfilePicture(auth.userId, image);
+
+    try {
+      const updated = await prisma.user.update({
+        where: { supabase_user_id: auth.userId },
+        data: { profile_picture: publicUrl },
+      });
+      return res.status(200).json(profileResponse(updated));
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return res.status(404).json({ error: "User profile not found." });
       }
       throw err;
     }

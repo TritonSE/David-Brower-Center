@@ -18,6 +18,7 @@ export type Profile = {
   firstName: string;
   lastName: string;
   phone: string;
+  profilePicture: string;
   role: string;
 };
 
@@ -32,6 +33,7 @@ function parseProfilePayload(payload: unknown): Profile {
   const firstName = toOptionalString(payload.firstName) ?? "";
   const lastName = toOptionalString(payload.lastName) ?? "";
   const phone = toOptionalString(payload.phone) ?? "";
+  const profilePicture = toOptionalString(payload.profilePicture) ?? "";
   const role = toOptionalString(payload.role) ?? "admin";
 
   if (!id || !email) {
@@ -45,6 +47,7 @@ function parseProfilePayload(payload: unknown): Profile {
     firstName,
     lastName,
     phone,
+    profilePicture,
     role,
   };
 }
@@ -78,6 +81,13 @@ export async function updateProfile(
 ): Promise<Profile> {
   const token = await getAccessToken();
   const response = await patch("/api/users/profile", input, authHeaders(token), signal);
+  const payload: unknown = await response.json();
+  return parseProfilePayload(payload);
+}
+
+export async function updateProfilePhoto(image: string, signal?: AbortSignal): Promise<Profile> {
+  const token = await getAccessToken();
+  const response = await patch("/api/users/profile/photo", { image }, authHeaders(token), signal);
   const payload: unknown = await response.json();
   return parseProfilePayload(payload);
 }
