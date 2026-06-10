@@ -19,6 +19,8 @@ model Organization {
   budget              String?
   description         String?                    @db.Text
   images              String[]                   @default([])
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   tags                OrganizationTag[]
   relationshipsAsNpo1 OrganizationRelationship[] @relation("OrganizationRelationshipNpo1")
   relationshipsAsNpo2 OrganizationRelationship[] @relation("OrganizationRelationshipNpo2")
