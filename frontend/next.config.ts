@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         hostname: "www.figma.com",
         pathname: "/api/mcp/asset/**",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/images/**",
+      },
     ],
   },
   reactCompiler: true,

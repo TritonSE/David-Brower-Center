@@ -13,16 +13,18 @@ import {
   useState,
 } from "react";
 
+import { getProfile, type Profile, updateProfile } from "@/api/profile";
+import { isAbortError } from "@/api/request";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 
 import "./AdminProfile.css";
 
-const initialProfile = {
-  name: "Jane Doe",
-  email: "Janedoe@gmail.com",
-  phone: "858-000-000",
-  role: "Founder",
+const emptyProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  role: "",
 };
 
 const emptyPasswordForm = {
@@ -40,47 +42,79 @@ const photoCropStage = {
 const minPhotoZoom = 1;
 const maxPhotoZoom = 2.5;
 
+type ProfileForm = typeof emptyProfile;
 type PasswordField = keyof typeof emptyPasswordForm;
 type SignOutReason = "profile" | "password" | null;
 type PhotoPosition = { x: number; y: number };
 type PhotoSize = { width: number; height: number };
 
-function getProfileError(profile: typeof initialProfile) {
+function getProfileError(profile: ProfileForm) {
   const trimmedName = profile.name.trim();
   const trimmedEmail = profile.email.trim();
   const trimmedPhone = profile.phone.trim();
 
+  if (!trimmedName) {
+    return "Name is required.";
+  }
   if (!/^[a-z\s]+$/i.test(trimmedName)) {
     return "Name can only contain letters and spaces.";
   }
-
-  if (trimmedEmail) {
-    const atIndex = trimmedEmail.indexOf("@");
-    const dotIndex = trimmedEmail.lastIndexOf(".");
-    const hasValidEmail =
-      !trimmedEmail.includes(" ") &&
-      atIndex > 0 &&
-      dotIndex > atIndex + 1 &&
-      dotIndex < trimmedEmail.length - 1;
-
-    if (!hasValidEmail) {
-      return "Enter a valid email address.";
-    }
+  if (!trimmedName.replace(/\s+/g, " ").includes(" ")) {
+    return "Enter both a first and last name.";
   }
 
-  if (!/^[0-9-]+$/.test(trimmedPhone)) {
+  if (!trimmedEmail) {
+    return "Email is required.";
+  }
+  const atIndex = trimmedEmail.indexOf("@");
+  const dotIndex = trimmedEmail.lastIndexOf(".");
+  const hasValidEmail =
+    !trimmedEmail.includes(" ") &&
+    atIndex > 0 &&
+    dotIndex > atIndex + 1 &&
+    dotIndex < trimmedEmail.length - 1;
+  if (!hasValidEmail) {
+    return "Enter a valid email address.";
+  }
+
+  if (trimmedPhone && !/^[0-9-]+$/.test(trimmedPhone)) {
     return "Phone number can only contain numbers and dashes.";
   }
 
   return null;
 }
 
-function normalizeProfile(profile: typeof initialProfile) {
+function normalizeProfile(profile: ProfileForm) {
   return {
     ...profile,
-    name: profile.name.trim(),
+    name: profile.name.trim().replace(/\s+/g, " "),
     email: profile.email.trim(),
     phone: profile.phone.trim(),
+  };
+}
+
+function profileToForm(profile: Profile): ProfileForm {
+  const combinedName = [profile.firstName, profile.lastName]
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .join(" ");
+  return {
+    name: combinedName,
+    email: profile.email,
+    phone: profile.phone,
+    role: profile.role,
+  };
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const collapsed = fullName.trim().replace(/\s+/g, " ");
+  const firstSpace = collapsed.indexOf(" ");
+  if (firstSpace === -1) {
+    return { firstName: collapsed, lastName: "" };
+  }
+  return {
+    firstName: collapsed.slice(0, firstSpace),
+    lastName: collapsed.slice(firstSpace + 1),
   };
 }
 
@@ -175,7 +209,7 @@ function SignOutMenuIcon() {
 }
 
 export default function AdminProfile() {
-  const { signOut } = useAuth();
+  const { signOut, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -186,10 +220,13 @@ export default function AdminProfile() {
     originX: number;
     originY: number;
   } | null>(null);
-  const [profile, setProfile] = useState(initialProfile);
+  const [profile, setProfile] = useState<ProfileForm>(emptyProfile);
   const [profilePhotoSrc, setProfilePhotoSrc] = useState(defaultProfilePhotoSrc);
-  const [draftProfile, setDraftProfile] = useState(initialProfile);
+  const [draftProfile, setDraftProfile] = useState<ProfileForm>(emptyProfile);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isPasswordSuccessOpen, setIsPasswordSuccessOpen] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -210,6 +247,42 @@ export default function AdminProfile() {
   const [signOutReason, setSignOutReason] = useState<SignOutReason>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activeProfile = isEditing ? draftProfile : profile;
+
+  useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+    if (!user) {
+      setIsProfileLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    let cancelled = false;
+
+    setIsProfileLoading(true);
+    setLoadError(null);
+
+    getProfile(abortController.signal)
+      .then((apiProfile) => {
+        if (cancelled) return;
+        const form = profileToForm(apiProfile);
+        setProfile(form);
+        setDraftProfile(form);
+      })
+      .catch((error: unknown) => {
+        if (cancelled || isAbortError(error)) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load profile.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsProfileLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [user, isAuthLoading]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -279,17 +352,37 @@ export default function AdminProfile() {
     setIsEditing(true);
   }
 
-  function saveProfile() {
-    const nextError = getProfileError(draftProfile);
+  async function saveProfile() {
+    if (isSaving) return;
 
+    const nextError = getProfileError(draftProfile);
     if (nextError) {
       setProfileError(nextError);
       return;
     }
 
-    setProfile(normalizeProfile(draftProfile));
+    const normalized = normalizeProfile(draftProfile);
+    const { firstName, lastName } = splitName(normalized.name);
+
+    setIsSaving(true);
     setProfileError(null);
-    setIsEditing(false);
+
+    try {
+      const updated = await updateProfile({
+        firstName,
+        lastName,
+        email: normalized.email,
+        phone: normalized.phone,
+      });
+      const form = profileToForm(updated);
+      setProfile(form);
+      setDraftProfile(form);
+      setIsEditing(false);
+    } catch (error: unknown) {
+      setProfileError(error instanceof Error ? error.message : "Failed to save profile.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function updateProfileField(key: keyof typeof draftProfile, value: string) {
@@ -669,7 +762,7 @@ export default function AdminProfile() {
             <div className="section-heading">
               <h2 className="section-title">Personal Information</h2>
 
-              {!isEditing && (
+              {!isEditing && !isProfileLoading && !loadError && (
                 <button type="button" className="edit-inline-btn" onClick={startEditing}>
                   <span>Edit Profile</span>
                   <Image
@@ -762,12 +855,19 @@ export default function AdminProfile() {
               )}
             </div>
 
-            {profileError && <p className="form-error">{profileError}</p>}
+            {(profileError ?? loadError) && (
+              <p className="form-error">{profileError ?? loadError}</p>
+            )}
 
             {isEditing && (
               <div className="profile-actions">
-                <button type="button" className="save-btn save-btn-card" onClick={saveProfile}>
-                  Save Changes
+                <button
+                  type="button"
+                  className="save-btn save-btn-card"
+                  onClick={() => void saveProfile()}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             )}

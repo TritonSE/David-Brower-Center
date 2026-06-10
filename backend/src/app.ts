@@ -16,6 +16,8 @@ const allowedOrigins = new Set([FRONTEND_ORIGIN]);
 if (process.env.NODE_ENV !== "production") {
   allowedOrigins.add("http://localhost:3000");
   allowedOrigins.add("http://localhost:3001");
+  allowedOrigins.add("http://localhost:3002");
+  allowedOrigins.add("http://localhost:3003");
 }
 
 app.use(

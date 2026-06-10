@@ -12,6 +12,7 @@ router.get("/", requireAuth, (req: Request, res: Response, next: NextFunction) =
 
     return res.json({
       id: user.supabase_user_id,
+      profile_picture: user.profile_picture,
       role: user.role,
       supabase_user_id: user.supabase_user_id,
     });

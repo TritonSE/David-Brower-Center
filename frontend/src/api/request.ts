@@ -3,6 +3,8 @@ type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 const MISSING_BACKEND_URL_ERROR =
   "Missing NEXT_PUBLIC_BACKEND_URL. Set it in frontend/.env to call the backend APIs.";
 const REQUEST_TIMEOUT_MS = 10_000;
+const HTML_PRE_PATTERN = /<pre>([\s\S]*?)<\/pre>/i;
+const HTML_TITLE_PATTERN = /<title>([\s\S]*?)<\/title>/i;
 
 function getBackendUrl(): string {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -79,7 +81,15 @@ async function assertOk(response: Response): Promise<void> {
   try {
     const text = await response.text();
     if (text) {
-      message += `: ${text}`;
+      const trimmed = text.trim();
+      const htmlPreMatch = HTML_PRE_PATTERN.exec(trimmed);
+      const htmlTitleMatch = HTML_TITLE_PATTERN.exec(trimmed);
+      const normalizedText = htmlPreMatch?.[1] ?? htmlTitleMatch?.[1] ?? trimmed;
+      const compactText = normalizedText
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      message += `: ${compactText || trimmed}`;
     }
   } catch {
     // ignore response text parse errors

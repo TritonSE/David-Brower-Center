@@ -33,6 +33,19 @@ function isValidEmail(value: string): boolean {
   return true;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Validates the `:id` path param so a malformed UUID returns 400 instead of a 500 from Prisma. */
+function parseRequestId(rawId: unknown): string {
+  if (typeof rawId !== "string" || rawId.length === 0) {
+    throw createError(400, "request id is required");
+  }
+  if (!UUID_PATTERN.test(rawId)) {
+    throw createError(400, "request id is invalid");
+  }
+  return rawId;
+}
+
 function requestResponse(request: {
   id: string;
   email: string;
@@ -87,7 +100,9 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
     const request = await prisma.accountCreationRequest.upsert({
       where: { email },
-      update: { name },
+      // Only overwrite the stored name when a new one was supplied, so re-submitting
+      // without a name doesn't wipe a previously provided one.
+      update: name !== null ? { name } : {},
       create: { email, name },
     });
 
@@ -116,10 +131,7 @@ router.post(
   ...requireAdmin,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const rawId: unknown = req.params.id;
-      if (typeof rawId !== "string" || rawId.length === 0) {
-        throw createError(400, "request id is required");
-      }
+      const rawId = parseRequestId(req.params.id);
 
       const accountRequest = await prisma.accountCreationRequest.findUnique({
         where: { id: rawId },
@@ -162,19 +174,27 @@ router.post(
       const invitedUser = inviteResult.data.user;
       const invitedEmail = invitedUser.email ?? accountRequest.email;
 
-      await prisma.$transaction([
-        prisma.user.create({
-          data: {
-            supabase_user_id: invitedUser.id,
-            email: invitedEmail,
-            name: accountRequest.name,
-            first_name: firstName,
-            last_name: lastName,
-            role: "admin",
-          },
-        }),
-        prisma.accountCreationRequest.delete({ where: { id: rawId } }),
-      ]);
+      try {
+        await prisma.$transaction([
+          prisma.user.create({
+            data: {
+              supabase_user_id: invitedUser.id,
+              email: invitedEmail,
+              name: accountRequest.name,
+              first_name: firstName,
+              last_name: lastName,
+              role: "admin",
+            },
+          }),
+          prisma.accountCreationRequest.delete({ where: { id: rawId } }),
+        ]);
+      } catch (txErr: unknown) {
+        // The Supabase auth user was already created above. If persisting it to our DB
+        // fails, roll the invite back so the request isn't permanently stuck (a retry would
+        // otherwise fail with "user already registered").
+        await supabaseAdmin.auth.admin.deleteUser(invitedUser.id).catch(() => undefined);
+        throw txErr;
+      }
 
       res.status(201).json({
         approved: true,
@@ -194,12 +214,15 @@ router.post(
 /** DELETE /api/account-creation-requests/:id */
 router.delete("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const rawId: unknown = req.params.id;
-    if (typeof rawId !== "string" || rawId.length === 0) {
-      throw createError(400, "request id is required");
+    const rawId = parseRequestId(req.params.id);
+
+    // deleteMany is idempotent (no throw when the row is already gone), so a request another
+    // admin just handled yields a clean 404 instead of a 500 from Prisma's P2025.
+    const { count } = await prisma.accountCreationRequest.deleteMany({ where: { id: rawId } });
+    if (count === 0) {
+      throw createError(404, "Account creation request not found");
     }
 
-    await prisma.accountCreationRequest.delete({ where: { id: rawId } });
     res.status(204).send();
   } catch (err: unknown) {
     next(err);
