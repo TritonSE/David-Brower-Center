@@ -1,4 +1,5 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
+import createError from "http-errors";
 
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
@@ -21,7 +22,9 @@ type UserRow = {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  profile_picture: string | null;
   role: string;
+  created_at: Date;
 };
 
 type AuthOk = { ok: true; userId: string; email: string | null };
@@ -41,6 +44,24 @@ function isValidEmail(value: string): boolean {
   const lastDot = domainWithTld.lastIndexOf(".");
   if (lastDot <= 0 || lastDot >= domainWithTld.length - 1) return false;
   return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function userResponse(user: UserRow) {
+  return {
+    id: user.supabase_user_id,
+    email: user.email,
+    name: user.name ?? "",
+    firstName: user.first_name ?? "",
+    lastName: user.last_name ?? "",
+    phone: user.phone ?? "",
+    profilePicture: user.profile_picture ?? "",
+    role: user.role,
+    createdAt: user.created_at.toISOString(),
+  };
 }
 
 function profileResponse(profile: UserRow) {
@@ -79,6 +100,104 @@ async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
   const email = toNullableTrimmedString(data.user.email);
   return { ok: true, userId: data.user.id, email };
 }
+
+/** GET /api/users */
+router.get("/", ...requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { created_at: "desc" },
+    });
+
+    return res.status(200).json({ users: users.map(userResponse) });
+  } catch (err: unknown) {
+    return next(err);
+  }
+});
+
+/** POST /api/users */
+router.post("/", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!isRecord(req.body)) {
+      return next(createError(400, "Request body must be a JSON object."));
+    }
+
+    const email = toNullableTrimmedString(req.body.email);
+    const password = toNullableTrimmedString(req.body.password);
+    const firstName = toNullableTrimmedString(req.body.firstName);
+    const lastName = toNullableTrimmedString(req.body.lastName);
+    const phone = toNullableTrimmedString(req.body.phone);
+    const role = toNullableTrimmedString(req.body.role) ?? "admin";
+
+    if (!email) {
+      return next(createError(400, "email is required."));
+    }
+    if (!isValidEmail(email)) {
+      return next(createError(400, "email is invalid."));
+    }
+    if (password !== null && password.length < 6) {
+      return next(createError(400, "password must be at least 6 characters."));
+    }
+    if (role.length === 0) {
+      return next(createError(400, "role must be a non-empty string."));
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { supabase_user_id: true },
+    });
+    if (existing) {
+      return next(createError(409, "A user with this email already exists."));
+    }
+
+    const authResult = password
+      ? await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            firstName,
+            lastName,
+            phone,
+          },
+        })
+      : await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          data: {
+            firstName,
+            lastName,
+            phone,
+          },
+        });
+
+    if (authResult.error) {
+      return next(createError(400, authResult.error.message));
+    }
+
+    const authUserId = authResult.data.user?.id;
+    if (!authUserId) {
+      return next(createError(500, "Supabase did not return a created user."));
+    }
+
+    const name = [firstName, lastName].filter(Boolean).join(" ") || null;
+    const user = await prisma.user.create({
+      data: {
+        supabase_user_id: authUserId,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        name,
+        role,
+      },
+    });
+
+    return res.status(201).json({ user: userResponse(user) });
+  } catch (err: unknown) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return next(createError(409, "A user with this email already exists."));
+    }
+    return next(err);
+  }
+});
 
 /** GET /api/users/profile */
 router.get("/profile", async (req: Request, res: Response, next: NextFunction) => {
