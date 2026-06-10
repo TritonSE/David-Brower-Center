@@ -16,6 +16,7 @@ import {
   ManageSortIcon,
   MoneyIcon,
   PeopleIcon,
+  TrashIcon,
 } from "./icons/AppIcons";
 import TagDashboard from "./manage/TagDashboard";
 import {
@@ -25,17 +26,18 @@ import {
   toManageTag,
 } from "./manage/types";
 import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
+import UsersPanel from "./UsersPanel";
 
 import type { OrganizationDetail } from "@/api/organization";
 import type { APIResult } from "@/api/request";
 import type { TagRecord } from "@/api/tags";
 
-import { getOrganizationById } from "@/api/organization";
+import { deleteOrganization, getOrganizationById } from "@/api/organization";
 import { deleteTag, getManageTags, updateTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 
-type ManageMode = "npos" | "tags" | "requests";
+type ManageMode = "npos" | "tags" | "requests" | "users";
 
 const NOT_PROVIDED = "Not provided";
 
@@ -92,6 +94,7 @@ export default function ManagePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [manageTags, setManageTags] = useState<ManageTag[]>([]);
   const [accountRequestCount, setAccountRequestCount] = useState(0);
+  const [userCount, setUserCount] = useState(0);
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
@@ -103,6 +106,9 @@ export default function ManagePage() {
   const [editingDetail, setEditingDetail] = useState<OrganizationDetail | null>(null);
   const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isRemoveNpoConfirmOpen, setIsRemoveNpoConfirmOpen] = useState(false);
+  const [isRemovingNpo, setIsRemovingNpo] = useState(false);
+  const [removeNpoError, setRemoveNpoError] = useState<string | null>(null);
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
@@ -265,6 +271,45 @@ export default function ManagePage() {
     );
   }
 
+  // Limit removal to selected rows that are still visible in the current list.
+  const selectedVisibleNpoIds = useMemo(
+    () => selectedIds.filter((id) => visibleRows.some((row) => row.id === id)),
+    [selectedIds, visibleRows],
+  );
+  const removeNpoDisabled = selectedVisibleNpoIds.length === 0;
+
+  const handleConfirmRemoveNpo = async () => {
+    if (isRemovingNpo || selectedVisibleNpoIds.length === 0) return;
+    setIsRemovingNpo(true);
+    setRemoveNpoError(null);
+
+    const outcomes = await Promise.all(
+      selectedVisibleNpoIds.map(async (id) => {
+        try {
+          const result = await deleteOrganization(id);
+          return { id, ok: result.success };
+        } catch {
+          return { id, ok: false };
+        }
+      }),
+    );
+
+    const removedIds = outcomes.filter((outcome) => outcome.ok).map((outcome) => outcome.id);
+    const failureCount = outcomes.length - removedIds.length;
+
+    if (removedIds.length > 0) {
+      setSelectedIds((current) => current.filter((value) => !removedIds.includes(value)));
+      void refetchOrganizations();
+    }
+
+    setIsRemovingNpo(false);
+    if (failureCount > 0) {
+      setRemoveNpoError(`Unable to remove ${failureCount.toString()} organization(s).`);
+    } else {
+      setIsRemoveNpoConfirmOpen(false);
+    }
+  };
+
   const handleTagCreated = useCallback((tag: TagRecord) => {
     const nextTag = toManageTag(tag);
     setManageTags((current: ManageTag[]) => [
@@ -425,6 +470,24 @@ export default function ManagePage() {
               </button>
               <button
                 type="button"
+                onClick={() => setActiveManageMode("users")}
+                className={classNames(
+                  "font-proxima relative pb-[1px] text-[16px] leading-6",
+                  activeManageMode === "users"
+                    ? "font-semibold text-[#3b9a9a]"
+                    : "font-normal text-[#484848]",
+                )}
+              >
+                Users ({userCount})
+                <span
+                  className={classNames(
+                    "absolute bottom-[-9px] left-0 h-px bg-[#3b9a9a] transition-all",
+                    activeManageMode === "users" ? "w-full" : "w-0",
+                  )}
+                />
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveManageMode("requests")}
                 className={classNames(
                   "font-proxima relative pb-[1px] text-[16px] leading-6",
@@ -470,18 +533,44 @@ export default function ManagePage() {
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    className="font-proxima inline-flex items-center gap-[12px] text-[17px] font-semibold text-[#3b9a9a]"
-                    onClick={() => {
-                      setEditingDetail(null);
-                      setIsAddNpoOpen(true);
-                    }}
-                  >
-                    <ManageAddIcon className="h-[18px] w-[18px]" />
-                    <span>Add NPO</span>
-                  </button>
+                  <div className="flex items-center gap-[32px]">
+                    <button
+                      type="button"
+                      disabled={removeNpoDisabled}
+                      onClick={() => {
+                        setRemoveNpoError(null);
+                        setIsRemoveNpoConfirmOpen(true);
+                      }}
+                      className={classNames(
+                        "font-proxima inline-flex items-center gap-[8px] text-[17px] font-semibold transition-colors",
+                        removeNpoDisabled
+                          ? "cursor-not-allowed text-[#909090]"
+                          : "text-[#d14343] hover:text-[#b23030]",
+                      )}
+                    >
+                      <TrashIcon className="h-[20px] w-[20px]" />
+                      <span>Remove NPO</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="font-proxima inline-flex items-center gap-[12px] text-[17px] font-semibold text-[#3b9a9a]"
+                      onClick={() => {
+                        setEditingDetail(null);
+                        setIsAddNpoOpen(true);
+                      }}
+                    >
+                      <ManageAddIcon className="h-[18px] w-[18px]" />
+                      <span>Add NPO</span>
+                    </button>
+                  </div>
                 </div>
+
+                {removeNpoError ? (
+                  <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {removeNpoError}
+                  </div>
+                ) : null}
 
                 <div className="flex flex-col">
                   <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
@@ -581,6 +670,11 @@ export default function ManagePage() {
             <div className={activeManageMode === "requests" ? "" : "hidden"}>
               <AccountRequestsPanel onCountChange={setAccountRequestCount} />
             </div>
+
+            {/* Kept mounted so the tab's user count stays accurate even when inactive. */}
+            <div className={activeManageMode === "users" ? "" : "hidden"}>
+              <UsersPanel onCountChange={setUserCount} />
+            </div>
           </div>
         </div>
       </section>
@@ -672,6 +766,54 @@ export default function ManagePage() {
 
       {toastMessage ? (
         <AddNpoSuccessMessage message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      ) : null}
+
+      {isRemoveNpoConfirmOpen ? (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 px-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isRemovingNpo) {
+              setIsRemoveNpoConfirmOpen(false);
+            }
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="remove-npo-title"
+            className="w-full max-w-[420px] rounded-[24px] border border-[#d9d9d9] bg-white p-6"
+            style={proximaFontStyle}
+          >
+            <h3 id="remove-npo-title" className="text-[18px] font-semibold text-black">
+              Remove {selectedVisibleNpoIds.length.toString()} organization(s)?
+            </h3>
+            <p className="mt-2 text-[14px] text-[#484848]">
+              This permanently deletes the selected organization(s), including their relationships
+              and tag assignments. This cannot be undone.
+            </p>
+            {removeNpoError ? (
+              <p className="mt-3 text-[14px] text-red-600">{removeNpoError}</p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isRemovingNpo}
+                onClick={() => setIsRemoveNpoConfirmOpen(false)}
+                className="rounded-[40px] border border-[#b4b4b4] px-4 py-2 text-[14px] font-semibold text-[#484848] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isRemovingNpo}
+                onClick={() => void handleConfirmRemoveNpo()}
+                className="rounded-[40px] bg-[#d14343] px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-[#b23030] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRemovingNpo ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

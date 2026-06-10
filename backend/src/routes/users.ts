@@ -199,6 +199,39 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
   }
 });
 
+/** DELETE /api/users/:id */
+router.delete("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || !USER_ID_PATTERN.test(rawId)) {
+      return next(createError(400, "A valid user id is required."));
+    }
+
+    const requester = getRequestAuthUser(req);
+    if (rawId === requester.supabase_user_id) {
+      return next(createError(403, "You cannot remove your own account."));
+    }
+
+    try {
+      await prisma.user.delete({ where: { supabase_user_id: rawId } });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return next(createError(404, "User profile not found."));
+      }
+      throw err;
+    }
+
+    const authDelete = await supabaseAdmin.auth.admin.deleteUser(rawId);
+    if (authDelete.error) {
+      return next(createError(400, authDelete.error.message));
+    }
+
+    return res.status(204).send();
+  } catch (err: unknown) {
+    return next(err);
+  }
+});
+
 /** GET /api/users/profile */
 router.get("/profile", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -318,6 +351,65 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
     }
   } catch (err: unknown) {
     next(err);
+  }
+});
+
+/** PATCH /api/users/:id */
+router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId: unknown = req.params.id;
+    if (typeof rawId !== "string" || !USER_ID_PATTERN.test(rawId)) {
+      return next(createError(400, "A valid user id is required."));
+    }
+    if (!isRecord(req.body)) {
+      return next(createError(400, "Request body must be a JSON object."));
+    }
+
+    const existing = await prisma.user.findUnique({ where: { supabase_user_id: rawId } });
+    if (!existing) {
+      return next(createError(404, "User profile not found."));
+    }
+
+    const email = toNullableTrimmedString(req.body.email) ?? existing.email;
+    const firstName = toNullableTrimmedString(req.body.firstName);
+    const lastName = toNullableTrimmedString(req.body.lastName);
+    const phone = toNullableTrimmedString(req.body.phone);
+    const role = toNullableTrimmedString(req.body.role) ?? existing.role;
+
+    if (!isValidEmail(email)) {
+      return next(createError(400, "email is invalid."));
+    }
+
+    if (email !== existing.email) {
+      const authUpdate = await supabaseAdmin.auth.admin.updateUserById(rawId, { email });
+      if (authUpdate.error) {
+        return next(createError(400, authUpdate.error.message));
+      }
+    }
+
+    const name = [firstName, lastName].filter(Boolean).join(" ") || null;
+
+    try {
+      const updated = await prisma.user.update({
+        where: { supabase_user_id: rawId },
+        data: {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          name,
+          role,
+        },
+      });
+      return res.status(200).json({ user: userResponse(updated) });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return next(createError(409, "A user with this email already exists."));
+      }
+      throw err;
+    }
+  } catch (err: unknown) {
+    return next(err);
   }
 });
 

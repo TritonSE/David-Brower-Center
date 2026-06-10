@@ -505,6 +505,35 @@ router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: 
   }
 });
 
+router.delete("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  const rawId: unknown = req.params.id;
+  if (typeof rawId !== "string" || rawId.length === 0) {
+    next(createError(400, "Organization id is required"));
+    return;
+  }
+  const id: string = rawId;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
+      if (!existing) {
+        throw createError(404, `Organization ${id} not found`);
+      }
+
+      // Remove dependent rows first — these relations have no ON DELETE CASCADE.
+      await tx.organizationTag.deleteMany({ where: { organizationId: id } });
+      await tx.organizationRelationship.deleteMany({
+        where: { OR: [{ npo1Id: id }, { npo2Id: id }] },
+      });
+      await tx.organization.delete({ where: { id } });
+    });
+
+    res.status(204).send();
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
 const EXT_PATTERN = /^[a-z0-9]{1,8}$/i;
 
 function safeExtensionFromFilename(filename: string): string {

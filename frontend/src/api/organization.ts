@@ -1,5 +1,5 @@
 import { authHeaders, getAccessToken } from "./auth";
-import { get, handleAPIError, isAbortError, patch, post } from "./request";
+import { del, get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
 
@@ -442,6 +442,27 @@ export type UpdateOrganizationValues = {
   tags?: string[];
   tagNames?: string[];
 };
+
+export async function deleteOrganization(
+  id: string,
+  signal?: AbortSignal,
+): Promise<APIResult<void>> {
+  try {
+    const token = await getAccessToken();
+    await del(
+      `/api/organizations/${encodeURIComponent(id)}`,
+      authHeaders(token),
+      undefined,
+      signal,
+    );
+    return { success: true, data: undefined };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
+  }
+}
 
 export async function updateOrganization(
   id: string,
