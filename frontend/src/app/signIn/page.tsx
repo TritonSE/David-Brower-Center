@@ -3,7 +3,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { signIn, signUp } from "../../services/auth";
+import { createAccountCreationRequest } from "../../api/accountCreationRequests";
+import { signIn } from "../../services/auth";
 
 import styles from "./SignIn.module.css";
 
@@ -57,41 +58,6 @@ function EyeIcon({ show }: { show: boolean }) {
   );
 }
 
-function ErrorIcon() {
-  return (
-    <svg className={styles.authIconError} fill="currentColor" viewBox="0 0 20 20" aria-hidden>
-      <path
-        fillRule="evenodd"
-        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function PasswordValidIcon() {
-  return (
-    <span className={styles.authIconSuccess} aria-hidden>
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="8" cy="8" r="8" fill="#16a34a" />
-        <path
-          d="M5 8l2.5 2.5L11 6"
-          stroke="white"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  );
-}
-
 type AuthMode = "signin" | "signup" | "signup-success";
 
 export default function SignIn() {
@@ -100,25 +66,34 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  const [signUpName, setSignUpName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
-  const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpTouched, setSignUpTouched] = useState(false);
+  const [signUpError, setSignUpError] = useState<string | null>(null);
+  const [isSignUpSubmitting, setIsSignUpSubmitting] = useState(false);
 
+  const nameError = signUpTouched && !signUpName.trim();
   const emailError = signUpTouched && !signUpEmail.trim();
-  const passwordError = signUpTouched && signUpPassword.length < 8;
 
   async function handleSignUpSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSignUpTouched(true);
-    if (!signUpEmail.trim() || signUpPassword.length < 8) return;
+    setSignUpError(null);
+    if (!signUpName.trim() || !signUpEmail.trim()) return;
+    setIsSignUpSubmitting(true);
     try {
-      await signUp({ email: signUpEmail, password: signUpPassword });
+      await createAccountCreationRequest({ email: signUpEmail, name: signUpName });
+      setSignUpName("");
       setSignUpEmail("");
-      setSignUpPassword("");
       setSignUpTouched(false);
       setMode("signup-success");
     } catch (error) {
       console.error(error);
+      setSignUpError(
+        error instanceof Error ? error.message : "Unable to submit your account request.",
+      );
+    } finally {
+      setIsSignUpSubmitting(false);
     }
   }
 
@@ -140,7 +115,7 @@ export default function SignIn() {
           <h1 className={styles.confirmationHeading}>
             We&apos;ve received your
             <br />
-            account creation!
+            account request!
           </h1>
           <p className={styles.confirmationBody}>
             You will be notified by email if your account is approved.
@@ -250,7 +225,7 @@ export default function SignIn() {
         ) : (
           <>
             <h1 className={styles.authHeading}>Create account</h1>
-            <p className={styles.authSubheading}>Welcome to DBC Database!</p>
+            <p className={styles.authSubheading}>Request admin access to DBC Database.</p>
 
             <form
               className={styles.authForm}
@@ -258,6 +233,22 @@ export default function SignIn() {
                 void handleSignUpSubmit(e);
               }}
             >
+              <div className={styles.authFieldGroup}>
+                <label htmlFor="signup-name" className={styles.authLabel}>
+                  Name
+                </label>
+                <input
+                  id="signup-name"
+                  type="text"
+                  autoComplete="name"
+                  value={signUpName}
+                  onChange={(e) => setSignUpName(e.target.value)}
+                  className={`${styles.authInput} ${nameError ? styles.authInputError : ""}`}
+                  placeholder="Jane Doe"
+                />
+                {nameError && <p className={styles.authError}>This field is required</p>}
+              </div>
+
               <div className={styles.authFieldGroup}>
                 <label htmlFor="signup-email" className={styles.authLabel}>
                   Email
@@ -274,58 +265,22 @@ export default function SignIn() {
                 {emailError && <p className={styles.authError}>This field is required</p>}
               </div>
 
-              <div className={styles.authFieldGroup}>
-                <label htmlFor="signup-password" className={styles.authLabel}>
-                  Password
-                </label>
-                <div className={styles.authInputWrapper}>
-                  <input
-                    id="signup-password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
-                    className={`${styles.authInput} ${styles.authInputPassword} ${passwordError ? styles.authInputError : signUpPassword.length >= 8 ? styles.authInputSuccess : ""}`}
-                    placeholder="password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className={styles.authPasswordToggle}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    <EyeIcon show={showPassword} />
-                  </button>
-                </div>
-                {passwordError && (
-                  <p className={styles.authErrorWithIcon}>
-                    <ErrorIcon />
-                    Your password must contain 8 or more characters
-                  </p>
-                )}
-                {signUpPassword.length >= 8 && (
-                  <p className={styles.authSuccessWithIcon}>
-                    <PasswordValidIcon />
-                    <span className={styles.authSuccessText}>
-                      Your password meets all the necessary requirements.
-                    </span>
-                  </p>
-                )}
-              </div>
+              {signUpError && <p className={styles.authError}>{signUpError}</p>}
 
-              <button type="submit" className={styles.authBtnPrimary}>
-                Create account
+              <button type="submit" className={styles.authBtnPrimary} disabled={isSignUpSubmitting}>
+                {isSignUpSubmitting ? "Submitting..." : "Request account"}
               </button>
             </form>
 
             <p className={styles.authFooterText}>
-              Don't have an account?{" "}
+              Already have an account?{" "}
               <button
                 type="button"
                 onClick={() => {
+                  setSignUpName("");
                   setSignUpEmail("");
-                  setSignUpPassword("");
                   setSignUpTouched(false);
+                  setSignUpError(null);
                   setMode("signin");
                 }}
                 className={styles.authLink}
@@ -333,18 +288,6 @@ export default function SignIn() {
                 Sign in
               </button>
             </p>
-
-            <div className={styles.authDivider}>
-              <div className={styles.authDividerLine} />
-              <div className={styles.authDividerText}>
-                <span>or</span>
-              </div>
-            </div>
-
-            <button type="button" className={styles.authBtnGoogle}>
-              <GoogleIcon />
-              Sign up with Google
-            </button>
           </>
         )}
       </div>
