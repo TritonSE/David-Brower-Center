@@ -34,7 +34,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function AccountRequestsPage() {
+export default function AccountRequestsPanel({
+  onCountChange,
+}: {
+  onCountChange?: (count: number) => void;
+}) {
   const [requests, setRequests] = useState<AccountCreationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -68,6 +72,10 @@ export default function AccountRequestsPage() {
     void loadRequests();
     return () => abortRef.current?.abort();
   }, [loadRequests]);
+
+  useEffect(() => {
+    onCountChange?.(requests.length);
+  }, [requests, onCountChange]);
 
   const visibleRequests = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -107,60 +115,39 @@ export default function AccountRequestsPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <section className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
-        Loading account requests...
-      </section>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <section className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 shadow-sm">
-        <p className="text-sm text-[#484848]">{loadError}</p>
-        <button
-          className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
-          type="button"
-          onClick={() => void loadRequests()}
-        >
-          Retry
-        </button>
-      </section>
-    );
-  }
-
   return (
-    <section className="rounded-[30px] border border-[#d9d9d9] bg-white px-5 pb-[31px] pt-[20px]">
-      <div className="flex flex-col gap-[30px]">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="font-['Proxima_Nova','Helvetica_Neue',Arial,sans-serif] text-[28px] font-bold leading-tight text-black">
-              Account Requests
-            </h1>
-            <p className="mt-1 text-[14px] text-[#6c6c6c]">
-              Review pending admin account creation requests.
-            </p>
-          </div>
+    <div className="flex flex-col gap-[24px]">
+      <label className="relative block w-full md:w-[363px]">
+        <span className="sr-only">Search account requests</span>
+        <input
+          type="search"
+          placeholder="Search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white px-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
+        />
+      </label>
 
-          <label className="relative block w-full md:w-[363px]">
-            <span className="sr-only">Search account requests</span>
-            <input
-              type="search"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white px-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
-            />
-          </label>
+      {actionError ? (
+        <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
         </div>
+      ) : null}
 
-        {actionError ? (
-          <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {actionError}
-          </div>
-        ) : null}
-
+      {isLoading ? (
+        <p className="text-sm text-[#6c6c6c]">Loading account requests...</p>
+      ) : loadError ? (
+        <div>
+          <p className="text-sm text-[#484848]">{loadError}</p>
+          <button
+            className="mt-3 rounded-[40px] bg-[#3b9a9a] px-4 py-2 text-sm font-semibold text-white"
+            type="button"
+            onClick={() => void loadRequests()}
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
         <div className="overflow-x-auto">
           <div className="min-w-[780px]">
             <div className="border-b border-black px-6 py-4">
@@ -227,7 +214,7 @@ export default function AccountRequestsPage() {
             )}
           </div>
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }

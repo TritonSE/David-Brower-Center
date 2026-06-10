@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import AccountRequestsPanel from "./AccountRequestsPanel";
 import AddNpoPopup from "./AddNpoPopup";
 import AddNpoSuccessMessage from "./AddNpoSuccessMessage";
 import {
@@ -34,7 +35,7 @@ import { deleteTag, getManageTags, updateTag } from "@/api/tags";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 
-type ManageMode = "npos" | "tags";
+type ManageMode = "npos" | "tags" | "requests";
 
 const NOT_PROVIDED = "Not provided";
 
@@ -90,6 +91,7 @@ export default function ManagePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [manageTags, setManageTags] = useState<ManageTag[]>([]);
+  const [accountRequestCount, setAccountRequestCount] = useState(0);
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeOrgDetail, setActiveOrgDetail] = useState<OrganizationDetail | null>(null);
@@ -421,6 +423,24 @@ export default function ManagePage() {
                   )}
                 />
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveManageMode("requests")}
+                className={classNames(
+                  "font-proxima relative pb-[1px] text-[16px] leading-6",
+                  activeManageMode === "requests"
+                    ? "font-semibold text-[#3b9a9a]"
+                    : "font-normal text-[#484848]",
+                )}
+              >
+                Account Requests ({accountRequestCount})
+                <span
+                  className={classNames(
+                    "absolute bottom-[-9px] left-0 h-px bg-[#3b9a9a] transition-all",
+                    activeManageMode === "requests" ? "w-full" : "w-0",
+                  )}
+                />
+              </button>
             </div>
 
             {activeManageMode === "npos" ? (
@@ -546,7 +566,7 @@ export default function ManagePage() {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : activeManageMode === "tags" ? (
               <TagDashboard
                 availableOrganizations={availableTagOrganizations}
                 tags={manageTags}
@@ -555,7 +575,12 @@ export default function ManagePage() {
                 onTagOrganizationsUpdated={handleTagOrganizationsUpdated}
                 onTagUpdated={handleTagUpdated}
               />
-            )}
+            ) : null}
+
+            {/* Kept mounted so the tab's request count stays accurate even when inactive. */}
+            <div className={activeManageMode === "requests" ? "" : "hidden"}>
+              <AccountRequestsPanel onCountChange={setAccountRequestCount} />
+            </div>
           </div>
         </div>
       </section>
