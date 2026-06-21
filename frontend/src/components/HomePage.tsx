@@ -40,6 +40,7 @@ export default function HomePage() {
         name: o.name,
         focus: o.focus,
         year: o.year,
+        size: o.size,
         tags: o.tags,
       })),
     [organizations],

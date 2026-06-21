@@ -1,7 +1,6 @@
 "use client";
 
 import { DM_Sans, Rubik } from "next/font/google";
-import { useState } from "react";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
@@ -9,15 +8,21 @@ const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
 type SelectionBoxProps = {
   title: string;
   options: string[];
+  selectedOptions: string[];
+  onSelectionChange: (selected: string[]) => void;
 };
 
-export default function SelectionBox({ title, options }: SelectionBoxProps) {
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-
+export default function SelectionBox({
+  title,
+  options,
+  selectedOptions,
+  onSelectionChange,
+}: SelectionBoxProps) {
   const toggleOption = (option: string) => {
-    setSelectedOptions((prev) =>
-      prev.includes(option) ? prev.filter((item) => item !== option) : [...prev, option],
-    );
+    const next = selectedOptions.includes(option)
+      ? selectedOptions.filter((item) => item !== option)
+      : [...selectedOptions, option];
+    onSelectionChange(next);
   };
 
   return (
@@ -38,7 +43,7 @@ export default function SelectionBox({ title, options }: SelectionBoxProps) {
           {title}
         </h3>
         <button
-          onClick={() => setSelectedOptions([])}
+          onClick={() => onSelectionChange([])}
           className="cursor-pointer flex items-center justify-center font-bold text-[#3B9A9A]"
           style={{ fontFamily: "var(--font-rubik)" }}
         >

@@ -13,6 +13,7 @@ export type Row = {
   name: string;
   focus: string;
   year: string;
+  size: string;
   tags: OrganizationTag[];
 };
 
@@ -142,16 +143,32 @@ function isAbortError(error: unknown): boolean {
 
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const [search, setSearch] = useState("");
+  const [selectedFocusAreas, setSelectedFocusAreas] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [focusAreaOptions, setFocusAreaOptions] = useState<string[]>([]);
   const [isTagsLoading, setIsTagsLoading] = useState(true);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const tagsAbortRef = useRef<AbortController | null>(null);
 
+  const sizeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (row.size && row.size !== "Not provided") seen.add(row.size);
+    }
+    return [...seen].sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (query.length === 0) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(query));
-  }, [rows, search]);
+    return rows.filter((row) => {
+      const matchesSearch = query.length === 0 || row.name.toLowerCase().includes(query);
+      const matchesFocusArea =
+        selectedFocusAreas.length === 0 ||
+        row.tags.some((tag) => selectedFocusAreas.includes(tag.name));
+      const matchesSize = selectedSizes.length === 0 || selectedSizes.includes(row.size);
+      return matchesSearch && matchesFocusArea && matchesSize;
+    });
+  }, [rows, search, selectedFocusAreas, selectedSizes]);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -227,6 +244,11 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                   focusAreaOptions={focusAreaOptions}
                   focusAreaState={focusAreaState}
                   focusAreaErrorMessage={tagsError}
+                  selectedFocusAreas={selectedFocusAreas}
+                  onFocusAreaChange={setSelectedFocusAreas}
+                  sizeOptions={sizeOptions}
+                  selectedSizes={selectedSizes}
+                  onSizeChange={setSelectedSizes}
                 />
               </div>
             )}
