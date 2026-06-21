@@ -704,7 +704,7 @@ export default function AdminProfile() {
   return (
     <div className="page">
       <div className="page-top">
-        <Navbar isSignedIn defaultView="admin" className="profile-nav" />
+        <Navbar isSignedIn className="profile-nav" />
 
         <div
           className={`account-dropdown ${isAccountMenuOpen ? "account-dropdown-open" : ""}`}
