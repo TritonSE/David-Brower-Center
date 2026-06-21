@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import FilteringMenu from "./filteringmenu/FilteringMenu";
 import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
-import SortMenuPopup from "./SortMenuPopup";
+import SortMenuPopup, { SORT_OPTIONS } from "./SortMenuPopup";
 
+import type { SortOption } from "./SortMenuPopup";
 import type { OrganizationTag } from "@/api/organization";
 
 import { getTags } from "@/api/tags";
@@ -149,6 +150,9 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const [isTagsLoading, setIsTagsLoading] = useState(true);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const tagsAbortRef = useRef<AbortController | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>(SORT_OPTIONS[0]);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   const sizeOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -160,7 +164,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    const filtered = rows.filter((row) => {
       const matchesSearch = query.length === 0 || row.name.toLowerCase().includes(query);
       const matchesFocusArea =
         selectedFocusAreas.length === 0 ||
@@ -168,10 +172,22 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
       const matchesSize = selectedSizes.length === 0 || selectedSizes.includes(row.size);
       return matchesSearch && matchesFocusArea && matchesSize;
     });
-  }, [rows, search, selectedFocusAreas, selectedSizes]);
 
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "NPO Name A-Z":
+          return a.name.localeCompare(b.name);
+        case "NPO Name Z-A":
+          return b.name.localeCompare(a.name);
+        case "Size - Smallest to Largest":
+          return a.size.localeCompare(b.size);
+        case "Size - Largest to Smallest":
+          return b.size.localeCompare(a.size);
+        default:
+          return 0;
+      }
+    });
+  }, [rows, search, selectedFocusAreas, selectedSizes, sortBy]);
 
   useEffect(() => {
     tagsAbortRef.current?.abort();
@@ -271,7 +287,13 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
               {showSortMenu && (
                 <div className="absolute left-0 top-6 z-20 font-normal">
-                  <SortMenuPopup />
+                  <SortMenuPopup
+                    selected={sortBy}
+                    onSelect={(option) => {
+                      setSortBy(option);
+                      setShowSortMenu(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
