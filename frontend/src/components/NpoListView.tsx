@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import FilteringMenu from "./filteringmenu/FilteringMenu";
-import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+import { ManageFilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import SortMenuPopup, { SORT_OPTIONS } from "./SortMenuPopup";
 
 import type { SortOption } from "./SortMenuPopup";
@@ -249,8 +249,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
               className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
               onClick={() => setShowFilterMenu(!showFilterMenu)}
             >
-              <FilterIcon
-                className={`h-[18px] w-[18px] ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
+              <ManageFilterIcon
+                className={`h-[20px] w-[20px] ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
               />
             </button>
 
