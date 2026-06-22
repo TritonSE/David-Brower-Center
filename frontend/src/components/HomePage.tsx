@@ -35,14 +35,21 @@ export default function HomePage() {
   } = useOrganizations();
   const rows: Row[] = useMemo(
     () =>
-      organizations.map((o) => ({
-        id: o.id,
-        name: o.name,
-        focus: o.focus,
-        year: o.year,
-        size: o.size,
-        tags: o.tags,
-      })),
+      organizations.map((o) => {
+        const d = new Date(o.updatedAt);
+        const updatedAt =
+          o.updatedAt && !Number.isNaN(d.getTime())
+            ? d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+            : "—";
+        return {
+          id: o.id,
+          name: o.name,
+          focus: o.focus,
+          updatedAt,
+          size: o.size,
+          tags: o.tags,
+        };
+      }),
     [organizations],
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);

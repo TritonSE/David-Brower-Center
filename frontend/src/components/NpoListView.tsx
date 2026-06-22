@@ -13,7 +13,7 @@ export type Row = {
   id: string;
   name: string;
   focus: string;
-  year: string;
+  updatedAt: string;
   size: string;
   tags: OrganizationTag[];
 };
@@ -298,7 +298,7 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
               )}
             </div>
             <span>Focus</span>
-            <span>Year</span>
+            <span>Updated</span>
           </div>
 
           <div className="divide-y divide-[#d9d9d9]">
@@ -321,7 +321,9 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                 >
                   <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.name}</span>
                   <TagChipList tags={row.tags} isActive={isActive} />
-                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.year}</span>
+                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>
+                    {row.updatedAt}
+                  </span>
                 </button>
               );
             })}

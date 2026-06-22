@@ -1,7 +1,13 @@
+/*
+ * The profile page renders inside the shared Layout's padded <main> just like
+ * every other page, so .page must NOT re-create a full-bleed page of its own.
+ * The outer 20px inset comes from Layout's `p-5`; the full-height gradient is
+ * painted on the Layout container via the `body:has(main > .page)` rule below.
+ * Adding padding/min-height/background here again double-padded the content and
+ * overflowed the viewport, which is what made this page's dimensions differ
+ * from list/manage.
+ */
 .page {
-  min-height: 100vh;
-  background: linear-gradient(180deg, #edf4f2 0%, #f7fbfa 100%);
-  padding: 14px 16px 28px;
   position: relative;
   font-family: system-ui, sans-serif;
 }
@@ -33,7 +39,7 @@ body:has(main > .page) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .profile-nav {
@@ -161,7 +167,6 @@ body:has(main > .page) {
   border: 1px solid #d8ddda;
   border-radius: 28px;
   background: #ffffff;
-  min-height: calc(100vh - 124px);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
 }
 
