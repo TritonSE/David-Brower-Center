@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 
-import { FRONTEND_ORIGIN } from "./config";
+import { FRONTEND_ORIGINS } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 import accountCreationRequestsRouter from "./routes/accountCreationRequests";
@@ -11,7 +11,7 @@ import usersRouter from "./routes/users";
 import whoamiRouter from "./routes/whoami";
 
 const app = express();
-const allowedOrigins = new Set([FRONTEND_ORIGIN]);
+const allowedOrigins = new Set(FRONTEND_ORIGINS);
 
 if (process.env.NODE_ENV !== "production") {
   allowedOrigins.add("http://localhost:3000");
@@ -23,13 +23,18 @@ if (process.env.NODE_ENV !== "production") {
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Non-browser clients (curl, server-to-server) may omit Origin.
       if (!origin || allowedOrigins.has(origin)) {
         callback(null, true);
         return;
       }
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // Reject without throwing so the response can still include CORS headers
+      // where appropriate, and we don't turn this into an opaque 500.
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, false);
     },
-    methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
+    methods: ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
