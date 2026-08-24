@@ -10,6 +10,10 @@
 .page {
   position: relative;
   font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 body:has(main > .page) header {
@@ -20,6 +24,8 @@ body:has(main > .page) .min-h-screen.bg-slate-100 {
   background: linear-gradient(180deg, #edf4f2 0%, #f7fbfa 100%);
   overflow-x: hidden;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 body:has(main > .page) nextjs-portal {
@@ -28,6 +34,10 @@ body:has(main > .page) nextjs-portal {
 
 body:has(main > .page) main {
   padding-top: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 body:has(main > .page) {
@@ -168,6 +178,8 @@ body:has(main > .page) {
   border-radius: 28px;
   background: #ffffff;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  flex: 1;
+  min-height: 0;
 }
 
 .profile-card-inner {
@@ -230,6 +242,73 @@ body:has(main > .page) {
   color: #43a9ad;
   font-size: 13px;
   font-weight: 400;
+}
+
+/*
+ * Loading skeletons. The profile page mounts with empty/placeholder state and
+ * only fills in once the session check and the /profile fetch resolve. These
+ * shimmer blocks stand in for that window so we never flash the fallback
+ * avatar or empty fields before the real user data arrives.
+ */
+.skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background-color: #e8ecea;
+  background-image: linear-gradient(90deg, #e8ecea 0, #f3f6f5 60px, #e8ecea 120px);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -120px 0;
+  }
+  100% {
+    background-position: calc(120px + 100%) 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.skeleton-chip-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.skeleton-chip-name {
+  width: 96px;
+  height: 13px;
+}
+
+.skeleton-avatar-large {
+  width: 100px;
+  height: 100px;
+  border-radius: 999px;
+}
+
+.skeleton-hero-name {
+  width: 180px;
+  max-width: 100%;
+  height: 22px;
+}
+
+.skeleton-hero-role {
+  width: 90px;
+  height: 13px;
+  margin-top: 8px;
+}
+
+.skeleton-detail-value {
+  width: min(200px, 100%);
+  height: 16px;
+  margin-left: 12px;
 }
 
 .profile-section {

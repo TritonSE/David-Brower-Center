@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 
-import { FRONTEND_ORIGIN, PORT } from "./config";
+import { FRONTEND_ORIGIN } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 import accountCreationRequestsRouter from "./routes/accountCreationRequests";
@@ -50,6 +50,5 @@ app.use("/api/organizations", organizationsRouter);
 app.use("/api/tags", tagsRouter);
 
 app.use(errorHandler);
-app.listen(PORT, () => {
-  console.info(`> Listening on port ${PORT}`);
-});
+
+export default app;
