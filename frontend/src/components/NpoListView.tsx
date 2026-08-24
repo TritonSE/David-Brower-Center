@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import FilteringMenu from "./filteringmenu/FilteringMenu";
-import { FilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
-import SortMenuPopup from "./SortMenuPopup";
+import { ManageFilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+import SortMenuPopup, { SORT_OPTIONS } from "./SortMenuPopup";
 
+import type { SortOption } from "./SortMenuPopup";
 import type { OrganizationTag } from "@/api/organization";
 
 import { getTags } from "@/api/tags";
@@ -12,7 +13,8 @@ export type Row = {
   id: string;
   name: string;
   focus: string;
-  year: string;
+  updatedAt: string;
+  size: string;
   tags: OrganizationTag[];
 };
 
@@ -142,19 +144,50 @@ function isAbortError(error: unknown): boolean {
 
 export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
   const [search, setSearch] = useState("");
+  const [selectedFocusAreas, setSelectedFocusAreas] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [focusAreaOptions, setFocusAreaOptions] = useState<string[]>([]);
   const [isTagsLoading, setIsTagsLoading] = useState(true);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const tagsAbortRef = useRef<AbortController | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>(SORT_OPTIONS[0]);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+  const sizeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (row.size && row.size !== "Not provided") seen.add(row.size);
+    }
+    return [...seen].sort();
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (query.length === 0) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(query));
-  }, [rows, search]);
+    const filtered = rows.filter((row) => {
+      const matchesSearch = query.length === 0 || row.name.toLowerCase().includes(query);
+      const matchesFocusArea =
+        selectedFocusAreas.length === 0 ||
+        row.tags.some((tag) => selectedFocusAreas.includes(tag.name));
+      const matchesSize = selectedSizes.length === 0 || selectedSizes.includes(row.size);
+      return matchesSearch && matchesFocusArea && matchesSize;
+    });
 
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "NPO Name A-Z":
+          return a.name.localeCompare(b.name);
+        case "NPO Name Z-A":
+          return b.name.localeCompare(a.name);
+        case "Size - Smallest to Largest":
+          return a.size.localeCompare(b.size);
+        case "Size - Largest to Smallest":
+          return b.size.localeCompare(a.size);
+        default:
+          return 0;
+      }
+    });
+  }, [rows, search, selectedFocusAreas, selectedSizes, sortBy]);
 
   useEffect(() => {
     tagsAbortRef.current?.abort();
@@ -216,8 +249,8 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
               className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
               onClick={() => setShowFilterMenu(!showFilterMenu)}
             >
-              <FilterIcon
-                className={`h-[18px] w-[18px] ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
+              <ManageFilterIcon
+                className={`h-[20px] w-[20px] ${showFilterMenu ? "text-[#3b9a9a]" : "text-[#6c6c6c]"}`}
               />
             </button>
 
@@ -227,6 +260,11 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                   focusAreaOptions={focusAreaOptions}
                   focusAreaState={focusAreaState}
                   focusAreaErrorMessage={tagsError}
+                  selectedFocusAreas={selectedFocusAreas}
+                  onFocusAreaChange={setSelectedFocusAreas}
+                  sizeOptions={sizeOptions}
+                  selectedSizes={selectedSizes}
+                  onSizeChange={setSelectedSizes}
                 />
               </div>
             )}
@@ -249,12 +287,18 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
 
               {showSortMenu && (
                 <div className="absolute left-0 top-6 z-20 font-normal">
-                  <SortMenuPopup />
+                  <SortMenuPopup
+                    selected={sortBy}
+                    onSelect={(option) => {
+                      setSortBy(option);
+                      setShowSortMenu(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
             <span>Focus</span>
-            <span>Year</span>
+            <span>Updated</span>
           </div>
 
           <div className="divide-y divide-[#d9d9d9]">
@@ -277,7 +321,9 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
                 >
                   <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.name}</span>
                   <TagChipList tags={row.tags} isActive={isActive} />
-                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>{row.year}</span>
+                  <span className={isActive ? "font-semibold" : "text-[#1f1f1f]"}>
+                    {row.updatedAt}
+                  </span>
                 </button>
               );
             })}

@@ -234,7 +234,7 @@ export default function AdminProfile() {
     originY: number;
   } | null>(null);
   const [profile, setProfile] = useState<ProfileForm>(emptyProfile);
-  const [profilePhotoSrc, setProfilePhotoSrc] = useState(defaultProfilePhotoSrc);
+  const [profilePhotoSrc, setProfilePhotoSrc] = useState<string | null>(null);
   const [draftProfile, setDraftProfile] = useState<ProfileForm>(emptyProfile);
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
@@ -262,6 +262,12 @@ export default function AdminProfile() {
   const [signOutReason, setSignOutReason] = useState<SignOutReason>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activeProfile = isEditing ? draftProfile : profile;
+  // While the session check and the /profile fetch are in flight, the component
+  // still holds its initial empty/placeholder state. Treat both waits as a
+  // single "not ready" window so we render a skeleton instead of flashing the
+  // empty fields and the fallback avatar before the real user arrives.
+  const isLoading = isAuthLoading || isProfileLoading;
+  const avatarSrc = profilePhotoSrc ?? defaultProfilePhotoSrc;
 
   // The crop stage is responsive (CSS width: 100%), so read its real rendered
   // size rather than assuming the design-time dimensions. The crop circle is
@@ -704,7 +710,7 @@ export default function AdminProfile() {
   return (
     <div className="page">
       <div className="page-top">
-        <Navbar isSignedIn defaultView="admin" className="profile-nav" />
+        <Navbar isSignedIn className="profile-nav" />
 
         <div
           className={`account-dropdown ${isAccountMenuOpen ? "account-dropdown-open" : ""}`}
@@ -716,16 +722,26 @@ export default function AdminProfile() {
             aria-label="Open profile menu"
             aria-expanded={isAccountMenuOpen}
             onClick={() => setIsAccountMenuOpen((open) => !open)}
+            disabled={isLoading}
           >
-            <Image
-              src={profilePhotoSrc}
-              alt={activeProfile.name}
-              width={32}
-              height={32}
-              className="account-chip-avatar"
-              unoptimized
-            />
-            <span className="account-chip-name">{activeProfile.name}</span>
+            {isLoading ? (
+              <>
+                <span className="skeleton skeleton-chip-avatar" aria-hidden="true" />
+                <span className="skeleton skeleton-chip-name" aria-hidden="true" />
+              </>
+            ) : (
+              <>
+                <Image
+                  src={avatarSrc}
+                  alt={activeProfile.name}
+                  width={32}
+                  height={32}
+                  className="account-chip-avatar"
+                  unoptimized
+                />
+                <span className="account-chip-name">{activeProfile.name}</span>
+              </>
+            )}
             <span
               className={`account-chip-caret ${isAccountMenuOpen ? "account-chip-caret-open" : ""}`}
             >
@@ -737,7 +753,7 @@ export default function AdminProfile() {
             <div className="account-menu">
               <div className="account-menu-header">
                 <Image
-                  src={profilePhotoSrc}
+                  src={avatarSrc}
                   alt={activeProfile.name}
                   width={32}
                   height={32}
@@ -779,14 +795,18 @@ export default function AdminProfile() {
         <div className="profile-card-inner">
           <div className="profile-hero">
             <div className="profile-avatar-shell">
-              <Image
-                src={profilePhotoSrc}
-                alt={activeProfile.name}
-                width={100}
-                height={100}
-                className="avatar-large"
-                unoptimized
-              />
+              {isLoading ? (
+                <div className="skeleton skeleton-avatar-large" aria-hidden="true" />
+              ) : (
+                <Image
+                  src={avatarSrc}
+                  alt={activeProfile.name}
+                  width={100}
+                  height={100}
+                  className="avatar-large"
+                  unoptimized
+                />
+              )}
               {isEditing && (
                 <button
                   type="button"
@@ -800,8 +820,17 @@ export default function AdminProfile() {
             </div>
 
             <div className="profile-text">
-              <h1>{activeProfile.name}</h1>
-              <p className="role-text">{profile.role}</p>
+              {isLoading ? (
+                <>
+                  <div className="skeleton skeleton-hero-name" aria-hidden="true" />
+                  <div className="skeleton skeleton-hero-role" aria-hidden="true" />
+                </>
+              ) : (
+                <>
+                  <h1>{activeProfile.name}</h1>
+                  <p className="role-text">{profile.role}</p>
+                </>
+              )}
             </div>
           </div>
 
@@ -809,7 +838,7 @@ export default function AdminProfile() {
             <div className="section-heading">
               <h2 className="section-title">Personal Information</h2>
 
-              {!isEditing && !isProfileLoading && !loadError && (
+              {!isEditing && !isLoading && !loadError && (
                 <button type="button" className="edit-inline-btn" onClick={startEditing}>
                   <span>Edit Profile</span>
                   <Image
@@ -826,7 +855,9 @@ export default function AdminProfile() {
             <div className="details-grid">
               <div className="detail-row">
                 <span className="detail-label">Name</span>
-                {isEditing ? (
+                {isLoading ? (
+                  <span className="skeleton skeleton-detail-value" aria-hidden="true" />
+                ) : isEditing ? (
                   <input
                     className="input"
                     value={draftProfile.name}
@@ -840,7 +871,9 @@ export default function AdminProfile() {
 
               <div className="detail-row">
                 <span className="detail-label">Email</span>
-                {isEditing ? (
+                {isLoading ? (
+                  <span className="skeleton skeleton-detail-value" aria-hidden="true" />
+                ) : isEditing ? (
                   <input
                     className="input"
                     type="email"
@@ -856,7 +889,9 @@ export default function AdminProfile() {
 
               <div className="detail-row">
                 <span className="detail-label">Phone Number</span>
-                {isEditing ? (
+                {isLoading ? (
+                  <span className="skeleton skeleton-detail-value" aria-hidden="true" />
+                ) : isEditing ? (
                   <input
                     className="input"
                     value={draftProfile.phone}
@@ -870,7 +905,9 @@ export default function AdminProfile() {
 
               <div className="detail-row">
                 <span className="detail-label">Role</span>
-                {isEditing ? (
+                {isLoading ? (
+                  <span className="skeleton skeleton-detail-value" aria-hidden="true" />
+                ) : isEditing ? (
                   <input
                     className="input input-readonly"
                     value={profile.role}

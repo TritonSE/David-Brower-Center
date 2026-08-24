@@ -2,7 +2,6 @@
 
 import CheckboxGroup from "./Checkbox";
 import SelectionBox from "./SelectionBox";
-import SliderFilter from "./SliderFilter";
 
 type FocusAreaState = "ready" | "loading" | "empty" | "error";
 
@@ -10,12 +9,22 @@ type FilteringMenuProps = {
   focusAreaOptions: string[];
   focusAreaState: FocusAreaState;
   focusAreaErrorMessage?: string | null;
+  selectedFocusAreas: string[];
+  onFocusAreaChange: (selected: string[]) => void;
+  sizeOptions: string[];
+  selectedSizes: string[];
+  onSizeChange: (selected: string[]) => void;
 };
 
 export default function FilteringMenu({
   focusAreaOptions,
   focusAreaState,
   focusAreaErrorMessage,
+  selectedFocusAreas,
+  onFocusAreaChange,
+  sizeOptions,
+  selectedSizes,
+  onSizeChange,
 }: FilteringMenuProps) {
   const focusAreaStatusMessage =
     focusAreaState === "loading"
@@ -29,15 +38,16 @@ export default function FilteringMenu({
   return (
     <div
       className="bg-white border-[#B4B4B4] rounded-2xl border flex flex-col overflow-hidden"
-      style={{
-        width: "409px",
-        height: "486px",
-      }}
+      style={{ width: "409px" }}
     >
-      {/* Scrollable Content Area */}
-      <div className="p-6 overflow-y-auto h-full">
+      <div className="p-6 overflow-y-auto">
         {focusAreaState === "ready" ? (
-          <SelectionBox title="Focus Area" options={focusAreaOptions} />
+          <SelectionBox
+            title="Focus Area"
+            options={focusAreaOptions}
+            selectedOptions={selectedFocusAreas}
+            onSelectionChange={onFocusAreaChange}
+          />
         ) : (
           <div className="mb-6 border-black pt-4">
             <h3 className="font-sans text-xl font-semibold text-gray-900">Focus Area</h3>
@@ -45,19 +55,14 @@ export default function FilteringMenu({
           </div>
         )}
 
-        <CheckboxGroup
-          title="Distance from me"
-          options={["2 miles", "10 miles", "50 miles", "100 miles"]}
-        />
-
-        <SliderFilter title="Size" />
-
-        <CheckboxGroup
-          title="Opportunity Type"
-          options={["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]}
-        />
-
-        <SliderFilter title="Budget" />
+        {sizeOptions.length > 0 && (
+          <CheckboxGroup
+            title="Size"
+            options={sizeOptions}
+            selectedOptions={selectedSizes}
+            onChange={onSizeChange}
+          />
+        )}
       </div>
     </div>
   );
