@@ -1,23 +1,28 @@
 "use client";
 
 import { DM_Sans, Rubik } from "next/font/google";
-import { useState } from "react";
 
 type CheckboxGroupProps = {
   title: string;
   options: string[];
+  selectedOptions: string[];
+  onChange: (selected: string[]) => void;
 };
 
 const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 
-export default function CheckboxGroup({ title, options }: CheckboxGroupProps) {
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-
+export default function CheckboxGroup({
+  title,
+  options,
+  selectedOptions,
+  onChange,
+}: CheckboxGroupProps) {
   const toggleOption = (option: string) => {
-    setSelectedOptions((prev) =>
-      prev.includes(option) ? prev.filter((item) => item !== option) : [...prev, option],
-    );
+    const next = selectedOptions.includes(option)
+      ? selectedOptions.filter((item) => item !== option)
+      : [...selectedOptions, option];
+    onChange(next);
   };
 
   return (
@@ -38,7 +43,7 @@ export default function CheckboxGroup({ title, options }: CheckboxGroupProps) {
           {title}
         </h3>
         <button
-          onClick={() => setSelectedOptions([])}
+          onClick={() => onChange([])}
           className="w-[40px] h-[24px] font-rubik font-bold text-[16px] text-[#3B9A9A] cursor-pointer"
           style={{ fontFamily: "var(--font-rubik)" }}
         >

@@ -9,7 +9,10 @@ function throwIfUndefined(envVar: string | undefined, error: InternalError): str
   return envVar;
 }
 
-const PORT = throwIfUndefined(process.env.APP_PORT, InternalError.NO_APP_PORT);
+const PORT =
+  process.env.VERCEL === "1"
+    ? (process.env.APP_PORT ?? "3000")
+    : throwIfUndefined(process.env.APP_PORT, InternalError.NO_APP_PORT);
 const FRONTEND_ORIGIN = throwIfUndefined(
   process.env.FRONTEND_ORIGIN,
   InternalError.NO_FRONTEND_ORIGIN,
