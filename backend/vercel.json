@@ -1,6 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
   "installCommand": "npm install --include=dev",
+  "buildCommand": "npm run build && mkdir -p public",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/**"
+    }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
