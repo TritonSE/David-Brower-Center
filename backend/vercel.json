@@ -1,12 +1,4 @@
 {
-  "version": 2,
-  "installCommand": "npm install --include=dev",
-  "buildCommand": "npm run build && mkdir -p public",
-  "outputDirectory": "public",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "dist/**"
-    }
-  },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --include=dev && npx prisma generate"
 }
