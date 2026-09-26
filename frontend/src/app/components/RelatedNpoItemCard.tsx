@@ -1,10 +1,11 @@
 import type { RelatedNpo } from "./RelationshipViewCard";
 
+import { getPlaceholderLogo } from "@/constants/placeholderImages";
+
 type RelatedNpoItemCardProps = {
   organization: RelatedNpo;
 };
 
-const defaultLogoSrc = "https://www.figma.com/api/mcp/asset/1dd87fb9-b5ff-4049-9cdb-2628ae104461";
 const sizeIcon = "https://www.figma.com/api/mcp/asset/9b0634fb-fbe0-4f5b-94af-4fb7408230cd";
 const budgetIcon = "https://www.figma.com/api/mcp/asset/74b93a0e-31b0-4ede-9c6e-215e2011223d";
 const locationIcon = "https://www.figma.com/api/mcp/asset/6ff56856-45d1-4429-9eed-c14cc62ac028";
@@ -41,7 +42,7 @@ export default function RelatedNpoItemCard({ organization }: RelatedNpoItemCardP
           <div className="h-[54px] w-[54px] shrink-0 overflow-hidden rounded-[8px] bg-[#f3f3f3]">
             <img
               alt={`${organization.name} logo`}
-              src={organization.logoUrl ?? defaultLogoSrc}
+              src={organization.logoUrl || getPlaceholderLogo(organization.id)}
               className="h-full w-full object-cover"
             />
           </div>

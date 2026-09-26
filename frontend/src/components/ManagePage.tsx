@@ -242,7 +242,7 @@ export default function ManagePage() {
         },
       ],
       description: activeOrgDetail.description,
-      ...getNpoProfileCardImageProps(activeOrgDetail.images),
+      ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);

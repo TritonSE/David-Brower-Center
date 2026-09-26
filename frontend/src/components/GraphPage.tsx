@@ -457,7 +457,7 @@ export default function GraphPage() {
       ],
 
       description: activeOrgDetail.description,
-      ...getNpoProfileCardImageProps(activeOrgDetail.images),
+      ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);

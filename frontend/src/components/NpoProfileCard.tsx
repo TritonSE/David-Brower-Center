@@ -15,6 +15,7 @@ import type {
 } from "@/api/organization";
 import type { ReactElement } from "react";
 
+import { getPlaceholderImage, getPlaceholderLogo } from "@/constants/placeholderImages";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 const TIER_BY_BACKEND: Record<OrganizationRelationshipTier, RelationshipTier> = {
@@ -37,7 +38,7 @@ function organizationToRelatedNpo(organization: OrganizationListItem): RelatedNp
     budgetLabel: organization.budget,
     locationLabel: organization.location,
     tags: organization.tags.map((tag) => tag.name),
-    logoUrl: organization.images[0],
+    logoUrl: organization.images[0] || getPlaceholderLogo(organization.id),
   };
 }
 
@@ -102,10 +103,13 @@ type NpoProfileCardProps = {
 
 export function getNpoProfileCardImageProps(
   images: string[],
+  seed = "",
 ): Partial<Pick<NpoProfileCardProps, "images" | "moreCountLabel">> {
-  const primary = images[0] ?? "";
-  const secondary = images[1] ?? "";
-  const morePreview = images[2] ?? "";
+  // Slots the organization hasn't filled fall back to placeholder artwork, so a
+  // card with no uploads still reads as a card rather than three empty boxes.
+  const primary = images[0] || getPlaceholderImage(seed, 0);
+  const secondary = images[1] || getPlaceholderImage(seed, 1);
+  const morePreview = images[2] || getPlaceholderImage(seed, 2);
   const remainingImageCount = images.length - 3;
 
   return {

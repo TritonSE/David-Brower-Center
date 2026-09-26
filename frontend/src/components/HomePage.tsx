@@ -165,7 +165,7 @@ export default function HomePage() {
         },
       ],
       description: activeOrgDetail.description,
-      ...getNpoProfileCardImageProps(activeOrgDetail.images),
+      ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,
     };
   }, [activeOrgDetail]);
