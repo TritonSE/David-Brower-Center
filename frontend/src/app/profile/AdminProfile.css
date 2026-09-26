@@ -9,7 +9,7 @@
  */
 .page {
   position: relative;
-  font-family: system-ui, sans-serif;
+  font-family: "Proxima Nova", var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -174,8 +174,8 @@ body:has(main > .page) {
 }
 
 .profile-card {
-  border: 1px solid #d8ddda;
-  border-radius: 28px;
+  border: 1px solid #d9d9d9;
+  border-radius: 30px;
   background: #ffffff;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
   flex: 1;
@@ -183,17 +183,21 @@ body:has(main > .page) {
 }
 
 .profile-card-inner {
-  width: min(100%, 860px);
+  width: 100%;
   margin: 0 auto;
-  padding: 42px 28px 36px;
+  padding: 48px 72px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .profile-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 30px;
+  gap: 24px;
+  margin-bottom: 32px;
   text-align: center;
 }
 
@@ -215,12 +219,12 @@ body:has(main > .page) {
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  background: #43a9ad;
+  background: #3b9a9a;
   border: 4px solid #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 20px rgba(67, 169, 173, 0.2);
+  box-shadow: 0 10px 20px rgba(59, 154, 154, 0.2);
   padding: 0;
   cursor: pointer;
 }
@@ -231,16 +235,15 @@ body:has(main > .page) {
 
 .profile-text h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 400;
-  color: #1d1d1d;
-  letter-spacing: -0.02em;
+  color: #000000;
 }
 
 .role-text {
   margin: 4px 0 0;
-  color: #43a9ad;
-  font-size: 13px;
+  color: #3b9a9a;
+  font-size: 16px;
   font-weight: 400;
 }
 
@@ -296,12 +299,12 @@ body:has(main > .page) {
 .skeleton-hero-name {
   width: 180px;
   max-width: 100%;
-  height: 22px;
+  height: 24px;
 }
 
 .skeleton-hero-role {
   width: 90px;
-  height: 13px;
+  height: 16px;
   margin-top: 8px;
 }
 
@@ -312,7 +315,8 @@ body:has(main > .page) {
 }
 
 .profile-section {
-  width: min(100%, 780px);
+  width: 543px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -320,91 +324,86 @@ body:has(main > .page) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 488px;
-  max-width: 100%;
-  margin: 0 auto 22px;
+  width: 100%;
+  margin: 0 0 16px;
   gap: 24px;
 }
 
 .section-title {
   margin: 0;
-  color: #8f8f8f;
+  color: #888888;
   font-size: 18px;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .edit-inline-btn {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 0;
+  padding: 4px 24px;
   border: 0;
+  border-radius: 100px;
   background: none;
-  color: #43a9ad;
-  font-size: 14px;
+  color: #3b9a9a;
+  font-size: 16px;
   font-weight: 400;
+  cursor: pointer;
 }
 
 .edit-inline-btn img {
-  width: 16px;
-  height: 16px;
-}
-
-.edit-inline-icon {
-  filter: brightness(0) saturate(100%) invert(50%) sepia(33%) saturate(709%) hue-rotate(131deg)
-    brightness(92%) contrast(90%);
+  width: 20px;
+  height: 20px;
 }
 
 .details-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .detail-row {
   display: grid;
-  grid-template-columns: 200px 260px;
-  justify-content: center;
+  grid-template-columns: 223px 288px;
   align-items: center;
-  column-gap: 28px;
+  column-gap: 32px;
 }
 
 .detail-label,
 .field-label {
-  color: #8f8f8f;
-  font-size: 13px;
-  font-weight: 400;
+  color: #888888;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .detail-value {
   width: 100%;
-  max-width: 260px;
-  min-height: 34px;
+  height: 36px;
   padding: 0 12px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  color: #9a9a9a;
-  font-size: 13px;
-  font-weight: 400;
+  color: #909090;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .input {
   width: 100%;
-  max-width: 260px;
-  height: 34px;
+  height: 36px;
   padding: 0 12px;
-  border: 1px solid #dddddd;
-  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
   outline: none;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 500;
   color: #5e5e5e;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 .input:focus {
-  border-color: #43a9ad;
-  box-shadow: 0 0 0 1px rgba(67, 169, 173, 0.2);
+  border-color: #3b9a9a;
+  box-shadow: 0 0 0 1px rgba(59, 154, 154, 0.2);
 }
 
 .input-readonly {
@@ -414,17 +413,15 @@ body:has(main > .page) {
 
 .section-divider {
   height: 1px;
-  width: 488px;
-  max-width: 100%;
-  margin: 26px auto 24px;
-  background: #ececec;
+  width: 100%;
+  margin: 32px 0;
+  background: #d9d9d9;
 }
 
 .password-row {
   display: grid;
-  grid-template-columns: 200px 260px;
-  justify-content: center;
-  column-gap: 28px;
+  grid-template-columns: 223px 288px;
+  column-gap: 32px;
   align-items: start;
 }
 
@@ -440,16 +437,17 @@ body:has(main > .page) {
   padding: 0;
   border: 0;
   background: none;
-  color: #43a9ad;
+  color: #3b9a9a;
   font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .password-text {
   width: 100%;
-  max-width: 260px;
-  min-height: 34px;
+  height: 36px;
   padding: 0 12px;
   box-sizing: border-box;
   display: inline-flex;
@@ -461,10 +459,9 @@ body:has(main > .page) {
 
 .password-input-shell {
   width: 100%;
-  max-width: 260px;
-  height: 34px;
-  border: 1px solid #dddddd;
-  border-radius: 6px;
+  height: 36px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -478,19 +475,17 @@ body:has(main > .page) {
 }
 
 .form-error {
-  width: 488px;
-  max-width: 100%;
-  margin: 14px auto 0;
+  width: 100%;
+  margin: 14px 0 0;
   color: #d54848;
   font-size: 13px;
 }
 
 .profile-actions {
   display: flex;
-  width: 488px;
-  max-width: 100%;
+  width: 100%;
   justify-content: flex-end;
-  margin: 28px auto 0;
+  margin: 32px 0 0;
 }
 
 .save-btn,
@@ -500,7 +495,7 @@ body:has(main > .page) {
   padding: 0 24px;
   border: 0;
   border-radius: 999px;
-  background: #43a9ad;
+  background: #3b9a9a;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -689,7 +684,7 @@ body:has(main > .page) {
   height: 20px;
   border: 0;
   border-radius: 999px;
-  background: #43a9ad;
+  background: #3b9a9a;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -701,7 +696,7 @@ body:has(main > .page) {
 
 .photo-zoom-slider {
   flex: 1;
-  accent-color: #43a9ad;
+  accent-color: #3b9a9a;
 }
 
 .photo-zoom-value {
@@ -739,7 +734,7 @@ body:has(main > .page) {
   width: 68px;
   height: 68px;
   border-radius: 999px;
-  background: #43a9ad;
+  background: #3b9a9a;
   color: #ffffff;
   display: flex;
   align-items: center;

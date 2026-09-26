@@ -842,11 +842,10 @@ export default function AdminProfile() {
                 <button type="button" className="edit-inline-btn" onClick={startEditing}>
                   <span>Edit Profile</span>
                   <Image
-                    src="/AdminProfilePngs/Vector.png"
+                    src="/AdminProfilePngs/mdi-pencil-outline.svg"
                     alt=""
-                    width={16}
-                    height={16}
-                    className="edit-inline-icon"
+                    width={20}
+                    height={20}
                   />
                 </button>
               )}

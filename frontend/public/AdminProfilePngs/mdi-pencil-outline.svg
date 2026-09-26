@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="mdi:pencil-outline" clip-path="url(#clip0_0_148)">
+<path id="Vector" d="M12.2872 6.66667L13.3315 7.71111L3.24399 17.7778H2.22191V16.7556L12.2872 6.66667ZM16.2866 0C16.0089 0 15.72 0.111111 15.509 0.322222L13.4759 2.35556L17.642 6.52222L19.675 4.48889C20.1083 4.05556 20.1083 3.33333 19.675 2.92222L17.0754 0.322222C16.8532 0.1 16.5755 0 16.2866 0ZM12.2872 3.54444L0 15.8333V20H4.16609L16.4533 7.71111L12.2872 3.54444Z" fill="#3B9A9A"/>
+</g>
+<defs>
+<clipPath id="clip0_0_148">
+<rect width="20" height="20" fill="white"/>
+</clipPath>
+</defs>
+</svg>
