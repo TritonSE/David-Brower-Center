@@ -481,9 +481,9 @@ export default function GraphPage() {
                 Welcome to the DBC Database
               </h1>
               <p className="mt-4 text-[14px] leading-[20px] text-black">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
-                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                Explore our network of organizations. Search by name or set filters to see how
+                groups relate to one another, then select any organization to view its mission,
+                size, budget, and location.
               </p>
 
               <label className="mt-8 flex h-[44px] items-center rounded-full border border-[#b4b4b4] bg-white px-4">
@@ -628,7 +628,10 @@ export default function GraphPage() {
         </div>
       ) : (
         /* FUNCTIONAL GRAPH */
-        <div ref={graphContainerRef} className="h-[calc(100vh-92px)] w-full pl-[420px]">
+        <div
+          ref={graphContainerRef}
+          className="ml-[420px] h-[calc(100vh-92px)] w-[calc(100%-420px)]"
+        >
           <GraphCanvas
             ref={graphRef}
             draggable

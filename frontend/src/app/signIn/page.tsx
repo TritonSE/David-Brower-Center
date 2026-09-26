@@ -70,6 +70,7 @@ export default function SignIn() {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpTouched, setSignUpTouched] = useState(false);
   const [signUpError, setSignUpError] = useState<string | null>(null);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const [isSignUpSubmitting, setIsSignUpSubmitting] = useState(false);
 
   const nameError = signUpTouched && !signUpName.trim();
@@ -100,11 +101,13 @@ export default function SignIn() {
   async function handleSignInSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!signInEmail.trim() || !signInPassword.trim()) return;
+    setSignInError(null);
     try {
       await signIn({ email: signInEmail, password: signInPassword });
       router.push("/");
     } catch (error) {
       console.error(error);
+      setSignInError(error instanceof Error ? error.message : "Unable to sign in.");
     }
   }
 
@@ -189,6 +192,8 @@ export default function SignIn() {
                   </button>
                 </div>
               </div>
+
+              {signInError && <p className={styles.authError}>{signInError}</p>}
 
               <button type="submit" className={styles.authBtnPrimary}>
                 Sign in
