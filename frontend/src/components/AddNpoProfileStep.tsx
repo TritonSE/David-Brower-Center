@@ -8,6 +8,7 @@ import {
   NPO_SIZE_OPTIONS,
   type NpoProfileValues,
   type SelectedFocusArea,
+  withCurrentOption,
 } from "./AddNpoShared";
 
 import type { TagMeta } from "@/api/tags";
@@ -24,8 +25,9 @@ type AddNpoProfileStepProps = {
   values: NpoProfileValues;
   onChange: (values: NpoProfileValues) => void;
   onNext: () => void;
-  onSaveDraft?: () => void;
 };
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jp2"];
 
 function parseCsvAutofill(text: string): Partial<NpoProfileValues> {
   const lines = text
@@ -65,6 +67,20 @@ function createMediaPreviews(files: File[]): MediaPreview[] {
   }));
 }
 
+function TrashIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7H20M10 11V17M14 11V17M5 7L6 19C6 19.5304 6.21071 20.0391 6.58579 20.4142C6.96086 20.7893 7.46957 21 8 21H16C16.5304 21 17.0391 20.7893 17.4142 20.4142C17.7893 20.0391 18 19.5304 18 19L19 7M9 7V4C9 3.73478 9.10536 3.48043 9.29289 3.29289C9.48043 3.10536 9.73478 3 10 3H14C14.2652 3 14.5196 3.10536 14.7071 3.29289C14.8946 3.48043 15 3.73478 15 4V7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function AutofillIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -81,12 +97,7 @@ function AutofillIcon() {
   );
 }
 
-export default function AddNpoProfileStep({
-  values,
-  onChange,
-  onNext,
-  onSaveDraft,
-}: AddNpoProfileStepProps) {
+export default function AddNpoProfileStep({ values, onChange, onNext }: AddNpoProfileStepProps) {
   const titleId = useId();
   const websiteId = useId();
   const descId = useId();
@@ -106,6 +117,7 @@ export default function AddNpoProfileStep({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [focusAreaTags, setFocusAreaTags] = useState<TagMeta[]>([]);
   const [isFocusDropdownOpen, setIsFocusDropdownOpen] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     mediaFilesRef.current = mediaFiles;
@@ -150,7 +162,15 @@ export default function AddNpoProfileStep({
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
-    const next = Array.from(files).map((file) => ({
+    const picked = Array.from(files);
+    const images = picked.filter((file) => ACCEPTED_IMAGE_TYPES.includes(file.type));
+    const skipped = picked.length - images.length;
+    setMediaError(
+      skipped > 0
+        ? `${skipped.toString()} file(s) skipped. Only JPG, JPEG2000, and PNG images are supported.`
+        : null,
+    );
+    const next = images.map((file) => ({
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
@@ -194,6 +214,10 @@ export default function AddNpoProfileStep({
       updateValues({ mediaFiles: next.map((item) => item.file) });
       return next;
     });
+  };
+
+  const handleRemoveExistingImage = (url: string) => {
+    updateValues({ existingImages: values.existingImages.filter((image) => image !== url) });
   };
 
   const handleDrop = (event: React.DragEvent) => {
@@ -307,7 +331,7 @@ export default function AddNpoProfileStep({
         <textarea
           id={missionId}
           className={`${styles.textarea} ${styles.textareaSm}`}
-          placeholder="NPO Description..."
+          placeholder="NPO Mission Statement..."
           value={values.mission}
           onChange={(event) => updateValues({ mission: event.target.value })}
         />
@@ -337,8 +361,30 @@ export default function AddNpoProfileStep({
           </div>
         </div>
 
-        {mediaFiles.length > 0 ? (
+        {mediaError ? <p className={styles.errorText}>{mediaError}</p> : null}
+
+        {values.existingImages.length > 0 || mediaFiles.length > 0 ? (
           <div className={styles.mediaGrid}>
+            {values.existingImages.map((url, index) => (
+              <div key={url} className={styles.mediaCard}>
+                <img
+                  src={url}
+                  alt={`Image ${(index + 1).toString()}`}
+                  className={styles.mediaImage}
+                />
+                <button
+                  type="button"
+                  className={styles.mediaDeleteButton}
+                  aria-label={`Remove image ${(index + 1).toString()}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleRemoveExistingImage(url);
+                  }}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            ))}
             {mediaFiles.map((item) => (
               <div key={item.id} className={styles.mediaCard}>
                 <img src={item.previewUrl} alt={item.file.name} className={styles.mediaImage} />
@@ -351,15 +397,7 @@ export default function AddNpoProfileStep({
                     handleRemoveFile(item.id);
                   }}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d="M4 7H20M10 11V17M14 11V17M5 7L6 19C6 19.5304 6.21071 20.0391 6.58579 20.4142C6.96086 20.7893 7.46957 21 8 21H16C16.5304 21 17.0391 20.7893 17.4142 20.4142C17.7893 20.0391 18 19.5304 18 19L19 7M9 7V4C9 3.73478 9.10536 3.48043 9.29289 3.29289C9.48043 3.10536 9.73478 3 10 3H14C14.2652 3 14.5196 3.10536 14.7071 3.29289C14.8946 3.48043 15 3.73478 15 4V7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <TrashIcon />
                 </button>
               </div>
             ))}
@@ -369,7 +407,7 @@ export default function AddNpoProfileStep({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/jp2"
+          accept={ACCEPTED_IMAGE_TYPES.join(",")}
           multiple
           className={styles.hiddenFileInput}
           onChange={(event) => {
@@ -391,7 +429,7 @@ export default function AddNpoProfileStep({
             onChange={(event) => updateValues({ location: event.target.value })}
           >
             <option value="">Select Location</option>
-            {LOCATION_OPTIONS.map((location) => (
+            {withCurrentOption(LOCATION_OPTIONS, values.location).map((location) => (
               <option key={location} value={location}>
                 {location}
               </option>
@@ -410,7 +448,7 @@ export default function AddNpoProfileStep({
             onChange={(event) => updateValues({ npoSize: event.target.value })}
           >
             <option value="">Select NPO Size</option>
-            {NPO_SIZE_OPTIONS.map((size) => (
+            {withCurrentOption(NPO_SIZE_OPTIONS, values.npoSize).map((size) => (
               <option key={size} value={size}>
                 {size}
               </option>
@@ -483,13 +521,7 @@ export default function AddNpoProfileStep({
       </div>
 
       <footer className={styles.footer}>
-        {onSaveDraft ? (
-          <button type="button" className={styles.textButton} onClick={onSaveDraft}>
-            Save Draft
-          </button>
-        ) : (
-          <span />
-        )}
+        <span />
         <button type="button" className={styles.primaryButton} onClick={handleNext}>
           Next
         </button>

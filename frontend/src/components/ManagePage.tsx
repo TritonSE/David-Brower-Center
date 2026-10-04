@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AccountRequestsPanel from "./AccountRequestsPanel";
 import AddNpoPopup from "./AddNpoPopup";
+import { type AddNpoState, createEditState } from "./AddNpoShared";
 import AddNpoSuccessMessage from "./AddNpoSuccessMessage";
 import {
   LeafIcon,
@@ -11,7 +13,6 @@ import {
   ManageAddIcon,
   ManageEditIcon,
   ManageEyeIcon,
-  ManageFilterIcon,
   ManageSearchIcon,
   ManageSortIcon,
   MoneyIcon,
@@ -34,16 +35,11 @@ import type { TagRecord } from "@/api/tags";
 
 import { deleteOrganization, getOrganizationById } from "@/api/organization";
 import { deleteTag, getManageTags, updateTag } from "@/api/tags";
+import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 
 type ManageMode = "npos" | "tags" | "requests" | "users";
-
-const NOT_PROVIDED = "Not provided";
-
-function detailStringToFormValue(value: string): string {
-  return value === NOT_PROVIDED ? "" : value;
-}
 
 const POPUP_FADE_DURATION_MS = 200;
 
@@ -81,9 +77,17 @@ function formatDate(dateString: string): string {
   });
 }
 
+type EditSession = {
+  organizationId: string;
+  initialState: AddNpoState;
+};
+
 export default function ManagePage() {
+  const router = useRouter();
+  const { isSignedIn, isLoading: isAuthLoading } = useAuth();
   const {
     organizations,
+    relationships,
     isLoading,
     error: loadError,
     refetch: refetchOrganizations,
@@ -103,7 +107,7 @@ export default function ManagePage() {
   const [isCardVisible, setIsCardVisible] = useState(false);
 
   const [isAddNpoOpen, setIsAddNpoOpen] = useState(false);
-  const [editingDetail, setEditingDetail] = useState<OrganizationDetail | null>(null);
+  const [editSession, setEditSession] = useState<EditSession | null>(null);
   const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRemoveNpoConfirmOpen, setIsRemoveNpoConfirmOpen] = useState(false);
@@ -113,6 +117,11 @@ export default function ManagePage() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestIdRef = useRef(0);
   const editAbortRef = useRef<AbortController | null>(null);
+
+  // Every write on this page requires an admin session; send signed-out visitors to sign in.
+  useEffect(() => {
+    if (!isAuthLoading && !isSignedIn) router.replace("/signIn");
+  }, [isAuthLoading, isSignedIn, router]);
 
   const handleRetry = useCallback(() => {
     void refetchOrganizations();
@@ -299,6 +308,10 @@ export default function ManagePage() {
 
     if (removedIds.length > 0) {
       setSelectedIds((current) => current.filter((value) => !removedIds.includes(value)));
+      if (selectedOrgId && removedIds.includes(selectedOrgId)) {
+        detailAbortRef.current?.abort();
+        setIsCardVisible(false);
+      }
       void refetchOrganizations();
     }
 
@@ -359,41 +372,50 @@ export default function ManagePage() {
 
   const handleCloseAddNpo = useCallback(() => {
     setIsAddNpoOpen(false);
-    setEditingDetail(null);
+    setEditSession(null);
   }, []);
 
-  const handleEditOrg = useCallback(async (orgId: string) => {
-    editAbortRef.current?.abort();
-    const abortController = new AbortController();
-    editAbortRef.current = abortController;
+  const handleEditOrg = useCallback(
+    async (orgId: string) => {
+      editAbortRef.current?.abort();
+      const abortController = new AbortController();
+      editAbortRef.current = abortController;
 
-    setEditLoadingId(orgId);
+      setEditLoadingId(orgId);
 
-    try {
-      const result = await getOrganizationById(orgId, abortController.signal);
-      if (abortController.signal.aborted) return;
+      try {
+        const result = await getOrganizationById(orgId, abortController.signal);
+        if (abortController.signal.aborted) return;
 
-      if (!result.success) {
-        setToastMessage(result.error || "Unable to load organization for editing.");
-        return;
+        if (!result.success) {
+          setToastMessage(result.error || "Unable to load organization for editing.");
+          return;
+        }
+
+        setEditSession({
+          organizationId: result.data.id,
+          initialState: createEditState(result.data, relationships, organizations),
+        });
+        setIsAddNpoOpen(true);
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setToastMessage(getErrorMessage(error, "Unable to load organization for editing."));
+      } finally {
+        if (editAbortRef.current === abortController) {
+          editAbortRef.current = null;
+          setEditLoadingId(null);
+        }
       }
-
-      setEditingDetail(result.data);
-      setIsAddNpoOpen(true);
-    } catch (error) {
-      if (isAbortError(error)) return;
-      setToastMessage(getErrorMessage(error, "Unable to load organization for editing."));
-    } finally {
-      if (editAbortRef.current === abortController) {
-        editAbortRef.current = null;
-        setEditLoadingId(null);
-      }
-    }
-  }, []);
+    },
+    [organizations, relationships],
+  );
 
   useEffect(() => () => editAbortRef.current?.abort(), []);
 
-  if (isLoading) {
+  if (isAuthLoading || !isSignedIn) return null;
+
+  // Only block the page on the first load; later refetches keep the current list visible.
+  if (isLoading && organizations.length === 0) {
     return (
       <div className="rounded-[30px] border border-[#d9d9d9] bg-white p-6 text-sm text-[#6c6c6c] shadow-sm">
         Loading organizations...
@@ -523,14 +545,6 @@ export default function ManagePage() {
                         className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[16px] font-normal text-[#484848] placeholder:text-[#6c6c6c] outline-none"
                       />
                     </label>
-
-                    <button
-                      type="button"
-                      aria-label="Open filters"
-                      className="flex h-[44px] w-[44px] items-center justify-center rounded-[60px] border border-[#b4b4b4]"
-                    >
-                      <ManageFilterIcon className="h-[20px] w-[20px] text-[#6c6c6c]" />
-                    </button>
                   </div>
 
                   <div className="flex items-center gap-[32px]">
@@ -556,7 +570,7 @@ export default function ManagePage() {
                       type="button"
                       className="font-proxima inline-flex items-center gap-[12px] text-[17px] font-semibold text-[#3b9a9a]"
                       onClick={() => {
-                        setEditingDetail(null);
+                        setEditSession(null);
                         setIsAddNpoOpen(true);
                       }}
                     >
@@ -565,12 +579,6 @@ export default function ManagePage() {
                     </button>
                   </div>
                 </div>
-
-                {removeNpoError ? (
-                  <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {removeNpoError}
-                  </div>
-                ) : null}
 
                 <div className="flex flex-col">
                   <div className="border-b border-[#d9d9d9] px-4 py-3 text-sm font-semibold text-black">
@@ -751,17 +759,10 @@ export default function ManagePage() {
         open={isAddNpoOpen}
         onClose={handleCloseAddNpo}
         organizations={organizations}
-        existingOrgId={editingDetail?.id ?? null}
-        initialTitle={editingDetail?.name ?? ""}
-        initialDescription={editingDetail ? detailStringToFormValue(editingDetail.description) : ""}
+        existingOrgId={editSession?.organizationId ?? null}
+        initialState={editSession?.initialState ?? null}
         onRefetch={() => void refetchOrganizations()}
-        onPublished={(orgName) =>
-          setToastMessage(
-            editingDetail
-              ? `${orgName} relationships have been saved`
-              : `${orgName} has been added`,
-          )
-        }
+        onPublished={setToastMessage}
       />
 
       {toastMessage ? (
