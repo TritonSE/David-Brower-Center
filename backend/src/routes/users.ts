@@ -156,6 +156,15 @@ async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
   if (error || !data?.user) {
     return { ok: false, status: 401, error: "Invalid or expired token" };
   }
+  // Only approved accounts (created via an account request or Add Admin) have a row here.
+  // Never auto-create one, or anyone who signs up directly with Supabase becomes an admin.
+  const existing = await prisma.user.findUnique({
+    where: { supabase_user_id: data.user.id },
+    select: { supabase_user_id: true },
+  });
+  if (!existing) {
+    return { ok: false, status: 403, error: "This account has not been approved for access" };
+  }
   const email = toNullableTrimmedString(data.user.email);
   return { ok: true, userId: data.user.id, email };
 }
@@ -302,22 +311,10 @@ router.get("/profile", async (req: Request, res: Response, next: NextFunction) =
     const existing = await prisma.user.findUnique({
       where: { supabase_user_id: auth.userId },
     });
-    if (existing) {
-      return res.status(200).json(profileResponse(existing));
+    if (!existing) {
+      return res.status(404).json({ error: "User profile not found." });
     }
-
-    if (!auth.email) {
-      return res.status(404).json({ error: "User profile is missing and no email is available." });
-    }
-
-    const created = await prisma.user.create({
-      data: {
-        supabase_user_id: auth.userId,
-        email: auth.email,
-        role: "admin",
-      },
-    });
-    return res.status(200).json(profileResponse(created));
+    return res.status(200).json(profileResponse(existing));
   } catch (err: unknown) {
     next(err);
   }
@@ -382,23 +379,14 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
 
     const fullName = `${firstName} ${lastName}`;
     try {
-      const updated = await prisma.user.upsert({
+      const updated = await prisma.user.update({
         where: { supabase_user_id: auth.userId },
-        update: {
+        data: {
           email,
           first_name: firstName,
           last_name: lastName,
           phone,
           name: fullName,
-        },
-        create: {
-          supabase_user_id: auth.userId,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          name: fullName,
-          role: "admin",
         },
       });
       return res.status(200).json(profileResponse(updated));

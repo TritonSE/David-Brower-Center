@@ -44,23 +44,14 @@ async function loadAuthenticatedUser(req: Request): Promise<AuthenticatedUser> {
     select: { supabase_user_id: true, profile_picture: true, role: true },
   });
 
-  if (existing) {
-    return existing;
+  // A valid Supabase session is not enough: accounts must be provisioned through an
+  // approved account request or the Add Admin flow, both of which create this row.
+  // Never auto-create it here, or anyone who signs up directly with Supabase becomes an admin.
+  if (!existing) {
+    throw createError(403, "This account has not been approved for access");
   }
 
-  const email = authData.user.email?.trim();
-  if (!email) {
-    throw createError(404, "User does not exist");
-  }
-
-  const created = await prisma.user.upsert({
-    where: { supabase_user_id: authData.user.id },
-    update: {},
-    create: { supabase_user_id: authData.user.id, email, role: "admin" },
-    select: { supabase_user_id: true, profile_picture: true, role: true },
-  });
-
-  return created;
+  return existing;
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
