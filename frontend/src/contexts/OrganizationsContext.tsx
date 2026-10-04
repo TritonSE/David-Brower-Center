@@ -15,6 +15,7 @@ import type { APIResult } from "@/api/request";
 import type { ReactNode } from "react";
 
 import { getOrganizationRelationships, getOrganizations } from "@/api/organization";
+import { useAuth } from "@/contexts/AuthContext";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -93,10 +94,16 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Admins receive private tags, so reload whenever the signed-in user changes.
+  // Wait for the initial session check to avoid fetching once as anonymous first.
+  const { isLoading: isAuthLoading, user } = useAuth();
+  const userEmail = user?.email ?? null;
+
   useEffect(() => {
+    if (isAuthLoading) return;
     void load();
     return () => abortRef.current?.abort();
-  }, [load]);
+  }, [isAuthLoading, load, userEmail]);
 
   const value = useMemo<OrganizationsContextValue>(
     () => ({

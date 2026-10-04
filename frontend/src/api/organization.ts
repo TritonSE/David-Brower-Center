@@ -1,4 +1,4 @@
-import { authHeaders, getAccessToken } from "./auth";
+import { authHeaders, getAccessToken, optionalAuthHeaders } from "./auth";
 import { del, get, handleAPIError, isAbortError, patch, post } from "./request";
 
 import type { APIResult } from "./request";
@@ -294,7 +294,7 @@ export async function getOrganizations(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationListItem[]>> {
   try {
-    const response = await get("/api/organizations", {}, signal);
+    const response = await get("/api/organizations", await optionalAuthHeaders(), signal);
     const payload: unknown = await response.json();
     const organizations = parseOrganizationsPayload(payload);
     return { success: true, data: organizations.map(parseOrganizationListItem) };
@@ -358,7 +358,11 @@ export async function getOrganizationById(
   signal?: AbortSignal,
 ): Promise<APIResult<OrganizationDetail>> {
   try {
-    const response = await get(`/api/organizations/${encodeURIComponent(id)}`, {}, signal);
+    const response = await get(
+      `/api/organizations/${encodeURIComponent(id)}`,
+      await optionalAuthHeaders(),
+      signal,
+    );
     const payload: unknown = await response.json();
     const organization = parseOrganizationPayload(payload);
     return { success: true, data: parseOrganizationDetail(organization) };

@@ -21,3 +21,15 @@ export function authHeaders(token: string): Record<string, string> {
     Authorization: `Bearer ${token}`,
   };
 }
+
+/**
+ * Auth headers for public endpoints that return extra data to admins
+ * (e.g. private tags). Signed-out visitors get plain headers instead of an error.
+ */
+export async function optionalAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    return authHeaders(await getAccessToken());
+  } catch {
+    return { Accept: "application/json" };
+  }
+}

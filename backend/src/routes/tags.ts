@@ -4,7 +4,7 @@ import createError from "http-errors";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { getColorFor } from "../lib/tagColors";
-import { requireAdmin } from "../middleware/requireAuth";
+import { isAdminRequest, requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
 
@@ -29,9 +29,11 @@ function parseVisibility(value: unknown): "PUBLIC" | "PRIVATE" | null {
   return null;
 }
 
-router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const includePrivate = await isAdminRequest(req);
     const tags = await prisma.tag.findMany({
+      where: includePrivate ? {} : { visibility: "PUBLIC" },
       orderBy: { name: "asc" },
       include: {
         organizations: {
@@ -49,7 +51,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.post("/", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as CreateTagBody;
 
@@ -97,40 +99,44 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.delete("/:tagId", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { tagId } = req.params;
+router.delete(
+  "/:tagId",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tagId } = req.params;
 
-    if (typeof tagId !== "string" || tagId.trim().length === 0) {
-      return next(createError(400, "Tag id is required"));
-    }
+      if (typeof tagId !== "string" || tagId.trim().length === 0) {
+        return next(createError(400, "Tag id is required"));
+      }
 
-    const existingTag = await prisma.tag.findUnique({
-      where: { id: tagId },
-      select: { id: true },
-    });
-
-    if (!existingTag) {
-      return next(createError(404, "Tag not found"));
-    }
-
-    await prisma.$transaction([
-      prisma.organizationTag.deleteMany({
-        where: { tagId },
-      }),
-      prisma.tag.delete({
+      const existingTag = await prisma.tag.findUnique({
         where: { id: tagId },
-      }),
-    ]);
+        select: { id: true },
+      });
 
-    return res.status(200).json({ tagId });
-  } catch (err: unknown) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
-      return next(createError(404, "Tag not found"));
+      if (!existingTag) {
+        return next(createError(404, "Tag not found"));
+      }
+
+      await prisma.$transaction([
+        prisma.organizationTag.deleteMany({
+          where: { tagId },
+        }),
+        prisma.tag.delete({
+          where: { id: tagId },
+        }),
+      ]);
+
+      return res.status(200).json({ tagId });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return next(createError(404, "Tag not found"));
+      }
+      return next(err);
     }
-    return next(err);
-  }
-});
+  },
+);
 
 /**
  * PATCH /api/tags/:tagID
