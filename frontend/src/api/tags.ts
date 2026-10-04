@@ -1,4 +1,4 @@
-import { authHeaders, getAccessToken } from "./auth";
+import { authHeaders, getAccessToken, optionalAuthHeaders } from "./auth";
 import { del, get, patch, post } from "./request";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,13 +128,7 @@ function parseCreateTagPayload(payload: unknown): TagRecord {
 }
 
 export async function getTagsWithMeta(signal?: AbortSignal): Promise<TagMeta[]> {
-  const response = await get(
-    "/api/tags",
-    {
-      Accept: "application/json",
-    },
-    signal,
-  );
+  const response = await get("/api/tags", await optionalAuthHeaders(), signal);
   const payload: unknown = await response.json();
   const rawTags = parseTagsPayload(payload);
 
@@ -171,7 +165,7 @@ function parseTagOption(value: unknown): TagOption {
 }
 
 export async function getTagOptions(signal?: AbortSignal): Promise<TagOption[]> {
-  const response = await get("/api/tags", { Accept: "application/json" }, signal);
+  const response = await get("/api/tags", await optionalAuthHeaders(), signal);
   const payload: unknown = await response.json();
   const rawTags = parseTagsPayload(payload);
   const tags = rawTags.map(parseTagOption);
@@ -186,13 +180,7 @@ export async function getTagOptions(signal?: AbortSignal): Promise<TagOption[]> 
 }
 
 export async function getTags(signal?: AbortSignal): Promise<string[]> {
-  const response = await get(
-    "/api/tags",
-    {
-      Accept: "application/json",
-    },
-    signal,
-  );
+  const response = await get("/api/tags", await optionalAuthHeaders(), signal);
   const payload: unknown = await response.json();
   const rawTags = parseTagsPayload(payload);
   const names = rawTags.map(parseTagName);
@@ -201,6 +189,7 @@ export async function getTags(signal?: AbortSignal): Promise<string[]> {
 }
 
 export async function createTag(input: CreateTagInput, signal?: AbortSignal): Promise<TagRecord> {
+  const token = await getAccessToken();
   const response = await post(
     "/api/tags",
     {
@@ -209,7 +198,7 @@ export async function createTag(input: CreateTagInput, signal?: AbortSignal): Pr
       visibility: input.visibility,
       ...(input.description !== undefined ? { description: input.description } : {}),
     },
-    { Accept: "application/json" },
+    authHeaders(token),
     signal,
   );
   const payload: unknown = await response.json();
@@ -258,7 +247,7 @@ function parseManageTagRecord(value: unknown): ManageTagRecord {
 }
 
 export async function getManageTags(signal?: AbortSignal): Promise<ManageTagRecord[]> {
-  const response = await get("/api/tags", { Accept: "application/json" }, signal);
+  const response = await get("/api/tags", await optionalAuthHeaders(), signal);
   const payload: unknown = await response.json();
   const rawTags = parseTagsPayload(payload);
   return rawTags.map(parseManageTagRecord);
@@ -302,9 +291,10 @@ export async function deleteTag(tagId: string, signal?: AbortSignal): Promise<st
     throw new Error("Tag id is required.");
   }
 
+  const token = await getAccessToken();
   const response = await del(
     `/api/tags/${encodeURIComponent(trimmedTagId)}`,
-    { Accept: "application/json" },
+    authHeaders(token),
     undefined,
     signal,
   );

@@ -88,6 +88,20 @@ const ensureAdmin: RequestHandler = (req, res, next) => {
 
 export const requireAdmin: RequestHandler[] = [requireAuth, ensureAdmin];
 
+/**
+ * For public routes that return extra data to admins (e.g. private tags).
+ * Never rejects: a missing, invalid, or non-admin token simply resolves to false.
+ */
+export async function isAdminRequest(req: Request): Promise<boolean> {
+  if (typeof req.headers.authorization !== "string") return false;
+  try {
+    const user = await loadAuthenticatedUser(req);
+    return user.role === "admin";
+  } catch {
+    return false;
+  }
+}
+
 export function getRequestAuthUser(req: Request): AuthenticatedUser {
   if (!req.authUser) {
     throw createError(500, "Authenticated user missing from request");

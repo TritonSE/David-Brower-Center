@@ -6,7 +6,7 @@ import createError from "http-errors";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../lib/supabaseClients";
-import { requireAdmin } from "../middleware/requireAuth";
+import { isAdminRequest, requireAdmin } from "../middleware/requireAuth";
 
 const router = Router();
 
@@ -126,11 +126,23 @@ const orgTagsInclude = {
   },
 } as const;
 
+// Private tags are admin-only; anonymous/non-admin readers only see public ones.
+const publicOrgTagsInclude = {
+  tags: {
+    ...orgTagsInclude.tags,
+    where: { tag: { visibility: "PUBLIC" } },
+  },
+} as const;
+
+async function orgTagsIncludeFor(req: Request) {
+  return (await isAdminRequest(req)) ? orgTagsInclude : publicOrgTagsInclude;
+}
+
 /** GET /api/organizations */
-router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organizations = await prisma.organization.findMany({
-      include: orgTagsInclude,
+      include: await orgTagsIncludeFor(req),
     });
     res.status(200).json({ organizations: organizations.map(flattenOrganizationTags) });
   } catch (error) {
@@ -303,7 +315,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
-      include: orgTagsInclude,
+      include: await orgTagsIncludeFor(req),
     });
 
     if (!organization) {
