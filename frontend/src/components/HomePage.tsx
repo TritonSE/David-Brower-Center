@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
+import { LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 import NpoListView from "./NpoListView";
 import NpoProfileCard, { getNpoProfileCardImageProps } from "./NpoProfileCard";
 
@@ -146,11 +146,7 @@ export default function HomePage() {
     return {
       organizationId: activeOrgDetail.id,
       name: activeOrgDetail.name,
-      tags: [
-        {
-          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
-          label: activeOrgDetail.focus,
-        },
+      details: [
         {
           icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
           label: activeOrgDetail.size,
@@ -164,6 +160,7 @@ export default function HomePage() {
           label: activeOrgDetail.location,
         },
       ],
+      tags: activeOrgDetail.tags,
       description: activeOrgDetail.description,
       ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,

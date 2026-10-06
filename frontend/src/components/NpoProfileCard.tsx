@@ -6,16 +6,18 @@ import RelationshipViewCard, {
   type RelationshipTier,
 } from "../app/components/RelationshipViewCard";
 
-import { LeafIcon, LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
+import { LocationIcon, MoneyIcon, PeopleIcon } from "./icons/AppIcons";
 
 import type {
   OrganizationListItem,
   OrganizationRelationship,
   OrganizationRelationshipTier,
+  OrganizationTag,
 } from "@/api/organization";
 import type { ReactElement } from "react";
 
 import { getPlaceholderImage, getPlaceholderLogo } from "@/constants/placeholderImages";
+import { getDarkerShade } from "@/constants/tagColors";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 
 const TIER_BY_BACKEND: Record<OrganizationRelationshipTier, RelationshipTier> = {
@@ -81,15 +83,18 @@ function buildRelatedNposByTier(
   return result;
 }
 
-type Tag = {
+type Detail = {
   icon: ReactElement;
   label: string;
 };
 
+const MAX_VISIBLE_TAGS = 2;
+
 type NpoProfileCardProps = {
   organizationId?: string;
   name: string;
-  tags: Tag[];
+  details: Detail[];
+  tags: OrganizationTag[];
   description: string;
   mission: string;
   images: {
@@ -139,17 +144,17 @@ function ImagePlaceholder() {
 
 const defaultContent: NpoProfileCardProps = {
   name: "David Brower Center",
-  tags: [
-    {
-      icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
-      label: "Environmental",
-    },
+  details: [
     { icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />, label: "Mid Sized" },
     { icon: <MoneyIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />, label: "100k" },
     {
       icon: <LocationIcon className="h-[14px] w-[14px] text-[#6c6c6c]" />,
       label: "Berkeley, CA",
     },
+  ],
+  tags: [
+    { id: "conservation", name: "Conservation", color: "#D5E5C8" },
+    { id: "environmental-education", name: "Environmental Education", color: "#BFD8FB" },
   ],
   description:
     "The David Brower Center is a nonprofit environmental hub and event venue in downtown Berkeley that houses green organizations, art galleries, and meeting spaces dedicated to sustainability and social justice. Named for environmentalist David Brower, it serves as a home for the environmental movement by hosting exhibitions, educational programs, and offices for mission-aligned nonprofits.",
@@ -167,6 +172,7 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
   const content: NpoProfileCardProps = {
     ...defaultContent,
     ...props,
+    details: props.details ?? defaultContent.details,
     tags: props.tags ?? defaultContent.tags,
     images: {
       ...defaultContent.images,
@@ -185,6 +191,9 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
     if (!content.organizationId) return EMPTY_TIERED_NPOS;
     return buildRelatedNposByTier(content.organizationId, organizations, relationships);
   }, [content.organizationId, organizations, relationships]);
+
+  const visibleTags = content.tags.slice(0, MAX_VISIBLE_TAGS);
+  const overflowTags = content.tags.slice(MAX_VISIBLE_TAGS);
 
   return (
     <section className="relative w-full max-w-[600px] rounded-[30px] border border-[#d9d9d9] bg-[#f5f5f5] px-5 pb-5 pt-6 sm:px-[28px] sm:pt-[27px]">
@@ -217,15 +226,15 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
       </h1>
 
       <div className="mt-[8px] flex flex-wrap items-center gap-x-[6px] gap-y-1">
-        {content.tags.map((tag, index) => (
-          <div key={`${index}-${tag.label}`} className="flex items-center gap-[6px]">
+        {content.details.map((detail, index) => (
+          <div key={`${index}-${detail.label}`} className="flex items-center gap-[6px]">
             <div className="flex items-center gap-1 rounded-[12px] bg-transparent py-1 pr-2">
-              {tag.icon}
+              {detail.icon}
               <span className="font-[var(--font-rubik)] text-xs font-normal leading-6 tracking-[0.24px] text-[#6c6c6c]">
-                {tag.label}
+                {detail.label}
               </span>
             </div>
-            {index < content.tags.length - 1 ? (
+            {index < content.details.length - 1 ? (
               <span className="h-[3px] w-[3px] rounded-full bg-[#b4b4b4]" />
             ) : null}
           </div>
@@ -288,7 +297,31 @@ export function NpoProfileCard(props: Partial<NpoProfileCardProps>) {
         </div>
       </div>
 
-      <div className="mt-[12px] space-y-[10px]">
+      <hr className="my-[20px] border-t border-[#d9d9d9]" />
+
+      {content.tags.length > 0 ? (
+        <div className="mb-[20px] flex flex-wrap items-center gap-2">
+          {visibleTags.map((tag) => (
+            <span
+              key={tag.id}
+              className="rounded-[8px] px-2 py-1 font-[var(--font-proxima)] text-[16px]/[normal] font-semibold whitespace-nowrap"
+              style={{ backgroundColor: tag.color, color: getDarkerShade(tag.color) }}
+            >
+              {tag.name}
+            </span>
+          ))}
+          {overflowTags.length > 0 ? (
+            <span
+              className="rounded-[8px] bg-[#e5e5e5] px-2 py-1 font-[var(--font-proxima)] text-[16px]/[normal] font-semibold text-[#6c6c6c]"
+              title={overflowTags.map((tag) => tag.name).join(", ")}
+            >
+              +{overflowTags.length}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="space-y-[10px]">
         <div>
           <h2 className="font-[var(--font-proxima)] text-[16px]/[normal] font-bold text-black">
             Description

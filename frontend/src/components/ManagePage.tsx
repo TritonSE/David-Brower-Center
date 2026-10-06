@@ -8,7 +8,6 @@ import AddNpoPopup from "./AddNpoPopup";
 import { type AddNpoState, createEditState } from "./AddNpoShared";
 import AddNpoSuccessMessage from "./AddNpoSuccessMessage";
 import {
-  LeafIcon,
   LocationIcon,
   ManageAddIcon,
   ManageEditIcon,
@@ -232,11 +231,7 @@ export default function ManagePage() {
     return {
       organizationId: activeOrgDetail.id,
       name: activeOrgDetail.name,
-      tags: [
-        {
-          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
-          label: activeOrgDetail.focus,
-        },
+      details: [
         {
           icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
           label: activeOrgDetail.size,
@@ -250,6 +245,7 @@ export default function ManagePage() {
           label: activeOrgDetail.location,
         },
       ],
+      tags: activeOrgDetail.tags,
       description: activeOrgDetail.description,
       ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,
