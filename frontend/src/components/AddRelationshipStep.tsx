@@ -15,6 +15,8 @@ import {
 import type { OrganizationListItem, OrganizationRelationshipTier } from "@/api/organization";
 
 type AddRelationshipStepProps = {
+  /** The organization being added or edited; excluded from the partner list. */
+  sourceOrgId: string | null;
   sourceOrgName: string;
   organizations: OrganizationListItem[];
   relationships: DraftRelationship[];
@@ -38,6 +40,7 @@ const IMG_ADD_RELATIONSHIP = "/icons/manage/ic-add-relationship-circle.svg";
 const IMG_RELATIONSHIP_EDIT = "/icons/manage/ic-relationship-edit.svg";
 
 export default function AddRelationshipStep({
+  sourceOrgId,
   sourceOrgName,
   organizations,
   relationships,
@@ -53,8 +56,8 @@ export default function AddRelationshipStep({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const availableOrganizations = useMemo(
-    () => organizations.filter((org) => org.name.trim().length > 0),
-    [organizations],
+    () => organizations.filter((org) => org.id !== sourceOrgId && org.name.trim().length > 0),
+    [organizations, sourceOrgId],
   );
 
   const filteredOrganizations = useMemo(() => {

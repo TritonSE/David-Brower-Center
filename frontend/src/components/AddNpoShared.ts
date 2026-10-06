@@ -1,4 +1,9 @@
-import type { OrganizationRelationshipTier } from "@/api/organization";
+import type {
+  OrganizationDetail,
+  OrganizationListItem,
+  OrganizationRelationship,
+  OrganizationRelationshipTier,
+} from "@/api/organization";
 
 export type AddNpoStep = "profile" | "relationships" | "review";
 
@@ -12,6 +17,9 @@ export type NpoProfileValues = {
   website: string;
   description: string;
   mission: string;
+  /** Already-uploaded image URLs (edit mode). Removing one here deletes it on publish. */
+  existingImages: string[];
+  /** New files to upload on publish. */
   mediaFiles: File[];
   location: string;
   npoSize: string;
@@ -72,12 +80,13 @@ export function tierBadgeClassName(
   return styles.tierBadge ?? "";
 }
 
-export function createEmptyProfile(initialTitle = "", initialDescription = ""): NpoProfileValues {
+export function createEmptyProfile(): NpoProfileValues {
   return {
-    title: initialTitle,
+    title: "",
     website: "",
-    description: initialDescription,
+    description: "",
     mission: "",
+    existingImages: [],
     mediaFiles: [],
     location: "",
     npoSize: "",
@@ -95,4 +104,83 @@ export function generateProjectId(name: string): string {
     .replace(/^-+|-+$/g, "");
   const suffix = crypto.randomUUID().slice(0, 8);
   return slug.length > 0 ? `${slug}-${suffix}` : `npo-${suffix}`;
+}
+
+export function createEmptyState(): AddNpoState {
+  return { profile: createEmptyProfile(), relationships: [] };
+}
+
+/**
+ * Builds the wizard state for editing an existing organization. Relationships are
+ * undirected in the UI, so ones created from either side are included.
+ */
+export function createEditState(
+  detail: OrganizationDetail,
+  allRelationships: OrganizationRelationship[],
+  organizations: OrganizationListItem[],
+): AddNpoState {
+  const orgsById = new Map(organizations.map((org) => [org.id, org]));
+  const seen = new Set<string>();
+  const relationships: DraftRelationship[] = [];
+
+  for (const relationship of allRelationships) {
+    const partnerId =
+      relationship.npo1Id === detail.id
+        ? relationship.npo2Id
+        : relationship.npo2Id === detail.id
+          ? relationship.npo1Id
+          : null;
+    const partner = partnerId ? orgsById.get(partnerId) : undefined;
+    if (!partner) continue;
+
+    const key = `${partner.id}:${relationship.relationshipTier}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    relationships.push({
+      id: relationship.id,
+      partnerOrgId: partner.id,
+      partnerName: partner.name,
+      partnerCategory: partner.tags[0]?.name ?? partner.focus,
+      tier: relationship.relationshipTier,
+    });
+  }
+
+  const { fields } = detail;
+  return {
+    profile: {
+      ...createEmptyProfile(),
+      title: detail.name,
+      website: fields.website ?? "",
+      description: fields.description ?? "",
+      mission: fields.mission ?? "",
+      existingImages: detail.images,
+      location: fields.location ?? "",
+      npoSize: fields.sizeCategory ?? "",
+      budgetSize: fields.budget ?? "",
+      focusAreas: detail.tags.map((tag) => ({ id: tag.id, name: tag.name })),
+    },
+    relationships,
+  };
+}
+
+function sameItems(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+export function focusAreasChanged(initial: NpoProfileValues, current: NpoProfileValues): boolean {
+  const ids = (profile: NpoProfileValues) => profile.focusAreas.map((area) => area.id).sort();
+  return !sameItems(ids(initial), ids(current));
+}
+
+export function existingImagesChanged(
+  initial: NpoProfileValues,
+  current: NpoProfileValues,
+): boolean {
+  return !sameItems(initial.existingImages, current.existingImages);
+}
+
+/** Includes a stored value as an option even when it is not one of the presets. */
+export function withCurrentOption(options: readonly string[], current: string): string[] {
+  return current && !options.includes(current) ? [current, ...options] : [...options];
 }
