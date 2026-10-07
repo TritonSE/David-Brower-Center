@@ -42,7 +42,14 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
         className={`${styles.btn} ${isOpen ? styles.btnOpen : ""}`}
         onClick={() => setIsOpen((v) => !v)}
       >
-        <Image src={avatarSrc} alt="user" width={32} height={32} className={styles.avatar} />
+        <Image
+          src={avatarSrc}
+          alt="user"
+          width={32}
+          height={32}
+          className={styles.avatar}
+          unoptimized
+        />
         <span className={`${styles.caret} ${isOpen ? styles.caretUp : ""}`}>▼</span>
       </button>
 
@@ -55,6 +62,7 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
               width={32}
               height={32}
               className={styles.panelAvatar}
+              unoptimized
             />
             <span className={styles.panelName}>{name}</span>
           </div>

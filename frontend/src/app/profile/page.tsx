@@ -14,8 +14,7 @@ import {
   useState,
 } from "react";
 
-import { getProfile, type Profile, updateProfile, updateProfilePhoto } from "@/api/profile";
-import { isAbortError } from "@/api/request";
+import { type Profile, updateProfile, updateProfilePhoto } from "@/api/profile";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -34,7 +33,7 @@ const emptyPasswordForm = {
   confirm: "",
 };
 
-const defaultProfilePhotoSrc = "/AdminProfilePngs/big-maria.png";
+const defaultProfilePhotoSrc = "/AdminProfilePngs/default-avatar.svg";
 const photoCropStage = {
   width: 520,
   height: 230,
@@ -221,7 +220,13 @@ function SignOutMenuIcon() {
 }
 
 export default function AdminProfile() {
-  const { signOut, user, isLoading: isAuthLoading } = useAuth();
+  const {
+    signOut,
+    profile: authProfile,
+    isProfileLoading: isLoading,
+    profileError: loadError,
+    setProfile: setAuthProfile,
+  } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -233,12 +238,9 @@ export default function AdminProfile() {
     originX: number;
     originY: number;
   } | null>(null);
-  const [profile, setProfile] = useState<ProfileForm>(emptyProfile);
-  const [profilePhotoSrc, setProfilePhotoSrc] = useState<string | null>(null);
+  const profile = authProfile ? profileToForm(authProfile) : emptyProfile;
   const [draftProfile, setDraftProfile] = useState<ProfileForm>(emptyProfile);
   const [isEditing, setIsEditing] = useState(false);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isPasswordSuccessOpen, setIsPasswordSuccessOpen] = useState(false);
@@ -262,12 +264,7 @@ export default function AdminProfile() {
   const [signOutReason, setSignOutReason] = useState<SignOutReason>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activeProfile = isEditing ? draftProfile : profile;
-  // While the session check and the /profile fetch are in flight, the component
-  // still holds its initial empty/placeholder state. Treat both waits as a
-  // single "not ready" window so we render a skeleton instead of flashing the
-  // empty fields and the fallback avatar before the real user arrives.
-  const isLoading = isAuthLoading || isProfileLoading;
-  const avatarSrc = profilePhotoSrc ?? defaultProfilePhotoSrc;
+  const avatarSrc = authProfile?.profilePicture || defaultProfilePhotoSrc;
 
   // The crop stage is responsive (CSS width: 100%), so read its real rendered
   // size rather than assuming the design-time dimensions. The crop circle is
@@ -279,45 +276,6 @@ export default function AdminProfile() {
     }
     return { width: stage.clientWidth, height: stage.clientHeight };
   }, []);
-
-  useEffect(() => {
-    if (isAuthLoading) {
-      return;
-    }
-    if (!user) {
-      setIsProfileLoading(false);
-      return;
-    }
-
-    const abortController = new AbortController();
-    let cancelled = false;
-
-    setIsProfileLoading(true);
-    setLoadError(null);
-
-    getProfile(abortController.signal)
-      .then((apiProfile) => {
-        if (cancelled) return;
-        const form = profileToForm(apiProfile);
-        setProfile(form);
-        setDraftProfile(form);
-        if (apiProfile.profilePicture) {
-          setProfilePhotoSrc(apiProfile.profilePicture);
-        }
-      })
-      .catch((error: unknown) => {
-        if (cancelled || isAbortError(error)) return;
-        setLoadError(error instanceof Error ? error.message : "Failed to load profile.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsProfileLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      abortController.abort();
-    };
-  }, [user, isAuthLoading]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -410,9 +368,8 @@ export default function AdminProfile() {
         email: normalized.email,
         phone: normalized.phone,
       });
-      const form = profileToForm(updated);
-      setProfile(form);
-      setDraftProfile(form);
+      setAuthProfile(updated);
+      setDraftProfile(profileToForm(updated));
       setIsEditing(false);
     } catch (error: unknown) {
       setProfileError(error instanceof Error ? error.message : "Failed to save profile.");
@@ -581,7 +538,7 @@ export default function AdminProfile() {
 
     try {
       const updated = await updateProfilePhoto(dataUrl);
-      setProfilePhotoSrc(updated.profilePicture || dataUrl);
+      setAuthProfile(updated);
       setIsPhotoModalOpen(false);
       resetPhotoEditor();
       setIsPhotoSuccessOpen(true);

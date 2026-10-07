@@ -17,7 +17,7 @@ type ProfileInformationViewerPopupProps = {
   avatarSrc?: string;
 };
 
-const DEFAULT_AVATAR_SRC = "/AdminProfilePngs/big-maria.png";
+const DEFAULT_AVATAR_SRC = "/AdminProfilePngs/default-avatar.svg";
 
 function fullName(profile: Profile): string {
   return profile.name || [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "User";
