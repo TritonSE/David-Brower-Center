@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install --include=dev && npx prisma generate"
+  "installCommand": "npm install --include=dev && npx prisma generate",
+  "crons": [{ "path": "/api/keep-alive", "schedule": "0 12 * * *" }]
 }

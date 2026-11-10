@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { type AuthUser, supabase } from "../services/supabase";
 
@@ -8,6 +16,9 @@ import type { ReactNode } from "react";
 
 import { getProfile, type Profile } from "@/api/profile";
 import { isAbortError } from "@/api/request";
+
+/** Returns true when it has taken over sign-out (e.g. to confirm discarding unsaved edits). */
+export type SignOutGuard = () => boolean;
 
 export type AuthContextValue = {
   user: AuthUser | null;
@@ -21,6 +32,10 @@ export type AuthContextValue = {
   /** Replace the cached profile, e.g. with the response from a profile update. */
   setProfile: (profile: Profile) => void;
   signOut: () => Promise<void>;
+  /** Lets the current page intercept the header's Sign Out. Pass null to clear it. */
+  setSignOutGuard: (guard: SignOutGuard | null) => void;
+  /** True when a registered guard took over, so the caller should not sign out itself. */
+  runSignOutGuard: () => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -33,6 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Which signed-in user `profile`/`profileError` belong to, so a new sign-in
   // reads as loading instead of briefly showing the previous user's data.
   const [loadedProfileKey, setLoadedProfileKey] = useState<string | null>(null);
+  const signOutGuardRef = useRef<SignOutGuard | null>(null);
+
+  const setSignOutGuard = useCallback((guard: SignOutGuard | null) => {
+    signOutGuardRef.current = guard;
+  }, []);
+  const runSignOutGuard = useCallback(() => signOutGuardRef.current?.() ?? false, []);
 
   useEffect(() => {
     supabase.auth
@@ -97,8 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileError: hasCurrentProfile ? profileError : null,
       setProfile,
       signOut: handleSignOut,
+      setSignOutGuard,
+      runSignOutGuard,
     }),
-    [user, isLoading, profile, profileError, hasCurrentProfile, isProfileLoading],
+    [
+      user,
+      isLoading,
+      profile,
+      profileError,
+      hasCurrentProfile,
+      isProfileLoading,
+      setSignOutGuard,
+      runSignOutGuard,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

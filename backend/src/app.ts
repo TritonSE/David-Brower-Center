@@ -5,6 +5,7 @@ import { FRONTEND_ORIGINS } from "./config";
 import errorHandler from "./middleware/errorHandler";
 import log from "./middleware/logger";
 import accountCreationRequestsRouter from "./routes/accountCreationRequests";
+import keepAliveRouter from "./routes/keepAlive";
 import organizationsRouter from "./routes/organizations";
 import tagsRouter from "./routes/tags";
 import usersRouter from "./routes/users";
@@ -53,6 +54,7 @@ app.use("/api/account-creation-requests", accountCreationRequestsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/organizations", organizationsRouter);
 app.use("/api/tags", tagsRouter);
+app.use("/api/keep-alive", keepAliveRouter);
 
 app.use(errorHandler);
 

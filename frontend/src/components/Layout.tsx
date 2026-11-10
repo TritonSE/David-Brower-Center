@@ -18,7 +18,7 @@ const DEFAULT_AVATAR_SRC = "/AdminProfilePngs/default-avatar.svg";
 
 export default function Layout({ children }: LayoutProps) {
   const auth: AuthContextValue = useAuth();
-  const { isSignedIn, user, profile, signOut } = auth;
+  const { isSignedIn, user, profile, signOut, runSignOutGuard } = auth;
   const pathname = usePathname();
   const router = useRouter();
   const showHeader = pathname !== "/signIn";
@@ -26,6 +26,7 @@ export default function Layout({ children }: LayoutProps) {
   const avatarSrc = profile?.profilePicture || DEFAULT_AVATAR_SRC;
 
   const handleSignOut = async () => {
+    if (runSignOutGuard()) return;
     await signOut();
     router.push("/signIn");
   };

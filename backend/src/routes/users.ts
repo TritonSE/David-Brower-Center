@@ -361,10 +361,10 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
     const phone = toNullableTrimmedString(body.phone);
     const email = toNullableTrimmedString(body.email);
 
-    if (!firstName || !lastName || !email) {
+    if (!firstName || !email) {
       return res
         .status(400)
-        .json({ error: "firstName, lastName, and email are required and must be non-empty." });
+        .json({ error: "firstName and email are required and must be non-empty." });
     }
     if (!isValidEmail(email)) {
       return res.status(400).json({ error: "email is invalid." });
@@ -377,7 +377,7 @@ router.patch("/profile", async (req: Request, res: Response, next: NextFunction)
       }
     }
 
-    const fullName = `${firstName} ${lastName}`;
+    const fullName = [firstName, lastName].filter(Boolean).join(" ");
     try {
       const updated = await prisma.user.update({
         where: { supabase_user_id: auth.userId },

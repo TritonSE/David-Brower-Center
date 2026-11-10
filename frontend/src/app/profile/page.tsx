@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -15,7 +14,6 @@ import {
 } from "react";
 
 import { type Profile, updateProfile, updateProfilePhoto } from "@/api/profile";
-import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 
 import "./AdminProfile.css";
@@ -44,7 +42,6 @@ const maxPhotoZoom = 2.5;
 
 type ProfileForm = typeof emptyProfile;
 type PasswordField = keyof typeof emptyPasswordForm;
-type SignOutReason = "profile" | "password" | null;
 type PhotoPosition = { x: number; y: number };
 type PhotoSize = { width: number; height: number };
 
@@ -58,9 +55,6 @@ function getProfileError(profile: ProfileForm) {
   }
   if (!/^[a-z\s]+$/i.test(trimmedName)) {
     return "Name can only contain letters and spaces.";
-  }
-  if (!trimmedName.replace(/\s+/g, " ").includes(" ")) {
-    return "Enter both a first and last name.";
   }
 
   if (!trimmedEmail) {
@@ -178,47 +172,6 @@ function getCenteredPhotoPosition(naturalSize: PhotoSize, zoom: number, stage: P
   );
 }
 
-function ProfileMenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="account-menu-svg">
-      <path
-        d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.87 0-7 1.79-7 4v1h14v-1c0-2.21-3.13-4-7-4Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-function StoreMenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="account-menu-svg">
-      <path
-        d="M5 10.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8.5M4 7l1.2-3A1 1 0 0 1 6.13 3h11.74a1 1 0 0 1 .93.63L20 7M4 7a2 2 0 0 0 4 0m0 0a2 2 0 0 0 4 0m0 0a2 2 0 0 0 4 0m0 0a2 2 0 0 0 4 0M9 20v-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SignOutMenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="account-menu-svg">
-      <path
-        d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M14 8l4 4-4 4M8 12h10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export default function AdminProfile() {
   const {
     signOut,
@@ -226,9 +179,9 @@ export default function AdminProfile() {
     isProfileLoading: isLoading,
     profileError: loadError,
     setProfile: setAuthProfile,
+    setSignOutGuard,
   } = useAuth();
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoStageRef = useRef<HTMLDivElement>(null);
   const photoPreviewRef = useRef<HTMLImageElement>(null);
@@ -259,9 +212,7 @@ export default function AdminProfile() {
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [signOutReason, setSignOutReason] = useState<SignOutReason>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activeProfile = isEditing ? draftProfile : profile;
   const avatarSrc = authProfile?.profilePicture || defaultProfilePhotoSrc;
@@ -275,28 +226,6 @@ export default function AdminProfile() {
       return { width: photoCropStage.width, height: photoCropStage.height };
     }
     return { width: stage.clientWidth, height: stage.clientHeight };
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!dropdownRef.current?.contains(event.target as Node)) {
-        setIsAccountMenuOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsAccountMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
   }, []);
 
   useEffect(() => {
@@ -398,7 +327,6 @@ export default function AdminProfile() {
   }
 
   function openPhotoEditor() {
-    setIsAccountMenuOpen(false);
     setIsPhotoSuccessOpen(false);
     resetPhotoEditor();
     setIsPhotoModalOpen(true);
@@ -550,16 +478,11 @@ export default function AdminProfile() {
   }
 
   function openChangePassword() {
-    setIsAccountMenuOpen(false);
     setPasswordToast(null);
     setPasswordForm(emptyPasswordForm);
     setFocusedPasswordField(null);
     setIsPasswordSuccessOpen(false);
     setIsPasswordModalOpen(true);
-  }
-
-  function isPasswordFormEmpty() {
-    return Object.values(passwordForm).every((value) => value.trim() === "");
   }
 
   function isProfileDirty() {
@@ -583,19 +506,6 @@ export default function AdminProfile() {
     setPasswordForm(emptyPasswordForm);
     setIsPasswordSuccessOpen(false);
     setIsPasswordModalOpen(false);
-  }
-
-  function handleViewProfile() {
-    setIsAccountMenuOpen(false);
-    if (isPhotoModalOpen) {
-      closePhotoEditor();
-    }
-    if (isPhotoSuccessOpen) {
-      setIsPhotoSuccessOpen(false);
-    }
-    if (isPasswordModalOpen) {
-      closeChangePassword();
-    }
   }
 
   function updatePasswordField(key: keyof typeof passwordForm, value: string) {
@@ -628,126 +538,25 @@ export default function AdminProfile() {
   }
 
   async function handleSignOut() {
-    setIsAccountMenuOpen(false);
-    setIsPhotoModalOpen(false);
-    setIsPhotoSuccessOpen(false);
     await signOut();
     router.push("/signIn");
   }
 
-  function requestSignOut() {
-    setIsAccountMenuOpen(false);
-
-    if (!isPasswordModalOpen && !isPhotoModalOpen && !isPhotoSuccessOpen) {
-      if (isProfileDirty()) {
-        setSignOutReason("profile");
-        setShowSignOutConfirm(true);
-        return;
+  // The shared header owns the Sign Out button; ask before it discards unsaved
+  // profile edits.
+  useEffect(() => {
+    setSignOutGuard(() => {
+      if (isPasswordModalOpen || isPhotoModalOpen || isPhotoSuccessOpen || !isProfileDirty()) {
+        return false;
       }
-
-      void handleSignOut();
-      return;
-    }
-
-    if (
-      isPhotoModalOpen ||
-      isPhotoSuccessOpen ||
-      isPasswordModalOpen ||
-      isPasswordSuccessOpen ||
-      isPasswordFormEmpty()
-    ) {
-      void handleSignOut();
-      return;
-    }
-
-    setSignOutReason("password");
-    setShowSignOutConfirm(true);
-  }
+      setShowSignOutConfirm(true);
+      return true;
+    });
+    return () => setSignOutGuard(null);
+  });
 
   return (
     <div className="page">
-      <div className="page-top">
-        <Navbar isSignedIn className="profile-nav" />
-
-        <div
-          className={`account-dropdown ${isAccountMenuOpen ? "account-dropdown-open" : ""}`}
-          ref={dropdownRef}
-        >
-          <button
-            type="button"
-            className="account-chip"
-            aria-label="Open profile menu"
-            aria-expanded={isAccountMenuOpen}
-            onClick={() => setIsAccountMenuOpen((open) => !open)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <span className="skeleton skeleton-chip-avatar" aria-hidden="true" />
-                <span className="skeleton skeleton-chip-name" aria-hidden="true" />
-              </>
-            ) : (
-              <>
-                <Image
-                  src={avatarSrc}
-                  alt={activeProfile.name}
-                  width={32}
-                  height={32}
-                  className="account-chip-avatar"
-                  unoptimized
-                />
-                <span className="account-chip-name">{activeProfile.name}</span>
-              </>
-            )}
-            <span
-              className={`account-chip-caret ${isAccountMenuOpen ? "account-chip-caret-open" : ""}`}
-            >
-              ⌄
-            </span>
-          </button>
-
-          {isAccountMenuOpen && (
-            <div className="account-menu">
-              <div className="account-menu-header">
-                <Image
-                  src={avatarSrc}
-                  alt={activeProfile.name}
-                  width={32}
-                  height={32}
-                  className="account-chip-avatar"
-                  unoptimized
-                />
-                <span className="account-menu-name">{activeProfile.name}</span>
-                <span className="account-chip-caret" aria-hidden="true">
-                  ⌄
-                </span>
-              </div>
-
-              <div className="account-menu-divider" />
-
-              <button type="button" className="account-menu-item" onClick={handleViewProfile}>
-                <ProfileMenuIcon />
-                <span>View Profile</span>
-              </button>
-
-              <Link
-                href="/manage"
-                className="account-menu-item"
-                onClick={() => setIsAccountMenuOpen(false)}
-              >
-                <StoreMenuIcon />
-                <span>Manage NPO</span>
-              </Link>
-
-              <button type="button" className="account-menu-item" onClick={requestSignOut}>
-                <SignOutMenuIcon />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
       <section className="profile-card">
         <div className="profile-card-inner">
           <div className="profile-hero">
@@ -1229,18 +1038,14 @@ export default function AdminProfile() {
               Sign Out?
             </h2>
             <p className="modal-text">
-              {signOutReason === "profile"
-                ? "You have unsaved profile changes. Save changes before signing out, or sign out now and lose them."
-                : "You have password changes in progress. If you sign out now, those changes will be lost."}
+              You have unsaved profile changes. Save changes before signing out, or sign out now and
+              lose them.
             </p>
             <div className="modal-actions">
               <button
                 type="button"
                 className="modal-secondary"
-                onClick={() => {
-                  setShowSignOutConfirm(false);
-                  setSignOutReason(null);
-                }}
+                onClick={() => setShowSignOutConfirm(false)}
               >
                 Stay Here
               </button>
@@ -1249,7 +1054,6 @@ export default function AdminProfile() {
                 className="modal-primary"
                 onClick={() => {
                   setShowSignOutConfirm(false);
-                  setSignOutReason(null);
                   void handleSignOut();
                 }}
               >

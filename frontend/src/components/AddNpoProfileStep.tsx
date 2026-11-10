@@ -4,10 +4,12 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import styles from "./AddNpoPopup.module.css";
 import {
+  BUDGET_OPTIONS,
   LOCATION_OPTIONS,
   NPO_SIZE_OPTIONS,
   type NpoProfileValues,
   type SelectedFocusArea,
+  toBudgetRange,
 } from "./AddNpoShared";
 
 import type { TagMeta } from "@/api/tags";
@@ -52,7 +54,7 @@ function parseCsvAutofill(text: string): Partial<NpoProfileValues> {
     mission: getValue(["mission", "mission statement"]),
     location: getValue(["location"]),
     npoSize: getValue(["npo size", "size", "sizecategory"]),
-    budgetSize: getValue(["budget", "budget size"]),
+    budgetSize: toBudgetRange(getValue(["budget", "budget size"])),
     focusAreaQuery: getValue(["focus area", "focus", "focusarea"]),
   };
 }
@@ -422,13 +424,19 @@ export default function AddNpoProfileStep({
           <label className={styles.caption} htmlFor={budgetId}>
             Budget Size
           </label>
-          <input
+          <select
             id={budgetId}
-            className={styles.input}
-            placeholder="$0.00"
+            className={styles.select}
             value={values.budgetSize}
             onChange={(event) => updateValues({ budgetSize: event.target.value })}
-          />
+          >
+            <option value="">Select Budget Size</option>
+            {BUDGET_OPTIONS.map((budget) => (
+              <option key={budget} value={budget}>
+                {budget}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

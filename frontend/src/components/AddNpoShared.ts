@@ -31,6 +31,46 @@ export const LOCATION_OPTIONS = [
   "Sacramento, CA",
 ] as const;
 
+export const BUDGET_OPTIONS = [
+  "Under $100K",
+  "$100K–$500K",
+  "$500K–$1M",
+  "$1M–$5M",
+  "$5M+",
+] as const;
+
+const BUDGET_UPPER_BOUNDS: [number, (typeof BUDGET_OPTIONS)[number]][] = [
+  [100_000, "Under $100K"],
+  [500_000, "$100K–$500K"],
+  [1_000_000, "$500K–$1M"],
+  [5_000_000, "$1M–$5M"],
+];
+
+/**
+ * Map a budget value (e.g. from a CSV autofill: "$1.2M", "500k", "1,200,000")
+ * to one of BUDGET_OPTIONS. Returns "" when it cannot be interpreted.
+ */
+export function toBudgetRange(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+
+  const existing = BUDGET_OPTIONS.find((option) => option.toLowerCase() === trimmed.toLowerCase());
+  if (existing) return existing;
+
+  const match = /^\$?\s*(\d[\d,]*(?:\.\d+)?|\.\d+)\s*([kmb])?$/i.exec(trimmed);
+  if (!match) return "";
+
+  const multipliers: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
+  const amount =
+    Number(match[1].replace(/,/g, "")) * (match[2] ? multipliers[match[2].toLowerCase()] : 1);
+  if (!Number.isFinite(amount)) return "";
+
+  for (const [upperBound, label] of BUDGET_UPPER_BOUNDS) {
+    if (amount < upperBound) return label;
+  }
+  return "$5M+";
+}
+
 export type DraftRelationship = {
   id: string;
   partnerOrgId: string;

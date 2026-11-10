@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { BUDGET_OPTIONS, LOCATION_OPTIONS, NPO_SIZE_OPTIONS } from "./AddNpoShared";
 import {
   ChevronRightIcon,
   LeafIcon,
@@ -19,7 +20,11 @@ import type { APIResult } from "@/api/request";
 import type React from "react";
 import type { GraphCanvasProps, GraphCanvasRef, InternalGraphNode } from "reagraph";
 
-import { getOrganizationById, type OrganizationDetail } from "@/api/organization";
+import {
+  getOrganizationById,
+  type OrganizationDetail,
+  type OrganizationListItem,
+} from "@/api/organization";
 import { useOrganizations } from "@/contexts/OrganizationsContext";
 import { proximaFontStyle } from "@/styles/fontStyles";
 
@@ -43,9 +48,77 @@ type GraphEdge = {
 
 const POPUP_FADE_DURATION_MS = 200;
 
+// "Opportunity Type" has no backing field yet, so it always renders grayed out.
 const FILTER_CATEGORIES = ["Focus Area", "Location", "Size", "Opportunity Type", "Budget"] as const;
 
 type GraphFilterCategory = (typeof FILTER_CATEGORIES)[number];
+
+type AttributeFilterCategory = "Location" | "Size" | "Budget";
+
+function isAttributeCategory(category: GraphFilterCategory): category is AttributeFilterCategory {
+  return category === "Location" || category === "Size" || category === "Budget";
+}
+
+const EMPTY_SELECTION: ReadonlySet<string> = new Set();
+
+type FilterOption = {
+  id: string;
+  name: string;
+  count: number;
+};
+
+const NOT_PROVIDED = "Not provided";
+
+const ATTRIBUTE_FILTERS: Record<
+  AttributeFilterCategory,
+  { getValue: (org: OrganizationListItem) => string; order: readonly string[] }
+> = {
+  Location: { getValue: (org) => org.location, order: LOCATION_OPTIONS },
+  Size: { getValue: (org) => org.size, order: NPO_SIZE_OPTIONS },
+  Budget: { getValue: (org) => org.budget, order: BUDGET_OPTIONS },
+};
+
+const ATTRIBUTE_CATEGORIES = Object.keys(ATTRIBUTE_FILTERS) as AttributeFilterCategory[];
+
+type AttributeSelections = Record<AttributeFilterCategory, Set<string>>;
+
+function createEmptyAttributeSelections(): AttributeSelections {
+  return { Location: new Set(), Size: new Set(), Budget: new Set() };
+}
+
+function getAttributeValue(org: OrganizationListItem, category: AttributeFilterCategory): string {
+  return ATTRIBUTE_FILTERS[category].getValue(org).trim();
+}
+
+/** Distinct values present in the data, known options first (in their canonical order). */
+function buildAttributeOptions(
+  organizations: OrganizationListItem[],
+  category: AttributeFilterCategory,
+): FilterOption[] {
+  const counts = new Map<string, number>();
+
+  for (const org of organizations) {
+    const value = getAttributeValue(org, category);
+    if (!value || value === NOT_PROVIDED) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  const order = ATTRIBUTE_FILTERS[category].order;
+  const rank = (value: string) => {
+    const index = order.indexOf(value);
+    return index === -1 ? order.length : index;
+  };
+
+  return [...counts.entries()]
+    .map(([value, count]) => ({ id: value, name: value, count }))
+    .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+}
+
+function pruneSelection(previous: Set<string>, validIds: Set<string>): Set<string> {
+  if (previous.size === 0) return previous;
+  const next = new Set([...previous].filter((id) => validIds.has(id)));
+  return next.size === previous.size ? previous : next;
+}
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -74,6 +147,9 @@ export default function GraphPage() {
   const [search, setSearch] = useState("");
   const [expandedFilter, setExpandedFilter] = useState<GraphFilterCategory | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+  const [selectedAttributes, setSelectedAttributes] = useState<AttributeSelections>(
+    createEmptyAttributeSelections,
+  );
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
@@ -134,38 +210,57 @@ export default function GraphPage() {
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [organizations]);
 
+  const attributeOptions = useMemo(
+    () =>
+      Object.fromEntries(
+        ATTRIBUTE_CATEGORIES.map((category) => [
+          category,
+          buildAttributeOptions(organizations, category),
+        ]),
+      ) as Record<AttributeFilterCategory, FilterOption[]>,
+    [organizations],
+  );
+
   useEffect(() => {
-    setSelectedTagIds((previous) => {
-      if (previous.size === 0) return previous;
+    setSelectedTagIds((previous) =>
+      pruneSelection(previous, new Set(availableTags.map((tag) => tag.id))),
+    );
+  }, [availableTags]);
 
-      const validIds = new Set(availableTags.map((tag) => tag.id));
-
+  useEffect(() => {
+    setSelectedAttributes((previous) => {
       let changed = false;
+      const next = { ...previous };
 
-      const next = new Set<string>();
-
-      for (const id of previous) {
-        if (validIds.has(id)) {
-          next.add(id);
-        } else {
-          changed = true;
-        }
+      for (const category of ATTRIBUTE_CATEGORIES) {
+        const validIds = new Set(attributeOptions[category].map((option) => option.id));
+        next[category] = pruneSelection(previous[category], validIds);
+        if (next[category] !== previous[category]) changed = true;
       }
 
       return changed ? next : previous;
     });
-  }, [availableTags]);
+  }, [attributeOptions]);
+
+  const activeAttributeCount = ATTRIBUTE_CATEGORIES.reduce(
+    (total, category) => total + selectedAttributes[category].size,
+    0,
+  );
 
   const filteredOrganizations = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     const hasQuery = query.length > 0;
     const hasTagFilter = selectedTagIds.size > 0;
+    const activeAttributes = ATTRIBUTE_CATEGORIES.filter(
+      (category) => selectedAttributes[category].size > 0,
+    );
 
-    if (!hasQuery && !hasTagFilter) {
+    if (!hasQuery && !hasTagFilter && activeAttributes.length === 0) {
       return organizations;
     }
 
+    // Values within one category are OR'd; categories are AND'd together.
     return organizations.filter((org) => {
       if (hasQuery && !org.name.toLowerCase().includes(query)) {
         return false;
@@ -175,9 +270,11 @@ export default function GraphPage() {
         return false;
       }
 
-      return true;
+      return activeAttributes.every((category) =>
+        selectedAttributes[category].has(getAttributeValue(org, category)),
+      );
     });
-  }, [organizations, search, selectedTagIds]);
+  }, [organizations, search, selectedTagIds, selectedAttributes]);
 
   const toggleTag = useCallback(
     (tagId: string) => {
@@ -198,12 +295,31 @@ export default function GraphPage() {
     [activateGraph],
   );
 
-  const clearTagFilter = useCallback(() => {
+  const toggleAttribute = useCallback(
+    (category: AttributeFilterCategory, value: string) => {
+      activateGraph();
+
+      setSelectedAttributes((previous) => {
+        const nextValues = new Set(previous[category]);
+
+        if (nextValues.has(value)) {
+          nextValues.delete(value);
+        } else {
+          nextValues.add(value);
+        }
+
+        return { ...previous, [category]: nextValues };
+      });
+    },
+    [activateGraph],
+  );
+
+  const clearAllFilters = useCallback(() => {
     setSelectedTagIds((previous) => (previous.size === 0 ? previous : new Set()));
+    setSelectedAttributes(createEmptyAttributeSelections());
   }, []);
 
   const handleFilterToggle = useCallback((category: GraphFilterCategory) => {
-    if (category !== "Focus Area") return;
     setExpandedFilter((previous) => (previous === category ? null : category));
   }, []);
 
@@ -464,9 +580,9 @@ export default function GraphPage() {
 
   const hasSearchQuery = search.trim().length > 0;
 
-  const hasTagFilter = selectedTagIds.size > 0;
+  const hasSelectedFilters = selectedTagIds.size > 0 || activeAttributeCount > 0;
 
-  const hasActiveFilters = hasSearchQuery || hasTagFilter;
+  const hasActiveFilters = hasSearchQuery || hasSelectedFilters;
 
   const hasOrganizations = organizations.length > 0;
 
@@ -508,10 +624,10 @@ export default function GraphPage() {
             <div className="flex flex-1 flex-col border-t border-[#d9d9d9] px-10 pb-9 pt-7">
               <div className="mb-4 flex min-h-5 items-center justify-between gap-2">
                 <p className="text-[13px] leading-5 text-[#6c6c6c]">Filters</p>
-                {selectedTagIds.size > 0 ? (
+                {hasSelectedFilters ? (
                   <button
                     type="button"
-                    onClick={clearTagFilter}
+                    onClick={clearAllFilters}
                     className="text-[13px] font-semibold leading-5 text-[#3b9a9a] transition-colors hover:text-[#2f7f7f]"
                   >
                     Clear
@@ -523,37 +639,63 @@ export default function GraphPage() {
                 {FILTER_CATEGORIES.map((category) => {
                   const isExpanded = expandedFilter === category;
                   const isFocusArea = category === "Focus Area";
+                  const attributeCategory = isAttributeCategory(category) ? category : null;
+                  const options = isFocusArea
+                    ? availableTags
+                    : attributeCategory
+                      ? attributeOptions[attributeCategory]
+                      : [];
+                  const selectedIds = isFocusArea
+                    ? selectedTagIds
+                    : attributeCategory
+                      ? selectedAttributes[attributeCategory]
+                      : EMPTY_SELECTION;
+                  const toggleOption = (id: string) => {
+                    if (isFocusArea) {
+                      toggleTag(id);
+                    } else if (attributeCategory) {
+                      toggleAttribute(attributeCategory, id);
+                    }
+                  };
+
+                  // Gray out filters that have no data behind them yet.
+                  const isDisabled = !isFocusArea && options.length === 0;
+                  const showOptions = isExpanded && !isDisabled;
 
                   return (
                     <div key={category}>
                       <button
                         type="button"
-                        aria-expanded={isFocusArea ? isExpanded : undefined}
+                        disabled={isDisabled}
+                        aria-expanded={isDisabled ? undefined : isExpanded}
+                        title={isDisabled ? "No data available for this filter yet" : undefined}
                         onClick={() => handleFilterToggle(category)}
-                        className="flex h-[44px] w-full items-center justify-between rounded-[8px] border border-[#b4b4b4] bg-white px-4 text-left text-[14px] font-medium leading-5 text-black transition-colors hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
+                        className={`flex h-[44px] w-full items-center justify-between rounded-[8px] border px-4 text-left text-[14px] font-medium leading-5 transition-colors ${
+                          isDisabled
+                            ? "cursor-not-allowed border-[#d9d9d9] bg-[#f5f5f5] text-[#a3a3a3]"
+                            : "border-[#b4b4b4] bg-white text-black hover:border-[#8d8d8d] hover:bg-[#fbfbfb]"
+                        }`}
                       >
                         <span className="truncate">
                           {category}
-                          {isFocusArea && selectedTagIds.size > 0
-                            ? ` (${selectedTagIds.size})`
-                            : ""}
+                          {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
                         </span>
                         <ChevronRightIcon
-                          className={`h-5 w-5 flex-shrink-0 text-black transition-transform ${
-                            isExpanded ? "rotate-90" : ""
-                          }`}
+                          className={`h-5 w-5 flex-shrink-0 transition-transform ${
+                            isDisabled ? "text-[#a3a3a3]" : "text-black"
+                          } ${showOptions ? "rotate-90" : ""}`}
                         />
                       </button>
 
-                      {isFocusArea && isExpanded ? (
+                      {showOptions ? (
                         <div className="mt-2 max-h-56 overflow-y-auto rounded-[8px] border border-[#d9d9d9] bg-white py-1">
-                          {availableTags.length === 0 ? (
+                          {options.length === 0 ? (
                             <p className="px-4 py-2.5 text-[13px] leading-5 text-[#6c6c6c]">
                               No focus areas available.
                             </p>
                           ) : (
-                            availableTags.map((tag) => {
-                              const isSelected = selectedTagIds.has(tag.id);
+                            options.map((tag) => {
+                              const isSelected = selectedIds.has(tag.id);
                               return (
                                 <label
                                   key={tag.id}
@@ -565,7 +707,7 @@ export default function GraphPage() {
                                     type="checkbox"
                                     className="h-4 w-4 flex-shrink-0 accent-[#3b9a9a]"
                                     checked={isSelected}
-                                    onChange={() => toggleTag(tag.id)}
+                                    onChange={() => toggleOption(tag.id)}
                                   />
                                   <span className="min-w-0 flex-1 truncate" title={tag.name}>
                                     {tag.name}

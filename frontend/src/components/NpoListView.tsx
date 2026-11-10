@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import FilteringMenu from "./filteringmenu/FilteringMenu";
-import { ManageFilterIcon, SearchIcon, SortArrowIcon } from "./icons/AppIcons";
+import { ManageFilterIcon, ManageSearchIcon, SortArrowIcon } from "./icons/AppIcons";
 import SortMenuPopup, { SORT_OPTIONS } from "./SortMenuPopup";
 
 import type { SortOption } from "./SortMenuPopup";
@@ -231,14 +231,14 @@ export function NpoListView({ rows, selectedId, onSelect }: NpoListViewProps) {
           <label className="relative block w-[240px] md:w-[363px]">
             <span className="sr-only">Search NPO</span>
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-              <SearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
+              <ManageSearchIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />
             </span>
             <input
               type="search"
               placeholder="Search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[14px] text-[#484848] placeholder:text-[#6c6c6c] outline-none"
+              className="h-[44px] w-full rounded-[100px] border border-[#b4b4b4] bg-white pl-[42px] pr-4 text-[16px] font-normal text-[#484848] placeholder:text-[#6c6c6c] outline-none"
             />
           </label>
 

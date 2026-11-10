@@ -80,7 +80,7 @@ export default function ProfileButton({ name, avatarSrc, onSignOut }: ProfileBut
             View Account
           </Link>
 
-          <Link href="/profile" className={styles.item} onClick={() => setIsOpen(false)}>
+          <Link href="/manage" className={styles.item} onClick={() => setIsOpen(false)}>
             <Image
               src="/AdminProfilePngs/material-symbols_manage-accounts-rounded.png"
               className={styles.itemIcon}
