@@ -24,6 +24,7 @@ type ReviewStepProps = {
   onRemoveRelationship: (id: string) => void;
   isPublishing: boolean;
   publishError: string | null;
+  publishLabel?: string;
 };
 
 type ReviewFieldProps = {
@@ -71,10 +72,11 @@ export default function ReviewStep({
   onRemoveRelationship,
   isPublishing,
   publishError,
+  publishLabel = "Publish",
 }: ReviewStepProps) {
   const mediaPreviews = useMemo((): MediaPreviewItem[] => {
-    return profile.mediaFiles.map((file) => ({
-      id: `${file.name}-${file.lastModified}`,
+    return profile.mediaFiles.map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${index.toString()}`,
       url: URL.createObjectURL(file),
       name: file.name,
     }));
@@ -124,8 +126,13 @@ export default function ReviewStep({
           </ReviewField>
 
           <ReviewField label="Media" onEdit={editProfile}>
-            {mediaPreviews.length > 0 ? (
+            {profile.existingImages.length > 0 || mediaPreviews.length > 0 ? (
               <div className={styles.reviewMediaGrid}>
+                {profile.existingImages.map((url, index) => (
+                  <div key={url} className={styles.reviewMediaPreview}>
+                    <img src={url} alt={`Image ${(index + 1).toString()}`} />
+                  </div>
+                ))}
                 {mediaPreviews.map((preview) => (
                   <div key={preview.id} className={styles.reviewMediaPreview}>
                     <img src={preview.url} alt={preview.name} />
@@ -213,7 +220,7 @@ export default function ReviewStep({
           onClick={onPublish}
           disabled={isPublishing}
         >
-          {isPublishing ? "Publishing..." : "Publish"}
+          {isPublishing ? "Saving..." : publishLabel}
         </button>
       </footer>
     </div>

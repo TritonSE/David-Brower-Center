@@ -8,7 +8,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BUDGET_OPTIONS, LOCATION_OPTIONS, NPO_SIZE_OPTIONS } from "./AddNpoShared";
 import {
   ChevronRightIcon,
-  LeafIcon,
   LocationIcon,
   MoneyIcon,
   PeopleIcon,
@@ -553,11 +552,7 @@ export default function GraphPage() {
       organizationId: activeOrgDetail.id,
       name: activeOrgDetail.name,
 
-      tags: [
-        {
-          icon: <LeafIcon className="h-[18px] w-[18px] text-[#6c6c6c]" />,
-          label: activeOrgDetail.focus,
-        },
+      details: [
         {
           icon: <PeopleIcon className="h-4 w-4 text-[#6c6c6c]" />,
           label: activeOrgDetail.size,
@@ -572,6 +567,7 @@ export default function GraphPage() {
         },
       ],
 
+      tags: activeOrgDetail.tags,
       description: activeOrgDetail.description,
       ...getNpoProfileCardImageProps(activeOrgDetail.images, activeOrgDetail.id),
       mission: activeOrgDetail.mission,

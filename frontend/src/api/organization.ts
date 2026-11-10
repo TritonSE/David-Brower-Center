@@ -1,5 +1,5 @@
 import { authHeaders, getAccessToken, optionalAuthHeaders } from "./auth";
-import { del, get, handleAPIError, isAbortError, patch, post } from "./request";
+import { del, get, handleAPIError, isAbortError, patch, post, put } from "./request";
 
 import type { APIResult } from "./request";
 
@@ -118,11 +118,6 @@ export type CreateRelationshipInput = {
   relationshipType?: string;
 };
 
-export type CreateOrganizationRelationshipsInput = {
-  npo1Id: string;
-  relationships: CreateRelationshipInput[];
-};
-
 export type OrganizationDetail = {
   id: string;
   name: string;
@@ -135,6 +130,17 @@ export type OrganizationDetail = {
   images: string[];
   mission: string;
   tags: OrganizationTag[];
+  /** Stored values without display fallbacks, for pre-filling edit forms. */
+  fields: OrganizationEditableFields;
+};
+
+export type OrganizationEditableFields = {
+  website: string | null;
+  sizeCategory: string | null;
+  location: string | null;
+  budget: string | null;
+  description: string | null;
+  mission: string | null;
 };
 
 export type CreateOrganizationValues = {
@@ -145,6 +151,7 @@ export type CreateOrganizationValues = {
   location?: string | null;
   budget?: string | null;
   description?: string | null;
+  mission?: string | null;
   tags?: string[];
   tagNames?: string[];
 };
@@ -209,6 +216,14 @@ function parseOrganizationDetail(value: unknown): OrganizationDetail {
     images: toStringArray(value.images),
     mission: toFallbackString(value.mission),
     tags,
+    fields: {
+      website: toOptionalString(value.website),
+      sizeCategory: toOptionalString(value.sizeCategory),
+      location: toOptionalString(value.location),
+      budget: toOptionalString(value.budget),
+      description: toOptionalString(value.description),
+      mission: toOptionalString(value.mission),
+    },
   };
 }
 
@@ -390,6 +405,7 @@ export async function createOrganization(
         location: input.location,
         budget: input.budget,
         description: input.description,
+        mission: input.mission,
         tags: input.tags ?? [],
         tagNames: input.tagNames ?? [],
       },
@@ -407,44 +423,58 @@ export async function createOrganization(
   }
 }
 
-export async function createOrganizationRelationships(
-  input: CreateOrganizationRelationshipsInput,
+/**
+ * Replaces every relationship involving `organizationId` (in either direction) with
+ * `relationships`. Idempotent, so it is safe to retry after a partial failure.
+ */
+export async function replaceOrganizationRelationships(
+  organizationId: string,
+  relationships: CreateRelationshipInput[],
   signal?: AbortSignal,
-): Promise<OrganizationRelationship[]> {
-  const token = await getAccessToken();
-  const response = await post(
-    "/api/organizations/relationships",
-    {
-      npo1Id: input.npo1Id,
-      relationships: input.relationships.map((relationship) => ({
-        npo2Id: relationship.npo2Id,
-        relationshipTier: relationship.relationshipTier,
-        ...(relationship.relationshipType !== undefined
-          ? { relationshipType: relationship.relationshipType }
-          : {}),
-      })),
-    },
-    authHeaders(token),
-    signal,
-  );
-  const payload: unknown = await response.json();
-  const raw = parseRelationshipsPayload(payload);
-  const relationships: OrganizationRelationship[] = [];
-  for (const entry of raw) {
-    const relationship = parseOrganizationRelationship(entry);
-    if (relationship) relationships.push(relationship);
+): Promise<APIResult<OrganizationRelationship[]>> {
+  try {
+    const token = await getAccessToken();
+    const response = await put(
+      `/api/organizations/${encodeURIComponent(organizationId)}/relationships`,
+      {
+        relationships: relationships.map((relationship) => ({
+          npo2Id: relationship.npo2Id,
+          relationshipTier: relationship.relationshipTier,
+          ...(relationship.relationshipType !== undefined
+            ? { relationshipType: relationship.relationshipType }
+            : {}),
+        })),
+      },
+      authHeaders(token),
+      signal,
+    );
+    const payload: unknown = await response.json();
+    const saved: OrganizationRelationship[] = [];
+    for (const entry of parseRelationshipsPayload(payload)) {
+      const relationship = parseOrganizationRelationship(entry);
+      if (relationship) saved.push(relationship);
+    }
+    return { success: true, data: saved };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return handleAPIError(error);
   }
-  return relationships;
 }
 
+/** Only the fields that are present are changed; omit `tags` to leave tags untouched. */
 export type UpdateOrganizationValues = {
-  name: string;
+  name?: string;
+  website?: string | null;
   sizeCategory?: string | null;
   location?: string | null;
   budget?: string | null;
   description?: string | null;
+  mission?: string | null;
   tags?: string[];
-  tagNames?: string[];
+  /** Existing image URLs to keep, in order. New images go through `uploadOrganizationImages`. */
+  images?: string[];
 };
 
 export async function deleteOrganization(
@@ -475,17 +505,13 @@ export async function updateOrganization(
 ): Promise<APIResult<OrganizationDetail>> {
   try {
     const token = await getAccessToken();
+    // Strip undefined keys so the backend only touches fields the caller set.
+    const body = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== undefined),
+    );
     const response = await patch(
       `/api/organizations/${encodeURIComponent(id)}`,
-      {
-        name: input.name,
-        sizeCategory: input.sizeCategory,
-        location: input.location,
-        budget: input.budget,
-        description: input.description,
-        tags: input.tags ?? [],
-        tagNames: input.tagNames ?? [],
-      },
+      body,
       authHeaders(token),
       signal,
     );
@@ -498,4 +524,50 @@ export async function updateOrganization(
     }
     return handleAPIError(error);
   }
+}
+
+export type ImageUploadOutcome = {
+  /** Files that were uploaded and recorded on the organization, with their public URLs. */
+  uploaded: Array<{ file: File; url: string }>;
+  failed: File[];
+};
+
+/**
+ * Uploads each file to storage and records the successful ones on the organization.
+ * Never throws for individual file failures; callers decide how to report `failed`.
+ */
+export async function uploadOrganizationImages(
+  organizationId: string,
+  files: File[],
+  signal?: AbortSignal,
+): Promise<ImageUploadOutcome> {
+  if (files.length === 0) return { uploaded: [], failed: [] };
+
+  const results = await Promise.allSettled(
+    files.map(async (file) => {
+      const target = await getImageUploadUrl(organizationId, file.name, signal);
+      if (!target.success) throw new Error(target.error);
+      await uploadImageToStorage(target.data.uploadUrl, file, signal);
+      return { file, url: target.data.publicUrl };
+    }),
+  );
+
+  const stored: Array<{ file: File; url: string }> = [];
+  const failed: File[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") stored.push(result.value);
+    else failed.push(files[index]);
+  });
+
+  if (stored.length === 0) return { uploaded: [], failed };
+
+  const recorded = await recordOrganizationImages(
+    organizationId,
+    stored.map((item) => item.url),
+    signal,
+  );
+  if (!recorded.success) {
+    return { uploaded: [], failed: files };
+  }
+  return { uploaded: stored, failed };
 }

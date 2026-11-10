@@ -18,6 +18,7 @@ model Organization {
   location            String?
   budget              String?
   description         String?                    @db.Text
+  mission             String?                    @db.Text
   images              String[]                   @default([])
   createdAt           DateTime                   @default(now())
   updatedAt           DateTime                   @updatedAt

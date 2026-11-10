@@ -36,6 +36,18 @@ Add the `.env.frontend` and `.env.backend` from the project Google Drive to thei
 2. Run `npm install` to install all dependencies
 3. `npm run start` to start the backend
 
+### Running backend tests
+
+Route tests (`backend/test/`) run against a **disposable local Postgres**, never the shared Supabase database. Supabase auth and storage are mocked. The tests truncate tables and refuse to run against a non-local `DIRECT_URL`.
+
+1. Start a local Postgres, e.g. with Homebrew: `brew install postgresql@17`, then
+   `initdb -D /tmp/dbc-pg -U postgres --auth=trust && pg_ctl -D /tmp/dbc-pg -o "-p 54329" start && createdb -h localhost -p 54329 -U postgres dbc_test`
+2. Apply migrations from `backend/`:
+   `DIRECT_URL=postgresql://postgres@localhost:54329/dbc_test npx prisma migrate deploy`
+3. Run `npm test` from `backend/`
+
+To use a different database, set `TEST_DATABASE_URL` (it must point at `localhost`).
+
 ## Frontend
 
 1. `cd frontend`

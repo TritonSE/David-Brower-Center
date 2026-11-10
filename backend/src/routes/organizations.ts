@@ -3,10 +3,12 @@ import { randomUUID } from "node:crypto";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import createError from "http-errors";
 
-import { Prisma } from "../generated/prisma/client";
+import { SUPABASE_URL } from "../config";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../lib/supabaseClients";
 import { isAdminRequest, requireAdmin } from "../middleware/requireAuth";
+
+import type { Prisma } from "../generated/prisma/client";
 
 const router = Router();
 
@@ -20,6 +22,7 @@ type OrganizationBody = {
   location?: unknown;
   budget?: unknown;
   description?: unknown;
+  mission?: unknown;
   website?: unknown;
   tags?: unknown;
   tagNames?: unknown;
@@ -39,7 +42,7 @@ type CreateRelationshipsBody = {
 const RELATIONSHIP_TIERS = new Set(["PRIMARY", "SECONDARY", "TERTIARY"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function parseRelationshipTier(value: unknown): "PRIMARY" | "SECONDARY" | "TERTIARY" | null {
@@ -94,6 +97,58 @@ function toUniqueTrimmedStrings(value: unknown): string[] {
   }
 
   return strings;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Reads a UUID route param, responding 404 for anything that cannot be a valid id. */
+function parseIdParam(req: Request, param = "id"): string {
+  const raw: unknown = req.params[param];
+  if (typeof raw !== "string" || !UUID_PATTERN.test(raw)) {
+    throw createError(404, "Not found");
+  }
+  return raw;
+}
+
+const PUBLIC_IMAGE_PREFIX = `/storage/v1/object/public/${IMAGES_BUCKET}/`;
+
+/** Returns the bucket-relative path for a public URL in our images bucket, or null if it isn't one. */
+function storagePathFromPublicUrl(url: string): string | null {
+  try {
+    const { origin, pathname } = new URL(url);
+    if (origin !== new URL(SUPABASE_URL).origin) return null;
+    if (!pathname.startsWith(PUBLIC_IMAGE_PREFIX)) return null;
+    return decodeURIComponent(pathname.slice(PUBLIC_IMAGE_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort removal of storage objects; failures are logged, never surfaced to the client. */
+async function removeStorageObjects(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  try {
+    const { error } = await supabaseAdmin.storage.from(IMAGES_BUCKET).remove(paths);
+    if (error) console.error("Failed to remove storage objects:", error);
+  } catch (error) {
+    console.error("Failed to remove storage objects:", error);
+  }
+}
+
+async function listOrganizationStoragePaths(organizationId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabaseAdmin.storage
+      .from(IMAGES_BUCKET)
+      .list(organizationId, { limit: 1000 });
+    if (error || !data) {
+      if (error) console.error("Failed to list organization images:", error);
+      return [];
+    }
+    return data.map((file) => `${organizationId}/${file.name}`);
+  } catch (error) {
+    console.error("Failed to list organization images:", error);
+    return [];
+  }
 }
 
 function isHttpsUrl(value: string): boolean {
@@ -151,17 +206,80 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+const relationshipSelect = {
+  id: true,
+  npo1Id: true,
+  npo2Id: true,
+  relationshipTier: true,
+  relationshipType: true,
+} as const;
+
+type ParsedRelationship = {
+  npo2Id: string;
+  relationshipTier: "PRIMARY" | "SECONDARY" | "TERTIARY";
+  relationshipType: string | null;
+};
+
+/** Validates relationship entries for `npo1Id`, dropping exact duplicates. Throws 400 on bad input. */
+function parseRelationshipEntries(
+  npo1Id: string,
+  rawRelationships: CreateRelationshipEntry[],
+): ParsedRelationship[] {
+  const parsed = new Map<string, ParsedRelationship>();
+
+  for (const entry of rawRelationships) {
+    if (!isRecord(entry) || typeof entry.npo2Id !== "string" || entry.npo2Id.trim().length === 0) {
+      throw createError(400, "Each relationship must include npo2Id");
+    }
+
+    const npo2Id = entry.npo2Id.trim();
+    if (!UUID_PATTERN.test(npo2Id)) {
+      throw createError(404, `Partner organization ${npo2Id} not found`);
+    }
+
+    const relationshipTier = parseRelationshipTier(entry.relationshipTier);
+    if (!relationshipTier) {
+      throw createError(
+        400,
+        "Each relationship must include relationshipTier as PRIMARY, SECONDARY, or TERTIARY",
+      );
+    }
+
+    if (npo1Id === npo2Id) {
+      throw createError(400, "An organization cannot have a relationship with itself");
+    }
+
+    const relationshipType =
+      typeof entry.relationshipType === "string" ? entry.relationshipType.trim() || null : null;
+
+    parsed.set(`${npo2Id}:${relationshipTier}`, { npo2Id, relationshipTier, relationshipType });
+  }
+
+  return [...parsed.values()];
+}
+
+async function assertPartnersExist(
+  db: Prisma.TransactionClient,
+  partnerIds: string[],
+): Promise<void> {
+  const uniqueIds = [...new Set(partnerIds)];
+  if (uniqueIds.length === 0) return;
+  const found = await db.organization.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true },
+  });
+  const foundIds = new Set(found.map((org) => org.id));
+  const missing = uniqueIds.find((partnerId) => !foundIds.has(partnerId));
+  if (missing) {
+    throw createError(404, `Partner organization ${missing} not found`);
+  }
+}
+
 /** GET /api/organizations/relationships */
 router.get("/relationships", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const relationships = await prisma.organizationRelationship.findMany({
-      select: {
-        id: true,
-        npo1Id: true,
-        npo2Id: true,
-        relationshipTier: true,
-        relationshipType: true,
-      },
+      select: relationshipSelect,
     });
     res.status(200).json({ relationships });
   } catch {
@@ -169,7 +287,7 @@ router.get("/relationships", async (_req: Request, res: Response, next: NextFunc
   }
 });
 
-/** POST /api/organizations/relationships */
+/** POST /api/organizations/relationships — adds (or updates) relationships without removing any. */
 router.post(
   "/relationships",
   ...requireAdmin,
@@ -178,126 +296,67 @@ router.post(
       const body = req.body as CreateRelationshipsBody;
 
       if (!isRecord(body) || typeof body.npo1Id !== "string" || body.npo1Id.trim().length === 0) {
-        next(createError(400, "npo1Id is required"));
-        return;
+        throw createError(400, "npo1Id is required");
       }
 
       const npo1Id = body.npo1Id.trim();
       const rawRelationships = parseCreateRelationshipEntries(body.relationships);
       if (!rawRelationships) {
-        next(createError(400, "relationships must be an array"));
-        return;
+        throw createError(400, "relationships must be an array");
+      }
+      if (!UUID_PATTERN.test(npo1Id)) {
+        throw createError(404, `Organization ${npo1Id} not found`);
       }
 
-      const sourceOrg = await prisma.organization.findUnique({ where: { id: npo1Id } });
-      if (!sourceOrg) {
-        next(createError(404, `Organization ${npo1Id} not found`));
-        return;
-      }
+      const entries = parseRelationshipEntries(npo1Id, rawRelationships);
 
-      const createdRelationships: Array<{
-        id: string;
-        npo1Id: string;
-        npo2Id: string;
-        relationshipTier: string;
-        relationshipType: string | null;
-      }> = [];
-
-      const parsedEntries: Array<{
-        npo2Id: string;
-        relationshipTier: "PRIMARY" | "SECONDARY" | "TERTIARY";
-        relationshipType: string | null;
-      }> = [];
-
-      for (const entry of rawRelationships) {
-        if (
-          !isRecord(entry) ||
-          typeof entry.npo2Id !== "string" ||
-          entry.npo2Id.trim().length === 0
-        ) {
-          next(createError(400, "Each relationship must include npo2Id"));
-          return;
-        }
-
-        const npo2Id = entry.npo2Id.trim();
-        const relationshipTier = parseRelationshipTier(entry.relationshipTier);
-        if (!relationshipTier) {
-          next(
-            createError(
-              400,
-              "Each relationship must include relationshipTier as PRIMARY, SECONDARY, or TERTIARY",
-            ),
-          );
-          return;
-        }
-
-        if (npo1Id === npo2Id) {
-          next(createError(400, "An organization cannot have a relationship with itself"));
-          return;
-        }
-
-        const relationshipType =
-          entry.relationshipType === undefined || entry.relationshipType === null
-            ? null
-            : typeof entry.relationshipType === "string"
-              ? entry.relationshipType.trim() || null
-              : null;
-
-        parsedEntries.push({ npo2Id, relationshipTier, relationshipType });
-      }
-
-      const partnerIds = [...new Set(parsedEntries.map((entry) => entry.npo2Id))];
-      const partnerOrgs = await prisma.organization.findMany({
-        where: { id: { in: partnerIds } },
-        select: { id: true },
-      });
-      const foundPartnerIds = new Set(partnerOrgs.map((org) => org.id));
-      for (const partnerId of partnerIds) {
-        if (!foundPartnerIds.has(partnerId)) {
-          next(createError(404, `Partner organization ${partnerId} not found`));
-          return;
-        }
-      }
-
-      for (const entry of parsedEntries) {
-        const { npo2Id, relationshipTier, relationshipType } = entry;
-
-        // eslint-disable-next-line no-await-in-loop
-        const relationship = await prisma.organizationRelationship.upsert({
-          where: {
-            npo1Id_npo2Id_relationshipTier: {
-              npo1Id,
-              npo2Id,
-              relationshipTier,
-            },
-          },
-          update: {
-            ...(relationshipType !== null ? { relationshipType } : {}),
-          },
-          create: {
-            npo1Id,
-            npo2Id,
-            relationshipTier,
-            relationshipType,
-          },
-          select: {
-            id: true,
-            npo1Id: true,
-            npo2Id: true,
-            relationshipTier: true,
-            relationshipType: true,
-          },
+      const relationships = await prisma.$transaction(async (tx) => {
+        const sourceOrg = await tx.organization.findUnique({
+          where: { id: npo1Id },
+          select: { id: true },
         });
+        if (!sourceOrg) {
+          throw createError(404, `Organization ${npo1Id} not found`);
+        }
+        await assertPartnersExist(
+          tx,
+          entries.map((entry) => entry.npo2Id),
+        );
 
-        createdRelationships.push(relationship);
-      }
+        const saved = [];
+        for (const { npo2Id, relationshipTier, relationshipType } of entries) {
+          // eslint-disable-next-line no-await-in-loop
+          const relationship = await tx.organizationRelationship.upsert({
+            where: { npo1Id_npo2Id_relationshipTier: { npo1Id, npo2Id, relationshipTier } },
+            update: relationshipType !== null ? { relationshipType } : {},
+            create: { npo1Id, npo2Id, relationshipTier, relationshipType },
+            select: relationshipSelect,
+          });
+          saved.push(relationship);
+        }
+        return saved;
+      });
 
-      res.status(201).json({ relationships: createdRelationships });
+      res.status(201).json({ relationships });
     } catch (err: unknown) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-        next(createError(400, "Invalid organization id in relationship"));
-        return;
+      next(err);
+    }
+  },
+);
+
+/** DELETE /api/organizations/relationships/:relId */
+router.delete(
+  "/relationships/:relId",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const relId = parseIdParam(req, "relId");
+      const { count } = await prisma.organizationRelationship.deleteMany({ where: { id: relId } });
+      if (count === 0) {
+        throw createError(404, `Relationship ${relId} not found`);
       }
+      res.status(204).send();
+    } catch (err: unknown) {
       next(err);
     }
   },
@@ -305,100 +364,96 @@ router.post(
 
 /** GET /api/organizations/:id */
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
-  const rawId: unknown = req.params.id;
-  if (typeof rawId !== "string" || rawId.length === 0) {
-    next(createError(400, "Organization id is required"));
-    return;
-  }
-  const id: string = rawId;
-
   try {
+    const id = parseIdParam(req);
     const organization = await prisma.organization.findUnique({
       where: { id },
       include: await orgTagsIncludeFor(req),
     });
 
     if (!organization) {
-      next(createError(404, `Organization ${id} not found`));
-      return;
+      throw createError(404, `Organization ${id} not found`);
     }
 
     res.status(200).json({ organization: flattenOrganizationTags(organization) });
-  } catch (error) {
-    console.error(`GET /organizations/${id} failed:`, error);
-    next(createError(500, `Failed to fetch organization ${id}`));
+  } catch (err: unknown) {
+    next(err);
   }
 });
+
+async function resolveTagIdSet(
+  db: Prisma.TransactionClient,
+  body: OrganizationBody,
+): Promise<Set<string>> {
+  const tagIds = toUniqueTrimmedStrings(body.tags).filter((tagId) => UUID_PATTERN.test(tagId));
+  const tagNames = toUniqueTrimmedStrings(body.tagNames);
+
+  const tagsById = tagIds.length
+    ? await db.tag.findMany({
+        where: { id: { in: tagIds } },
+        select: { id: true },
+      })
+    : [];
+
+  const resolved = new Set(tagsById.map((tag) => tag.id));
+
+  // Sequential on purpose: interactive transactions run on a single connection.
+  for (const tagName of tagNames) {
+    // eslint-disable-next-line no-await-in-loop
+    const tag = await db.tag.upsert({
+      where: { name: tagName },
+      update: {},
+      create: { name: tagName },
+      select: { id: true },
+    });
+    resolved.add(tag.id);
+  }
+
+  return resolved;
+}
+
+function tagCreateInput(tagIds: Set<string>) {
+  return tagIds.size > 0
+    ? { tags: { create: [...tagIds].map((tagId) => ({ tag: { connect: { id: tagId } } })) } }
+    : {};
+}
 
 /** POST /api/organizations */
 router.post("/", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const body = req.body as OrganizationBody;
+    const body: unknown = req.body;
+    if (!isRecord(body)) {
+      throw createError(400, "Request body must be a JSON object");
+    }
+    const orgBody = body as OrganizationBody;
 
-    if (typeof body.name !== "string" || body.name.trim().length === 0) {
+    if (typeof orgBody.name !== "string" || orgBody.name.trim().length === 0) {
       throw createError(400, "name is required");
     }
+    const name = orgBody.name.trim();
 
-    if (typeof body.projectId !== "string" || body.projectId.trim().length === 0) {
+    if (typeof orgBody.projectId !== "string" || orgBody.projectId.trim().length === 0) {
       throw createError(400, "projectId is required");
     }
+    const projectId = orgBody.projectId.trim();
 
-    const images = toImageUrlArray(body.images);
-    const tagIds = toUniqueTrimmedStrings(body.tags);
-    const tagNames = toUniqueTrimmedStrings(body.tagNames);
-
-    const tagsById = tagIds.length
-      ? await prisma.tag.findMany({
-          where: { id: { in: tagIds } },
-          select: { id: true },
-        })
-      : [];
-
-    const connectedTagIds = new Set(tagsById.map((tag) => tag.id));
-
-    const tagsByName = await Promise.all(
-      tagNames.map(
-        async (tagName) =>
-          await prisma.tag.upsert({
-            where: { name: tagName },
-            update: {},
-            create: { name: tagName },
-            select: { id: true },
-          }),
-      ),
-    );
-
-    for (const tag of tagsByName) {
-      connectedTagIds.add(tag.id);
-    }
-
-    const sizeCategory = toOptionalTrimmedString(body.sizeCategory);
-    const website = toOptionalTrimmedString(body.website);
-    const location = toOptionalTrimmedString(body.location);
-    const budget = toOptionalTrimmedString(body.budget);
-    const description = toOptionalTrimmedString(body.description);
-
-    const organization = await prisma.organization.create({
-      data: {
-        images,
-        name: body.name.trim(),
-        projectId: body.projectId.trim(),
-        sizeCategory,
-        website,
-        location,
-        budget,
-        description,
-        ...(connectedTagIds.size > 0
-          ? {
-              tags: {
-                create: [...connectedTagIds].map((tagId) => ({
-                  tag: { connect: { id: tagId } },
-                })),
-              },
-            }
-          : {}),
-      },
-      include: orgTagsInclude,
+    const organization = await prisma.$transaction(async (tx) => {
+      const tagIds = await resolveTagIdSet(tx, orgBody);
+      return tx.organization.create({
+        data: {
+          images: toImageUrlArray(orgBody.images),
+          name,
+          projectId,
+          sizeCategory: toOptionalTrimmedString(orgBody.sizeCategory),
+          website: toOptionalTrimmedString(orgBody.website),
+          location: toOptionalTrimmedString(orgBody.location),
+          budget: toOptionalTrimmedString(orgBody.budget),
+          description: toOptionalTrimmedString(orgBody.description),
+          mission: toOptionalTrimmedString(orgBody.mission),
+          ...tagCreateInput(tagIds),
+        },
+        include: orgTagsInclude,
+      });
     });
 
     res.status(201).json({ organization: flattenOrganizationTags(organization) });
@@ -407,109 +462,89 @@ router.post("/", ...requireAdmin, async (req: Request, res: Response, next: Next
   }
 });
 
-async function resolveTagIdSet(body: OrganizationBody): Promise<Set<string>> {
-  const tagIds = toUniqueTrimmedStrings(body.tags);
-  const tagNames = toUniqueTrimmedStrings(body.tagNames);
-
-  const tagsById = tagIds.length
-    ? await prisma.tag.findMany({
-        where: { id: { in: tagIds } },
-        select: { id: true },
-      })
-    : [];
-
-  const resolved = new Set(tagsById.map((tag) => tag.id));
-
-  const tagsByName = await Promise.all(
-    tagNames.map(
-      async (tagName) =>
-        await prisma.tag.upsert({
-          where: { name: tagName },
-          update: {},
-          create: { name: tagName },
-          select: { id: true },
-        }),
-    ),
-  );
-
-  for (const tag of tagsByName) {
-    resolved.add(tag.id);
-  }
-
-  return resolved;
-}
-
-/** PATCH /api/organizations/:id */
+/**
+ * PATCH /api/organizations/:id
+ *
+ * Only fields present in the body are changed. Tags are replaced only when `tags` or
+ * `tagNames` is sent. `images` replaces the image list, but may only keep or reorder
+ * images the organization already has; new images are added via the upload flow.
+ */
 router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  const rawId: unknown = req.params.id;
-  if (typeof rawId !== "string" || rawId.length === 0) {
-    next(createError(400, "Organization id is required"));
-    return;
-  }
-  const id: string = rawId;
-
   try {
-    const body = req.body as OrganizationBody;
+    const id = parseIdParam(req);
+    const body: unknown = req.body;
+    if (!isRecord(body)) {
+      throw createError(400, "Request body must be a JSON object");
+    }
+    const orgBody = body as OrganizationBody;
 
-    const data: {
-      name?: string;
-      sizeCategory?: string | null;
-      website?: string | null;
-      location?: string | null;
-      budget?: string | null;
-      description?: string | null;
-    } = {};
+    const data: Prisma.OrganizationUpdateInput = {};
 
-    if (body.name !== undefined) {
-      if (typeof body.name !== "string" || body.name.trim().length === 0) {
+    if (orgBody.name !== undefined) {
+      if (typeof orgBody.name !== "string" || orgBody.name.trim().length === 0) {
         throw createError(400, "name must be a non-empty string");
       }
-      data.name = body.name.trim();
+      data.name = orgBody.name.trim();
     }
 
-    if ("sizeCategory" in body) data.sizeCategory = toOptionalTrimmedString(body.sizeCategory);
-    if ("website" in body) data.website = toOptionalTrimmedString(body.website);
-    if ("location" in body) data.location = toOptionalTrimmedString(body.location);
-    if ("budget" in body) data.budget = toOptionalTrimmedString(body.budget);
-    if ("description" in body) data.description = toOptionalTrimmedString(body.description);
+    const optionalStringFields = [
+      "sizeCategory",
+      "website",
+      "location",
+      "budget",
+      "description",
+      "mission",
+    ] as const;
+    for (const field of optionalStringFields) {
+      if (field in orgBody) data[field] = toOptionalTrimmedString(orgBody[field]);
+    }
 
-    const replaceTags = body.tags !== undefined || body.tagNames !== undefined;
-    const tagIds = replaceTags ? await resolveTagIdSet(body) : null;
+    const replaceImages = orgBody.images !== undefined;
+    if (replaceImages && !Array.isArray(orgBody.images)) {
+      throw createError(400, "images must be an array of URLs");
+    }
+    const replaceTags = orgBody.tags !== undefined || orgBody.tagNames !== undefined;
 
-    const organization = await prisma.$transaction(async (tx) => {
-      const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
+    const { organization, removedImages } = await prisma.$transaction(async (tx) => {
+      const existing = await tx.organization.findUnique({
+        where: { id },
+        select: { id: true, images: true },
+      });
       if (!existing) {
         throw createError(404, `Organization ${id} not found`);
       }
 
-      if (tagIds) {
-        await tx.organizationTag.deleteMany({ where: { organizationId: id } });
+      let removed: string[] = [];
+      if (replaceImages) {
+        const nextImages = toImageUrlArray(orgBody.images);
+        const current = new Set(existing.images);
+        if (nextImages.some((url) => !current.has(url))) {
+          throw createError(400, "images may only contain the organization's existing images");
+        }
+        const kept = new Set(nextImages);
+        removed = existing.images.filter((url) => !kept.has(url));
+        data.images = { set: nextImages };
       }
 
-      return tx.organization.update({
+      if (replaceTags) {
+        const tagIds = await resolveTagIdSet(tx, orgBody);
+        await tx.organizationTag.deleteMany({ where: { organizationId: id } });
+        Object.assign(data, tagCreateInput(tagIds));
+      }
+
+      const updated = await tx.organization.update({
         where: { id },
-        data: {
-          ...data,
-          ...(tagIds && tagIds.size > 0
-            ? {
-                tags: {
-                  create: [...tagIds].map((tagId) => ({
-                    tag: { connect: { id: tagId } },
-                  })),
-                },
-              }
-            : {}),
-        },
-        include: {
-          tags: {
-            orderBy: { tag: { name: "asc" } },
-            select: {
-              tag: { select: { id: true, name: true, color: true } },
-            },
-          },
-        },
+        data,
+        include: orgTagsInclude,
       });
+      return { organization: updated, removedImages: removed };
     });
+
+    await removeStorageObjects(
+      removedImages
+        .map(storagePathFromPublicUrl)
+        .filter((path): path is string => path !== null && path.startsWith(`${id}/`)),
+    );
 
     res.status(200).json({ organization: flattenOrganizationTags(organization) });
   } catch (err: unknown) {
@@ -517,15 +552,11 @@ router.patch("/:id", ...requireAdmin, async (req: Request, res: Response, next: 
   }
 });
 
+/** DELETE /api/organizations/:id */
 router.delete("/:id", ...requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  const rawId: unknown = req.params.id;
-  if (typeof rawId !== "string" || rawId.length === 0) {
-    next(createError(400, "Organization id is required"));
-    return;
-  }
-  const id: string = rawId;
-
   try {
+    const id = parseIdParam(req);
+
     await prisma.$transaction(async (tx) => {
       const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
       if (!existing) {
@@ -540,13 +571,70 @@ router.delete("/:id", ...requireAdmin, async (req: Request, res: Response, next:
       await tx.organization.delete({ where: { id } });
     });
 
+    // Uploaded images live under `<orgId>/` in the bucket; clean them up once the row is gone.
+    await removeStorageObjects(await listOrganizationStoragePaths(id));
+
     res.status(204).send();
   } catch (err: unknown) {
     next(err);
   }
 });
 
+/**
+ * PUT /api/organizations/:id/relationships
+ *
+ * Replaces every relationship involving the organization (in either direction) with the
+ * given list. Relationships are undirected in the UI, so new rows are stored with this
+ * organization as npo1. Idempotent, so clients can safely retry.
+ *
+ * Body: { relationships: Array<{ npo2Id, relationshipTier, relationshipType? }> }
+ */
+router.put(
+  "/:id/relationships",
+  ...requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseIdParam(req);
+      const body: unknown = req.body;
+      const rawRelationships = isRecord(body)
+        ? parseCreateRelationshipEntries(body.relationships)
+        : null;
+      if (!rawRelationships) {
+        throw createError(400, "relationships must be an array");
+      }
+      const entries = parseRelationshipEntries(id, rawRelationships);
+
+      const relationships = await prisma.$transaction(async (tx) => {
+        const existing = await tx.organization.findUnique({ where: { id }, select: { id: true } });
+        if (!existing) {
+          throw createError(404, `Organization ${id} not found`);
+        }
+        await assertPartnersExist(
+          tx,
+          entries.map((entry) => entry.npo2Id),
+        );
+
+        await tx.organizationRelationship.deleteMany({
+          where: { OR: [{ npo1Id: id }, { npo2Id: id }] },
+        });
+        await tx.organizationRelationship.createMany({
+          data: entries.map((entry) => ({ npo1Id: id, ...entry })),
+        });
+        return tx.organizationRelationship.findMany({
+          where: { npo1Id: id },
+          select: relationshipSelect,
+        });
+      });
+
+      res.status(200).json({ relationships });
+    } catch (err: unknown) {
+      next(err);
+    }
+  },
+);
+
 const EXT_PATTERN = /^[a-z0-9]{1,8}$/i;
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "jp2", "gif", "webp"]);
 
 function safeExtensionFromFilename(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
@@ -569,26 +657,22 @@ router.post(
   "/:id/images/upload-url",
   ...requireAdmin,
   async (req: Request, res: Response, next: NextFunction) => {
-    const rawId: unknown = req.params.id;
-    if (typeof rawId !== "string" || rawId.length === 0) {
-      next(createError(400, "Organization id is required"));
-      return;
-    }
-    const id: string = rawId;
-
     try {
+      const id = parseIdParam(req);
       const org = await prisma.organization.findUnique({ where: { id }, select: { id: true } });
       if (!org) {
-        next(createError(404, `Organization ${id} not found`));
-        return;
+        throw createError(404, `Organization ${id} not found`);
       }
 
-      const body = req.body as { filename?: unknown };
+      const body = (isRecord(req.body) ? req.body : {}) as { filename?: unknown };
       if (typeof body.filename !== "string" || body.filename.trim().length === 0) {
         throw createError(400, "filename is required");
       }
 
       const ext = safeExtensionFromFilename(body.filename.trim());
+      if (!IMAGE_EXTENSIONS.has(ext)) {
+        throw createError(400, `Unsupported image type ".${ext}"`);
+      }
       const storagePath = `${id}/${randomUUID()}.${ext}`;
 
       const { data, error } = await supabaseAdmin.storage
@@ -620,6 +704,7 @@ router.post(
  *
  * Appends one or more public image URLs to the organization's images array.
  * Called by the frontend after successfully uploading to Supabase Storage.
+ * Only URLs inside this organization's folder of the images bucket are accepted.
  *
  * Body: { urls: string[] }
  */
@@ -627,28 +712,24 @@ router.patch(
   "/:id/images",
   ...requireAdmin,
   async (req: Request, res: Response, next: NextFunction) => {
-    const rawId: unknown = req.params.id;
-    if (typeof rawId !== "string" || rawId.length === 0) {
-      next(createError(400, "Organization id is required"));
-      return;
-    }
-    const id: string = rawId;
-
     try {
-      const body = req.body as { urls?: unknown };
+      const id = parseIdParam(req);
+      const body = (isRecord(req.body) ? req.body : {}) as { urls?: unknown };
       const urls = toImageUrlArray(body.urls);
 
       if (urls.length === 0) {
         throw createError(400, "urls array is required and must be non-empty");
       }
+      if (urls.some((url) => !storagePathFromPublicUrl(url)?.startsWith(`${id}/`))) {
+        throw createError(400, "urls must point to this organization's uploaded images");
+      }
 
       const org = await prisma.organization.findUnique({
         where: { id },
-        select: { id: true, images: true },
+        select: { id: true },
       });
       if (!org) {
-        next(createError(404, `Organization ${id} not found`));
-        return;
+        throw createError(404, `Organization ${id} not found`);
       }
 
       const updated = await prisma.organization.update({
